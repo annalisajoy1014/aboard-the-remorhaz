@@ -1002,16 +1002,7 @@ function drawFishInPan(c, cx, cy, heat) {
     r = lerp(180, 210, t); g = lerp(155, 170, t); b = lerp(110, 90, t);
   } else if (heat <= perfectEnd) {
     const t = (heat - perfectStart) / (perfectEnd - perfectStart);
-    const glow = Math.sin(t * Math.PI);
     r = lerp(210, 230, t); g = lerp(170, 165, t); b = lerp(90, 60, t);
-    // golden shimmer overlay
-    c.save();
-    c.globalAlpha = glow * 0.35;
-    const shimmer = c.createRadialGradient(cx, cy, 0, cx, cy, 60);
-    shimmer.addColorStop(0, "rgba(243,195,118,1)");
-    shimmer.addColorStop(1, "transparent");
-    c.fillStyle = shimmer; c.fillRect(cx-80, cy-30, 160, 60);
-    c.restore();
   } else {
     const t = Math.min(1, (heat - perfectEnd) / (100 - perfectEnd));
     r = lerp(200, 60, t); g = lerp(150, 35, t); b = lerp(60, 20, t);
@@ -1073,22 +1064,6 @@ function drawThermometer(c, x, y, w, h) {
   c.fillStyle = "#0e0a06";
   c.beginPath(); c.roundRect(x, y, w, h, 12); c.fill();
 
-  // Perfect zone band
-  const pStartY = y + h * (1 - perfectEnd/100);
-  const pEndY   = y + h * (1 - perfectStart/100);
-  c.save();
-  c.beginPath(); c.roundRect(x, y, w, h, 12); c.clip();
-  c.fillStyle = "rgba(243,195,118,0.22)";
-  c.fillRect(x, pStartY, w, pEndY - pStartY);
-  // pulse border on perfect zone
-  const inPerfect = heatLevel >= perfectStart && heatLevel <= perfectEnd;
-  if (inPerfect) {
-    c.strokeStyle = `rgba(243,195,118,${0.6 + 0.4*Math.sin(Date.now()*0.01)})`;
-    c.lineWidth = 2;
-    c.strokeRect(x, pStartY, w, pEndY - pStartY);
-  }
-  c.restore();
-
   // Fill
   const fillY = y + h * (1 - fillPct);
   const fillGrad = c.createLinearGradient(0, y+h, 0, y);
@@ -1105,17 +1080,6 @@ function drawThermometer(c, x, y, w, h) {
   // Bulb at bottom
   c.fillStyle = heatLevel > 80 ? "#c03010" : heatLevel > 50 ? "#e07030" : "#2a8eff";
   c.beginPath(); c.arc(x + w/2, y + h + 10, 14, 0, Math.PI*2); c.fill();
-
-  // "PERFECT" label
-  const labelY = (pStartY + pEndY) / 2;
-  c.save();
-  c.translate(x - 6, labelY);
-  c.rotate(-Math.PI/2);
-  c.fillStyle = inPerfect ? "#f3c376" : "rgba(243,195,118,0.45)";
-  c.font = `bold 9px "IM Fell English SC", serif`;
-  c.textAlign = "center";
-  c.fillText("PERFECT", 0, 0);
-  c.restore();
 }
 
 function lerp(a, b, t) { return a + (b - a) * Math.max(0, Math.min(1, t)); }
@@ -1194,17 +1158,13 @@ function buildSpiceRow() {
   const row = document.getElementById("spiceRow");
   row.innerHTML = "";
   SPICES.forEach(sp => {
-    const target = cfg.spiceTargets[sp.key];
     const col = document.createElement("div");
     col.className = "spice-col";
     col.innerHTML = `
       <div class="spice-label">${sp.label}</div>
       <div class="spice-jar" id="jar-${sp.key}" data-key="${sp.key}">${sp.icon}</div>
       <div class="spice-meter-wrap" id="wrap-${sp.key}">
-        <div class="spice-target" id="target-${sp.key}"
-          style="bottom:${target[0]}%; height:${target[1]-target[0]}%"></div>
         <div class="spice-meter-fill" id="fill-${sp.key}" style="height:0%"></div>
-        <div class="spice-meter-pct" id="pct-${sp.key}">0%</div>
       </div>
     `;
     row.appendChild(col);
@@ -1238,15 +1198,7 @@ function stopPour() {
 
 function updateSpiceMeter(key) {
   const lvl = spiceLevels[key];
-  document.getElementById("fill-" + key).style.height  = lvl + "%";
-  document.getElementById("pct-"  + key).textContent   = Math.round(lvl) + "%";
-  const target = cfg.spiceTargets[key];
-  const inZone = lvl >= target[0] && lvl <= target[1];
-  document.getElementById("fill-" + key).style.background =
-    inZone ? "linear-gradient(to top, var(--lamp-warm), var(--lamp))"
-           : lvl > target[1]
-             ? "linear-gradient(to top, var(--blood), oklch(0.6 0.18 30))"
-             : "linear-gradient(to top, var(--sea-light), var(--ice-dim))";
+  document.getElementById("fill-" + key).style.height = lvl + "%";
 }
 
 function updateSeasonSubmit() {
@@ -1258,21 +1210,23 @@ document.getElementById("tasteBtn").addEventListener("click", () => {
   tasteUsed = true;
   document.getElementById("tasteBtn").disabled = true;
 
-  const hints = [];
+  let offCount = 0;
   SPICES.forEach(sp => {
     const t = cfg.spiceTargets[sp.key];
     const lvl = spiceLevels[sp.key];
-    if (lvl < t[0] - 8)       hints.push("more " + sp.label.toLowerCase());
-    else if (lvl > t[1] + 8)  hints.push("less "  + sp.label.toLowerCase());
+    if (lvl < t[0] - 8 || lvl > t[1] + 8) offCount++;
   });
 
   let fb, dialogue;
-  if (hints.length === 0) {
-    fb = "The balance is right. Finish it.";
+  if (offCount === 0) {
+    fb = "The balance feels right.";
     dialogue = "...Hmm. Taste it yourself. It is almost correct. Continue.";
+  } else if (offCount === 1) {
+    fb = "Something is slightly off.";
+    dialogue = "One of these is not right. I can taste it. You should be able to as well.";
   } else {
-    fb = hints.join(", ") + ".";
-    dialogue = "You need " + hints.join(", ") + ". Pay attention to the amounts.";
+    fb = "The flavours are fighting each other.";
+    dialogue = "It needs work. Keep adjusting — but do not overdo it. That makes things worse.";
   }
   document.getElementById("tasteFeedback").textContent = fb;
   setDialogue(dialogue);
@@ -1378,19 +1332,6 @@ function buildPlate() {
     token.addEventListener("pointerdown", (e) => startDrag(e, item));
   });
 
-  // Zone hints on plate (invisible until dragging)
-  FOOD_ITEMS.forEach(item => {
-    const hint = document.createElement("div");
-    hint.className = "plate-zone-hint";
-    hint.id = "hint-" + item.id;
-    hint.style.cssText = `
-      width: 48px; height: 48px;
-      left: ${item.targetX * 100}%;
-      top:  ${item.targetY * 100}%;
-      opacity: 0;
-    `;
-    plateArea.appendChild(hint);
-  });
 }
 
 function startDrag(e, item) {
@@ -1412,8 +1353,6 @@ function startDrag(e, item) {
   const moveFloater = (clientX, clientY) => {
     floater.style.left = clientX + "px";
     floater.style.top  = clientY + "px";
-    // Show zone hints while dragging
-    document.querySelectorAll(".plate-zone-hint").forEach(h => h.style.opacity = "0.35");
   };
 
   const getCoords = (ev) => ev.touches ? [ev.touches[0].clientX, ev.touches[0].clientY] : [ev.clientX, ev.clientY];
@@ -1424,7 +1363,6 @@ function startDrag(e, item) {
     document.body.removeEventListener("pointermove", onMove);
     document.body.removeEventListener("pointerup",   onUp);
     document.body.removeChild(floater);
-    document.querySelectorAll(".plate-zone-hint").forEach(h => h.style.opacity = "0");
 
     // Check if dropped on plate
     const plateArea = document.getElementById("plateArea");
@@ -1458,9 +1396,7 @@ function placeOnPlate(item, relX, relY, plateRect) {
   token.style.left = (relX * 100) + "%";
   token.style.top  = (relY * 100) + "%";
 
-  // Accuracy check
   const dist = Math.hypot(relX - item.targetX, relY - item.targetY) * plateRect.width;
-  if (dist < cfg.plateTolerance) token.classList.add("accurate");
 
   plateArea.appendChild(token);
 
