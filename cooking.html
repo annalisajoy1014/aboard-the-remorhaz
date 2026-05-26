@@ -433,6 +433,9 @@ canvas#heatCanvas {
 .sck-result-prose.pass { color:color-mix(in oklch,var(--lamp) 60%,var(--paper-dim)); }
 .intro-reveal { visibility:hidden; opacity:0; transition:opacity .5s; }
 .intro-reveal.show { visibility:visible; opacity:1; }
+.sck-prompt { font-family:"IM Fell English",serif; font-style:italic; font-size:14px; line-height:1.65; color:var(--paper-dim); text-align:center; max-width:320px; margin:0; }
+.sck-indicator { min-height:24px; display:flex; align-items:center; justify-content:center; }
+.sck-indicator .stat-arrow { font-size:20px; margin-right:0; }
 </style>
 </head>
 <body>
@@ -469,13 +472,9 @@ canvas#heatCanvas {
 
         <!-- BG3 Wisdom / Insight check -->
         <div class="skill-check-card">
-          <div class="sck-name">Insight <span id="wisArrow"></span></div>
-          <div class="sck-dc">DC 8 · Read Ingrid's Expectations</div>
-          <div class="sck-die-row">
-            <div class="sck-die" id="wisckDie">—</div>
-            <div class="sck-breakdown" id="wisckBreakdown" style="display:none"></div>
-          </div>
-          <button class="btn-roll-check" id="btnRollInsight">Roll Insight →</button>
+          <p class="sck-prompt">You try to gauge what Ingrid expects and how best to approach the work ahead.</p>
+          <div class="sck-indicator" id="wisArrow"></div>
+          <button class="btn-roll-check" id="btnRollInsight">Read the Room</button>
           <p class="sck-result-prose" id="wisckResultProse"></p>
         </div>
 
@@ -768,8 +767,8 @@ document.getElementById("introBody").textContent = CATCH_NARRATIVES[catchRoll] |
 (function () {
   const wisMod  = (window._cookStats || {}).wisdom || 0;
   const wisEl   = document.getElementById("wisArrow");
-  if (wisMod >= 1)       wisEl.innerHTML = ' <span class="stat-arrow up">▲</span>';
-  else if (wisMod <= -1) wisEl.innerHTML = ' <span class="stat-arrow dn">▼</span>';
+  if (wisMod >= 1)       wisEl.innerHTML = '<span class="stat-arrow up">▲</span>';
+  else if (wisMod <= -1) wisEl.innerHTML = '<span class="stat-arrow dn">▼</span>';
 
   const DC = 8;
   const WISDOM_SUCCESS = {
@@ -787,36 +786,17 @@ document.getElementById("introBody").textContent = CATCH_NARRATIVES[catchRoll] |
 
   document.getElementById("btnRollInsight").addEventListener("click", function () {
     this.disabled = true;
-    const roll  = Math.ceil(Math.random() * 10);
-    const total = roll + wisMod;
-    const pass  = total >= DC;
-    const dieEl = document.getElementById("wisckDie");
-    const brkEl = document.getElementById("wisckBreakdown");
+    const pass  = (Math.ceil(Math.random() * 10) + wisMod) >= DC;
     const resEl = document.getElementById("wisckResultProse");
 
-    let ticks = 0;
-    const cycling = setInterval(() => {
-      dieEl.textContent = Math.ceil(Math.random() * 10);
-      ticks++;
-      if (ticks >= 12) {
-        clearInterval(cycling);
-        dieEl.textContent = roll;
-        dieEl.classList.toggle("is-fail", !pass);
+    setTimeout(() => {
+      resEl.textContent = (pass ? WISDOM_SUCCESS : WISDOM_FAILURE)[catchRoll] || (pass ? WISDOM_SUCCESS[3] : WISDOM_FAILURE[3]);
+      resEl.classList.add("show", pass ? "pass" : "fail");
 
-        const sign = wisMod >= 0 ? "+" : "";
-        brkEl.style.display = "block";
-        brkEl.innerHTML = `Roll ${roll} ${sign}${wisMod} WIS = <span class="sck-verdict ${pass ? "pass" : "fail"}">${total} vs DC ${DC} — ${pass ? "✓ Success" : "✗ Failure"}</span>`;
-
-        setTimeout(() => {
-          resEl.textContent = (pass ? WISDOM_SUCCESS : WISDOM_FAILURE)[catchRoll] || (pass ? WISDOM_SUCCESS[3] : WISDOM_FAILURE[3]);
-          resEl.classList.add("show", pass ? "pass" : "fail");
-
-          setTimeout(() => {
-            document.querySelectorAll(".intro-reveal").forEach(el => el.classList.add("show"));
-          }, 900);
-        }, 500);
-      }
-    }, 80);
+      setTimeout(() => {
+        document.querySelectorAll(".intro-reveal").forEach(el => el.classList.add("show"));
+      }, 900);
+    }, 500);
   });
 })();
 

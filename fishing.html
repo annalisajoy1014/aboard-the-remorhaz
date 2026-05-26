@@ -917,6 +917,9 @@ body.splash-active .back-btn { visibility: hidden; opacity: 0; }
 .splash-post { display:none; flex-direction:column; align-items:center; gap:14px; width:100%; }
 .splash-post.show { display:flex; animation:post-rise .45s cubic-bezier(.2,.8,.3,1) both; }
 @keyframes post-rise { from{transform:translateY(14px);opacity:0} to{transform:translateY(0);opacity:1} }
+.sck-prompt { font-family:"IM Fell English",serif; font-style:italic; font-size:14.5px; line-height:1.65; color:var(--paper-dim); text-align:center; max-width:340px; margin:0; }
+.sck-indicator { min-height:24px; display:flex; align-items:center; justify-content:center; }
+.sck-indicator .stat-arrow { font-size:20px; margin-right:0; }
 </style>
 </head>
 <body>
@@ -969,13 +972,9 @@ body.splash-active .back-btn { visibility: hidden; opacity: 0; }
           <p class="splash-flavor">"Watch the water," he says quietly. "Not the net, not yer hands — the <em>water</em>. It'll tell ye when."</p>
 
           <div class="skill-check-card">
-            <div class="sck-name">Perception <span id="perArrow"></span></div>
-            <div class="sck-dc">DC 8 · Read the Sea Conditions</div>
-            <div class="sck-die-row">
-              <div class="sck-die" id="sckDie">—</div>
-              <div class="sck-breakdown" id="sckBreakdown" style="display:none"></div>
-            </div>
-            <button class="btn-roll-check" id="btnRollPerception">Roll Perception →</button>
+            <p class="sck-prompt">You study the dark water for any sign of when the net will be fullest — a shift in current, the way the fish move below.</p>
+            <div class="sck-indicator" id="perArrow"></div>
+            <button class="btn-roll-check" id="btnRollPerception">Study the Water</button>
             <p class="sck-result-prose" id="sckResultProse"></p>
           </div>
         </div>
@@ -2170,46 +2169,27 @@ let splashRollDone = false;
 (function () {
   const intMod = _stat('intelligence');
   const perArrowEl = document.getElementById("perArrow");
-  if (intMod >= 1)       perArrowEl.innerHTML = ' <span class="stat-arrow up">▲</span>';
-  else if (intMod <= -1) perArrowEl.innerHTML = ' <span class="stat-arrow dn">▼</span>';
+  if (intMod >= 1)       perArrowEl.innerHTML = '<span class="stat-arrow up">▲</span>';
+  else if (intMod <= -1) perArrowEl.innerHTML = '<span class="stat-arrow dn">▼</span>';
 
   const DC = 8;
-  const SUCCESS = "You study the surface carefully — the subtle pull of current beneath, the faint shimmer of bioluminescence drifting below. You have a sense of where the fish will run, and when the net will be fullest.";
-  const FAILURE = "The water gives nothing away. Cold, dark, inscrutable. You'll have to rely on instinct — and whatever luck the sea decides to offer.";
+  const SUCCESS = "You sense the subtle rhythm of the current beneath — a change in pressure, the way the fish begin to cluster. You'll know when the moment arrives.";
+  const FAILURE = "The water gives nothing away. Cold, dark, and inscrutable. You'll have to rely on instinct — and whatever luck the sea decides to offer.";
 
   document.getElementById("btnRollPerception").addEventListener("click", function () {
     this.disabled = true;
-    const roll  = Math.ceil(Math.random() * 10);
-    const total = roll + intMod;
-    const pass  = total >= DC;
-    const dieEl = document.getElementById("sckDie");
-    const brkEl = document.getElementById("sckBreakdown");
+    const pass = (Math.ceil(Math.random() * 10) + intMod) >= DC;
     const resEl = document.getElementById("sckResultProse");
 
-    let ticks = 0;
-    const cycling = setInterval(() => {
-      dieEl.textContent = Math.ceil(Math.random() * 10);
-      ticks++;
-      if (ticks >= 12) {
-        clearInterval(cycling);
-        dieEl.textContent = roll;
-        dieEl.classList.toggle("is-fail", !pass);
+    setTimeout(() => {
+      resEl.textContent = pass ? SUCCESS : FAILURE;
+      resEl.classList.add("show", pass ? "pass" : "fail");
 
-        const sign = intMod >= 0 ? "+" : "";
-        brkEl.style.display = "block";
-        brkEl.innerHTML = `Roll ${roll} ${sign}${intMod} INT = <span class="sck-verdict ${pass ? "pass" : "fail"}">${total} vs DC ${DC} — ${pass ? "✓ Success" : "✗ Failure"}</span>`;
-
-        setTimeout(() => {
-          resEl.textContent = pass ? SUCCESS : FAILURE;
-          resEl.classList.add("show", pass ? "pass" : "fail");
-
-          setTimeout(() => {
-            splashRollDone = true;
-            document.getElementById("splashPost").classList.add("show");
-          }, 1000);
-        }, 500);
-      }
-    }, 80);
+      setTimeout(() => {
+        splashRollDone = true;
+        document.getElementById("splashPost").classList.add("show");
+      }, 1000);
+    }, 500);
   });
 })();
 
