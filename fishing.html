@@ -2013,6 +2013,7 @@ function loadState() {
     if (!raw) return { currentDay: 1, completed: [], completedDays: [] };
     const s = JSON.parse(raw);
     return {
+      selectedCharacter: s.selectedCharacter || null,
       currentDay:    s.currentDay    || 1,
       completed:     Array.from(s.completed    || []),
       completedDays: Array.from(s.completedDays || []),
