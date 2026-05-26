@@ -1,0 +1,1498 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Day 1 · Cooking — Aboard the Remorhaz</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+
+/* ── LAYOUT ── */
+.stage {
+  position: fixed; inset: 0; z-index: 1;
+  display: flex; align-items: center; justify-content: center;
+}
+.game-area {
+  display: flex; align-items: stretch;
+  width: min(92vw, 1200px); height: min(76vh, 680px);
+  box-shadow: 0 30px 80px rgba(0,0,0,0.6);
+}
+.game-panel {
+  flex: 1; position: relative; overflow: hidden;
+  border: 1px solid color-mix(in oklch, var(--paper-deep) 25%, transparent);
+  border-right: none;
+}
+
+/* ── SCREEN LAYERS (stacked, one active at a time) ── */
+.screen {
+  position: absolute; inset: 0;
+  display: none; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 22px; padding: 32px;
+  background: linear-gradient(to bottom, oklch(0.14 0.04 50), oklch(0.10 0.03 45));
+}
+.screen.active { display: flex; }
+
+/* ── INGRID SIDEBAR ── */
+.ingrid-sidebar {
+  width: 300px; flex-shrink: 0;
+  background: linear-gradient(160deg,
+    color-mix(in oklch, var(--paper) 11%, var(--ink)) 0%,
+    color-mix(in oklch, var(--paper)  7%, var(--sea-deep)) 100%);
+  border: 1px solid color-mix(in oklch, var(--paper-deep) 28%, transparent);
+  padding: 36px 28px 28px;
+  display: flex; flex-direction: column; gap: 16px;
+}
+.ingrid-portrait {
+  width: 100px; height: 100px; border-radius: 50%; margin: 0 auto;
+  border: 2px solid var(--paper-deep);
+  outline: 5px solid color-mix(in oklch, var(--paper-deep) 28%, transparent);
+  background: var(--hull-darkest) center/cover no-repeat;
+}
+.ingrid-name {
+  font-family: "IM Fell English SC", serif; font-size: 18px;
+  letter-spacing: 0.08em; color: var(--paper); text-align: center;
+}
+.ingrid-role {
+  font-family: "Caveat", cursive; font-size: 14px;
+  color: var(--paper-deep); text-align: center; margin-top: -8px;
+}
+.sidebar-rule {
+  width: 100%; height: 1px; flex-shrink: 0;
+  background: linear-gradient(to right, transparent, var(--paper-deep), transparent);
+}
+.ingrid-dialogue {
+  font-family: "IM Fell English", serif; font-style: italic;
+  font-size: 15px; line-height: 1.58; color: var(--paper);
+  flex: 1; min-height: 80px; transition: opacity 0.3s;
+}
+.phase-label {
+  font-family: "IM Fell English SC", serif; font-size: 11px;
+  letter-spacing: 0.2em; color: var(--blood); text-align: center;
+}
+.instruction-label {
+  font-family: "Caveat", cursive; font-size: 13px;
+  color: var(--paper-deep); text-align: center; margin-top: -8px;
+}
+.score-tally {
+  display: flex; flex-direction: column; gap: 5px;
+}
+.score-row {
+  display: flex; justify-content: space-between;
+  border-bottom: 1px dotted color-mix(in oklch, var(--paper-deep) 35%, transparent);
+  padding-bottom: 4px;
+  font-family: "IM Fell English SC", serif; font-size: 11px;
+  letter-spacing: 0.1em; color: var(--paper-deep);
+}
+.score-row span:last-child {
+  font-family: "IM Fell English", serif; font-style: italic; color: var(--paper);
+}
+.score-total-row {
+  display: flex; justify-content: space-between;
+  padding-top: 4px; margin-top: 2px;
+  font-family: "IM Fell English SC", serif; font-size: 12px;
+  letter-spacing: 0.12em; color: var(--lamp);
+}
+
+/* ── SCREEN: INTRO ── */
+.intro-catch-name {
+  font-family: "IM Fell English SC", serif; font-size: 22px;
+  letter-spacing: 0.1em; color: var(--lamp);
+}
+.intro-catch-icon { font-size: 52px; }
+.intro-body {
+  font-family: "IM Fell English", serif; font-style: italic;
+  font-size: 16px; line-height: 1.6; color: var(--paper-dim);
+  text-align: center; max-width: 480px;
+}
+.difficulty-tag {
+  font-family: "IM Fell English SC", serif; font-size: 11px;
+  letter-spacing: 0.24em; color: var(--blood);
+}
+
+/* ── SCREEN: EEL SUBDUE ── */
+.eel-arena {
+  width: 380px; height: 200px; position: relative;
+  background: oklch(0.12 0.03 45);
+  border: 1px solid var(--rope-dark); border-radius: 2px;
+  overflow: hidden; cursor: crosshair;
+}
+.eel-body {
+  position: absolute;
+  font-size: 52px; line-height: 1;
+  cursor: pointer; user-select: none;
+  transition: transform 0.06s;
+}
+.eel-timer-bar {
+  width: 380px; height: 10px;
+  background: var(--hull-darkest); border-radius: 5px; overflow: hidden;
+}
+.eel-timer-fill {
+  height: 100%; width: 100%;
+  background: linear-gradient(to right, var(--lamp-warm), var(--blood));
+  transition: width 0.1s linear;
+}
+.eel-counter {
+  font-family: "IM Fell English SC", serif; font-size: 28px;
+  letter-spacing: 0.1em; color: var(--lamp);
+}
+.eel-instruction {
+  font-family: "Caveat", cursive; font-size: 18px; color: var(--paper-dim);
+}
+
+/* ── SCREEN: STAGE 1 – HEAT ── */
+canvas#heatCanvas {
+  display: block; border-radius: 2px;
+}
+.lift-btn {
+  font-family: "IM Fell English SC", serif; font-size: 14px;
+  letter-spacing: 0.24em; color: var(--paper); background: var(--ink);
+  border: 1px solid var(--ink); padding: 14px 36px; cursor: pointer;
+  border-radius: 1px; transition: background 0.2s, border-color 0.2s, transform 0.1s;
+}
+.lift-btn:hover:not(:disabled) { background: var(--blood); border-color: var(--blood); transform: scale(1.03); }
+.lift-btn:disabled { opacity: 0.4; cursor: default; }
+.heat-result-label {
+  font-family: "IM Fell English SC", serif; font-size: 13px;
+  letter-spacing: 0.22em; color: var(--lamp);
+  min-height: 20px; text-align: center;
+}
+
+/* ── SCREEN: STAGE 2 – SEASONING ── */
+.season-workspace {
+  display: flex; flex-direction: column; align-items: center; gap: 18px;
+  width: 100%;
+}
+.spice-row {
+  display: flex; gap: 32px; align-items: flex-end; justify-content: center;
+}
+.spice-col {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  width: 90px;
+}
+.spice-label {
+  font-family: "IM Fell English SC", serif; font-size: 11px;
+  letter-spacing: 0.2em; color: var(--paper-deep);
+}
+.spice-jar {
+  width: 54px; height: 72px; cursor: pointer; user-select: none;
+  position: relative; border-radius: 4px 4px 2px 2px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 28px;
+  border: 1px solid var(--hull-light);
+  background: linear-gradient(to bottom, oklch(0.35 0.06 55), oklch(0.22 0.04 50));
+  box-shadow: inset 0 2px 4px rgba(255,255,255,0.08), 0 4px 12px rgba(0,0,0,0.5);
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+.spice-jar.pouring {
+  transform: rotate(-25deg) translateY(-6px);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.6);
+}
+.spice-jar.pouring::after {
+  content: "";
+  position: absolute; bottom: -18px; left: 50%;
+  transform: translateX(-50%);
+  width: 6px; height: 16px;
+  background: linear-gradient(to bottom, var(--paper-dim), transparent);
+  border-radius: 3px;
+  animation: pour-stream 0.2s ease-in-out infinite alternate;
+}
+@keyframes pour-stream { from { height: 14px; opacity: 0.8; } to { height: 20px; opacity: 0.5; } }
+
+.spice-meter-wrap {
+  width: 20px; height: 120px; position: relative;
+  background: oklch(0.12 0.03 45); border: 1px solid var(--rope-dark); border-radius: 10px;
+  overflow: visible;
+}
+.spice-meter-fill {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  border-radius: 10px; transition: height 0.12s ease;
+  background: linear-gradient(to top, var(--lamp-warm), var(--lamp));
+}
+.spice-target {
+  position: absolute; left: -5px; right: -5px;
+  background: color-mix(in oklch, var(--lamp) 30%, transparent);
+  border-top: 1px dashed var(--lamp);
+  border-bottom: 1px dashed var(--lamp);
+  border-radius: 2px; pointer-events: none;
+}
+.spice-meter-pct {
+  position: absolute; top: -22px; left: 50%;
+  transform: translateX(-50%);
+  font-family: "IM Fell English SC", serif; font-size: 10px;
+  color: var(--paper-deep); white-space: nowrap;
+}
+
+.taste-btn {
+  font-family: "IM Fell English SC", serif; font-size: 11px;
+  letter-spacing: 0.2em; color: var(--paper-deep); background: transparent;
+  border: 1px solid var(--paper-deep); padding: 7px 18px; cursor: pointer;
+  border-radius: 1px; transition: all 0.2s;
+}
+.taste-btn:hover:not(:disabled) { color: var(--paper); border-color: var(--paper-dim); }
+.taste-btn:disabled { opacity: 0.3; cursor: default; }
+.taste-feedback {
+  font-family: "Caveat", cursive; font-size: 16px; color: var(--lamp);
+  min-height: 22px; text-align: center; font-style: italic;
+}
+.season-actions { display: flex; gap: 14px; align-items: center; }
+.fish-preview {
+  font-size: 36px; opacity: 0.7;
+  filter: drop-shadow(0 0 8px color-mix(in oklch, var(--lamp) 40%, transparent));
+}
+
+/* ── SCREEN: STAGE 3 – PLATING ── */
+.plate-workspace {
+  display: flex; align-items: center; gap: 32px; width: 100%;
+  justify-content: center;
+}
+.plate-area {
+  position: relative; width: 260px; height: 260px; flex-shrink: 0;
+}
+.plate-circle {
+  position: absolute; inset: 0; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, oklch(0.94 0.03 78), oklch(0.82 0.04 75));
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6), inset 0 2px 8px rgba(255,255,255,0.4);
+  border: 2px solid oklch(0.70 0.04 72);
+}
+.plate-ring {
+  position: absolute; inset: 14px; border-radius: 50%;
+  border: 1px solid oklch(0.75 0.04 72); opacity: 0.5; pointer-events: none;
+}
+.plate-zone-hint {
+  position: absolute; border-radius: 50%;
+  background: color-mix(in oklch, var(--lamp) 15%, transparent);
+  pointer-events: none; transition: opacity 0.3s;
+  transform: translate(-50%, -50%);
+}
+.food-token {
+  position: absolute; border-radius: 50%;
+  width: 52px; height: 52px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 26px; cursor: grab;
+  background: radial-gradient(circle, oklch(0.30 0.06 55), oklch(0.16 0.03 45));
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5), inset 0 1px 3px rgba(255,255,255,0.1);
+  user-select: none; z-index: 5;
+  transition: box-shadow 0.2s, transform 0.15s;
+  transform: translate(-50%, -50%);
+}
+.food-token.dragging { cursor: grabbing; transform: translate(-50%,-50%) scale(1.15); box-shadow: 0 8px 24px rgba(0,0,0,0.7); z-index: 20; }
+.food-token.placed { cursor: default; }
+.food-token.placed.accurate { box-shadow: 0 0 0 3px var(--lamp), 0 4px 12px rgba(0,0,0,0.5); }
+
+.food-tray {
+  display: flex; flex-direction: column; gap: 16px;
+  padding: 20px 14px;
+  background: oklch(0.14 0.04 50);
+  border: 1px solid color-mix(in oklch, var(--paper-deep) 20%, transparent);
+  border-radius: 2px;
+}
+.tray-item {
+  display: flex; align-items: center; gap: 10px;
+}
+.tray-token {
+  width: 48px; height: 48px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 24px; cursor: grab;
+  background: radial-gradient(circle, oklch(0.30 0.06 55), oklch(0.16 0.03 45));
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  user-select: none; transition: transform 0.15s, opacity 0.2s;
+  flex-shrink: 0;
+}
+.tray-token:hover { transform: scale(1.08); }
+.tray-token.used { opacity: 0.25; cursor: default; transform: none; }
+.tray-label {
+  font-family: "Caveat", cursive; font-size: 14px; color: var(--paper-deep);
+}
+.plate-score-label {
+  position: absolute; bottom: -28px; left: 50%; transform: translateX(-50%);
+  font-family: "IM Fell English SC", serif; font-size: 11px;
+  letter-spacing: 0.2em; color: var(--paper-deep); white-space: nowrap;
+}
+
+/* garnish choice */
+.garnish-row {
+  display: flex; gap: 16px; align-items: center; justify-content: center;
+}
+.garnish-opt {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  cursor: pointer; padding: 10px 16px;
+  border: 1px solid color-mix(in oklch, var(--paper-deep) 30%, transparent);
+  border-radius: 2px; transition: border-color 0.2s, background 0.2s;
+}
+.garnish-opt:hover { border-color: var(--lamp); background: color-mix(in oklch, var(--lamp) 8%, transparent); }
+.garnish-opt.chosen { border-color: var(--lamp); background: color-mix(in oklch, var(--lamp) 14%, transparent); }
+.garnish-opt .gem { font-size: 28px; }
+.garnish-opt .glbl { font-family: "IM Fell English SC", serif; font-size: 10px; letter-spacing: 0.18em; color: var(--paper-deep); }
+.garnish-prompt { font-family: "Caveat", cursive; font-size: 16px; color: var(--paper-dim); }
+
+/* ── RESULT CARD ── */
+.result-card {
+  background: linear-gradient(135deg, var(--paper) 0%, var(--paper-dim) 100%);
+  color: var(--ink); padding: 32px 44px; max-width: 500px; width: 92%;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.65), inset 0 0 0 1px rgba(255,255,255,0.3);
+  animation: card-rise 0.55s cubic-bezier(0.2,0.8,0.3,1) both;
+  position: relative; overflow: hidden;
+}
+.result-card::before {
+  content: ""; position: absolute; inset: 0;
+  background: radial-gradient(ellipse at 80% 110%, color-mix(in oklch, var(--lamp) 10%, transparent), transparent 60%);
+  pointer-events: none;
+}
+@keyframes card-rise { from { transform:translateY(36px); opacity:0; } to { transform:translateY(0); opacity:1; } }
+.result-tag { font-family:"IM Fell English SC",serif; font-size:10px; letter-spacing:0.28em; color:var(--blood); margin-bottom:6px; }
+.result-score { font-family:"IM Fell English SC",serif; font-size:52px; letter-spacing:0.04em; color:var(--ink); line-height:1; }
+.result-max  { font-family:"Caveat",cursive; font-size:18px; color:var(--paper-deep); margin-bottom:8px; }
+.result-verdict { font-family:"IM Fell English",serif; font-style:italic; font-size:16px; line-height:1.6; color:var(--ink); margin-bottom:14px; }
+.result-proficiency {
+  background: color-mix(in oklch, var(--lamp) 14%, transparent);
+  border: 1px solid var(--lamp); padding: 10px 16px; margin-bottom:14px;
+  font-family:"IM Fell English SC",serif; font-size:12px; letter-spacing:0.18em; color:var(--ink);
+}
+.result-ingrid { font-family:"Caveat",cursive; font-size:17px; color:var(--hull-dark); border-top:1px solid var(--paper-deep); padding-top:12px; line-height:1.45; }
+.result-actions { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin-top:4px; }
+
+/* ── TRANSITION OVERLAY ── */
+.transition-overlay {
+  position: absolute; inset: 0; z-index: 30;
+  background: oklch(0.08 0.03 45); opacity: 0;
+  pointer-events: none; transition: opacity 0.35s;
+}
+.transition-overlay.fade-in { opacity: 1; pointer-events: auto; }
+
+/* ── STAT ARROWS ── */
+.stat-arrow { font-style: normal; font-size: 11px; margin-right: 3px; }
+.stat-arrow.up { color: var(--lamp); }
+.stat-arrow.dn { color: var(--blood); }
+
+/* ── MISC SHARED ── */
+.screen-title {
+  font-family: "IM Fell English SC", serif; font-size: 14px;
+  letter-spacing: 0.24em; color: var(--blood); margin-bottom: -10px;
+}
+</style>
+</head>
+<body>
+
+<div class="backdrop"></div>
+<div class="snow" id="snow"></div>
+
+<span class="corner tl"></span>
+<span class="corner tr"></span>
+<span class="corner bl"></span>
+<span class="corner br"></span>
+
+<div class="page-header">
+  <div class="eyebrow">— Glassblade Trading Co., Charter Vessel —</div>
+  <div class="title">Day 1 · Cooking</div>
+  <div class="rule"></div>
+</div>
+
+<button class="back-btn" id="backBtn">← Return to Deck</button>
+
+<div class="stage">
+  <div class="game-area">
+
+    <!-- LEFT: game screens -->
+    <div class="game-panel" id="gamePanel">
+      <div class="transition-overlay" id="fadeOverlay"></div>
+
+      <!-- INTRO -->
+      <div class="screen active" id="screen-intro">
+        <div class="screen-title">— THE GALLEY —</div>
+        <div class="intro-catch-icon" id="introCatchIcon">🐠</div>
+        <div class="intro-catch-name" id="introCatchName">Arctic Halibut</div>
+        <div class="intro-body" id="introBody">Ingrid examines your catch without expression. A long silence.</div>
+        <div class="difficulty-tag" id="difficultyTag">STANDARD DIFFICULTY</div>
+        <button class="btn-primary" id="beginBtn">ENTER THE GALLEY</button>
+      </div>
+
+      <!-- STAGE 0: EEL SUBDUE (eel catch only) -->
+      <div class="screen" id="screen-eel">
+        <div class="screen-title">— BEFORE WE BEGIN —</div>
+        <div class="eel-instruction">It is still alive. Hold it down.</div>
+        <div class="eel-arena" id="eelArena">
+          <div class="eel-body" id="eelBody">🐍</div>
+        </div>
+        <div class="eel-counter" id="eelCounter">0 / 5 hits</div>
+        <div class="eel-timer-bar"><div class="eel-timer-fill" id="eelTimerFill"></div></div>
+      </div>
+
+      <!-- STAGE 1: HEAT / TIMING -->
+      <div class="screen" id="screen-heat">
+        <div class="screen-title">— STAGE I · THE HEAT —</div>
+        <canvas id="heatCanvas" width="480" height="280"></canvas>
+        <div class="heat-result-label" id="heatResultLabel"></div>
+        <button class="lift-btn" id="liftBtn">LIFT FROM HEAT</button>
+      </div>
+
+      <!-- STAGE 2: SEASONING -->
+      <div class="screen" id="screen-season">
+        <div class="screen-title">— STAGE II · THE SEASONING —</div>
+        <div class="season-workspace">
+          <div class="fish-preview" id="seasonFishPreview">🐠</div>
+          <div class="spice-row" id="spiceRow">
+            <!-- built by JS -->
+          </div>
+          <div class="taste-feedback" id="tasteFeedback"></div>
+          <div class="season-actions">
+            <button class="taste-btn" id="tasteBtn">TASTE TEST</button>
+            <button class="btn-primary" id="seasonSubmitBtn">FINISHED SEASONING</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- STAGE 3: PLATING -->
+      <div class="screen" id="screen-plate">
+        <div class="screen-title" id="plateTitle">— STAGE III · THE PLATE —</div>
+        <!-- Step A: drag food onto plate -->
+        <div class="plate-workspace" id="plateWorkspace">
+          <div class="plate-area" id="plateArea">
+            <div class="plate-circle"></div>
+            <div class="plate-ring"></div>
+            <!-- zone hints and tokens injected by JS -->
+            <div class="plate-score-label" id="plateScoreLabel"></div>
+          </div>
+          <div class="food-tray" id="foodTray">
+            <!-- built by JS -->
+          </div>
+        </div>
+        <!-- Step B: garnish choice (shown after all items placed) -->
+        <div id="garnishStep" style="display:none; flex-direction:column; align-items:center; gap:14px;">
+          <div class="garnish-prompt">Choose a garnish for presentation.</div>
+          <div class="garnish-row" id="garnishRow"></div>
+          <button class="btn-primary" id="garnishSubmitBtn" disabled>PRESENT THE DISH</button>
+        </div>
+      </div>
+
+      <!-- RESULT -->
+      <div class="screen" id="screen-result">
+        <div class="result-card" id="resultCard">
+          <!-- built by JS -->
+        </div>
+        <div class="result-actions" id="resultActions">
+          <button class="btn-primary" id="toHubBtn">Return to Deck</button>
+          <button class="btn-secondary" id="retryBtn">Try Again</button>
+        </div>
+      </div>
+
+    </div><!-- /game-panel -->
+
+    <!-- RIGHT: Ingrid sidebar -->
+    <div class="ingrid-sidebar">
+      <div class="ingrid-portrait" id="ingridPortrait"></div>
+      <div class="ingrid-name">Chef Ingrid Firebrew</div>
+      <div class="ingrid-role">Galley Master · Day 1</div>
+      <div class="sidebar-rule"></div>
+      <div class="ingrid-dialogue" id="ingridDialogue">&nbsp;</div>
+      <div class="sidebar-rule"></div>
+      <div class="phase-label" id="phaseLabel">Sleight of Hand · Medicine · Performance</div>
+      <div class="instruction-label" id="instructionLabel">DC 10 each stage · 35 points for proficiency</div>
+      <div class="score-tally" id="scoreTally" style="display:none">
+        <div class="score-row"><span>Heat</span><span id="ts1">—</span></div>
+        <div class="score-row"><span>Seasoning</span><span id="ts2">—</span></div>
+        <div class="score-row"><span>Plating</span><span id="ts3">—</span></div>
+        <div class="score-total-row"><span>Total</span><span id="tsTotal">—</span></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+(function () {
+
+/* ══════════════════════════════════════════
+   SNOW
+══════════════════════════════════════════ */
+const snowEl = document.getElementById("snow");
+for (let i = 0; i < 55; i++) {
+  const f = document.createElement("div");
+  f.className = "flake";
+  const sz = 1 + Math.random() * 2.5;
+  Object.assign(f.style, {
+    width: sz + "px", height: sz + "px",
+    left:  Math.random() * 100 + "%",
+    top:   Math.random() * 100 + "%",
+    animationDuration: (8 + Math.random() * 12) + "s",
+    animationDelay:   (-Math.random() * 15) + "s",
+  });
+  snowEl.appendChild(f);
+}
+
+/* ══════════════════════════════════════════
+   STATE / DATA
+══════════════════════════════════════════ */
+function loadState() {
+  try {
+    const s = JSON.parse(localStorage.getItem("remorhaz") || "{}");
+    return {
+      currentDay:    s.currentDay    || 1,
+      completed:     Array.from(s.completed    || []),
+      completedDays: Array.from(s.completedDays || []),
+      lastCatch:     s.lastCatch || null,
+    };
+  } catch { return { currentDay: 1, completed: [], completedDays: [] }; }
+}
+function saveState(s) { localStorage.setItem("remorhaz", JSON.stringify(s)); }
+
+const appState  = loadState();
+const lastCatch = appState.lastCatch;
+const catchRoll = lastCatch ? lastCatch.roll : 3;
+
+// Per-catch difficulty config
+const CONFIGS = {
+  1: { // Silver fish — Ingrid is hardest to please
+    label: "MEAGRE HAUL · INGRID IS UNIMPRESSED",
+    heatWindowMs: 1700, heatRate: 15, perfectZoneCenter: 68,
+    spiceTargets: { salt:[38,52], pepper:[28,42], herbs:[25,38] },
+    plateTolerance: 32,
+    ingridMood: "cold",
+    ingridIntro: "...This. These tiny silver fish. You bring me this.",
+    ingridPre:   "I will make something of it. You will stay out of my way.",
+  },
+  2: { // Sea eel — special subdue stage, tricky seasoning
+    label: "SEA EEL · SUBDUE IT FIRST",
+    heatWindowMs: 2200, heatRate: 11, perfectZoneCenter: 65,
+    spiceTargets: { salt:[50,68], pepper:[36,52], herbs:[42,58] },
+    plateTolerance: 38,
+    ingridMood: "terse",
+    ingridIntro: "A sea eel. Alive. Of course it is alive.",
+    ingridPre:   "Hold it still or we will all be bitten. Then we cook it.",
+  },
+  3: { // Halibut — standard
+    label: "FINE CATCH · STANDARD EXPECTATIONS",
+    heatWindowMs: 2600, heatRate: 10, perfectZoneCenter: 65,
+    spiceTargets: { salt:[38,58], pepper:[32,52], herbs:[34,54] },
+    plateTolerance: 46,
+    ingridMood: "neutral",
+    ingridIntro: "Halibut. Acceptable. Come. We begin.",
+    ingridPre:   "Pay attention. I will not explain anything twice.",
+  },
+  4: { // Arctic Char — Ingrid is slightly easier to satisfy
+    label: "EXCEPTIONAL HAUL · INGRID IS... WILLING",
+    heatWindowMs: 3600, heatRate: 8, perfectZoneCenter: 63,
+    spiceTargets: { salt:[30,58], pepper:[26,54], herbs:[28,56] },
+    plateTolerance: 60,
+    ingridMood: "warmer",
+    ingridIntro: "Arctic Char. You did not embarrass yourselves entirely.",
+    ingridPre:   "Good ingredients deserve care. Do not waste them.",
+  },
+};
+
+const cfg = CONFIGS[catchRoll] || CONFIGS[3];
+
+/* ── APPLY STAT MODIFIERS ── */
+(function () {
+  try {
+    const s = JSON.parse(localStorage.getItem("remorhaz") || "{}");
+    const st = s.selectedCharacter?.stats;
+    if (!st) return;
+    window._cookStats = st;
+
+    function factor(k) {
+      const m = st[k] || 0;
+      return m === 2 ? 1.35 : m === 1 ? 1.17 : m === -1 ? 0.82 : m === -2 ? 0.65 : 1.0;
+    }
+
+    // DEX → heat window
+    cfg.heatWindowMs = Math.round(cfg.heatWindowMs * factor('dexterity'));
+
+    // WIS → spice target zone width
+    const wisAdj = (st.wisdom || 0) * 0.04;
+    Object.keys(cfg.spiceTargets).forEach(k => {
+      const [lo, hi] = cfg.spiceTargets[k];
+      const center  = (lo + hi) / 2;
+      const newHalf = Math.max(4, ((hi - lo) / 2) * (1 + wisAdj));
+      cfg.spiceTargets[k] = [
+        Math.max(5,  Math.round(center - newHalf)),
+        Math.min(95, Math.round(center + newHalf)),
+      ];
+    });
+
+    // CHA → plate tolerance
+    cfg.plateTolerance = Math.max(18, Math.round(cfg.plateTolerance + (st.charisma || 0) * 8));
+  } catch {}
+})();
+
+function _cookArrow(k) {
+  const m = (window._cookStats || {})[k] || 0;
+  if (m >= 1)  return '<span class="stat-arrow up">▲</span> ';
+  if (m <= -1) return '<span class="stat-arrow dn">▼</span> ';
+  return '';
+}
+
+const CATCH_ICONS = { 1:"🐟", 2:"🐍", 3:"🐠", 4:"🐡" };
+const CATCH_NAMES = {
+  1:"Silver Fish", 2:"Giant Sea Eel", 3:"Arctic Halibut", 4:"Arctic Char"
+};
+
+let stage1Score = 0;
+let stage2Score = 0;
+let stage3Score = 0;
+let garnishBonus = 0;
+
+/* ══════════════════════════════════════════
+   SIDEBAR HELPERS
+══════════════════════════════════════════ */
+document.getElementById("ingridPortrait").style.backgroundImage = "url('assets/ingrid.png')";
+
+function setDialogue(text) {
+  const el = document.getElementById("ingridDialogue");
+  el.style.opacity = "0";
+  setTimeout(() => { el.textContent = '"' + text + '"'; el.style.opacity = "1"; }, 260);
+}
+function setPhase(p, instHtml) {
+  document.getElementById("phaseLabel").textContent     = p;
+  document.getElementById("instructionLabel").innerHTML = instHtml;
+}
+function showScoreTally() {
+  document.getElementById("scoreTally").style.display = "flex";
+}
+function updateTally(s1, s2, s3) {
+  document.getElementById("ts1").textContent    = s1 !== null ? s1 + " / 15" : "—";
+  document.getElementById("ts2").textContent    = s2 !== null ? s2 + " / 15" : "—";
+  document.getElementById("ts3").textContent    = s3 !== null ? s3 + " / 15" : "—";
+  const total = (s1 || 0) + (s2 || 0) + (s3 || 0) + garnishBonus;
+  document.getElementById("tsTotal").textContent = (s1 !== null || s2 !== null || s3 !== null)
+    ? total + " / 45" : "—";
+}
+
+/* ══════════════════════════════════════════
+   SCREEN SWITCHER
+══════════════════════════════════════════ */
+const fadeOverlay = document.getElementById("fadeOverlay");
+function goToScreen(id, delay = 0) {
+  fadeOverlay.classList.add("fade-in");
+  setTimeout(() => {
+    document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+    document.getElementById(id).classList.add("active");
+    fadeOverlay.classList.remove("fade-in");
+  }, 360 + delay);
+}
+
+/* ══════════════════════════════════════════
+   INTRO SCREEN
+══════════════════════════════════════════ */
+document.getElementById("introCatchIcon").textContent  = CATCH_ICONS[catchRoll] || "🐠";
+document.getElementById("introCatchName").textContent  = CATCH_NAMES[catchRoll] || "Your Catch";
+document.getElementById("introBody").textContent       = cfg.ingridIntro;
+document.getElementById("difficultyTag").textContent   = cfg.label;
+setDialogue(cfg.ingridIntro);
+
+document.getElementById("beginBtn").addEventListener("click", () => {
+  setDialogue(cfg.ingridPre);
+  if (catchRoll === 2) {
+    goToScreen("screen-eel");
+    setTimeout(startEelSubdue, 500);
+  } else {
+    goToScreen("screen-heat");
+    setTimeout(startHeat, 500);
+  }
+});
+document.getElementById("backBtn").addEventListener("click", () => {
+  window.location.href = "index.html";
+});
+
+/* ══════════════════════════════════════════
+   STAGE 0: EEL SUBDUE (eel catch only)
+══════════════════════════════════════════ */
+let eelHits = 0;
+let eelTimerInterval = null;
+let eelTimeLeft = 5000;
+const EEL_NEEDED = 5;
+
+function startEelSubdue() {
+  setPhase("Stage 0 — Subdue the Eel", "Click the eel 5 times before it escapes");
+  setDialogue("Hold it DOWN. Do not let go. Click!");
+  eelHits = 0; eelTimeLeft = 5000;
+  updateEelCounter();
+  moveEel();
+
+  eelTimerInterval = setInterval(() => {
+    eelTimeLeft -= 100;
+    const pct = Math.max(0, eelTimeLeft / 5000) * 100;
+    document.getElementById("eelTimerFill").style.width = pct + "%";
+    if (eelTimeLeft <= 0) { clearInterval(eelTimerInterval); eelTimeout(); }
+  }, 100);
+
+  document.getElementById("eelBody").addEventListener("click", onEelHit);
+}
+
+function moveEel() {
+  const arena = document.getElementById("eelArena");
+  const eel   = document.getElementById("eelBody");
+  const maxX  = arena.offsetWidth  - 60;
+  const maxY  = arena.offsetHeight - 60;
+  eel.style.left = (Math.random() * maxX) + "px";
+  eel.style.top  = (Math.random() * maxY) + "px";
+}
+function updateEelCounter() {
+  document.getElementById("eelCounter").textContent = eelHits + " / " + EEL_NEEDED + " hits";
+}
+function onEelHit() {
+  eelHits++;
+  updateEelCounter();
+  moveEel();
+  if (eelHits >= EEL_NEEDED) {
+    clearInterval(eelTimerInterval);
+    setDialogue("Good. Now it will not kill us. Mostly.");
+    document.getElementById("eelBody").removeEventListener("click", onEelHit);
+    // success: no penalty
+    setTimeout(() => { goToScreen("screen-heat"); setTimeout(startHeat, 500); }, 900);
+  }
+}
+function eelTimeout() {
+  document.getElementById("eelBody").removeEventListener("click", onEelHit);
+  setDialogue("It got away from you. This will make things... harder.");
+  // penalty: tighten heat window slightly
+  cfg.heatWindowMs = Math.max(1400, cfg.heatWindowMs - 400);
+  setTimeout(() => { goToScreen("screen-heat"); setTimeout(startHeat, 500); }, 1100);
+}
+
+/* ══════════════════════════════════════════
+   STAGE 1: HEAT / TIMING
+══════════════════════════════════════════ */
+const canvas  = document.getElementById("heatCanvas");
+const ctx     = canvas.getContext("2d");
+const CW = canvas.width, CH = canvas.height;
+
+let heatLevel     = 0;       // 0–100
+let heatAnimId    = null;
+let heatLastTs    = null;
+let heatDone      = false;
+let perfectStart  = 0;
+let perfectEnd    = 0;
+
+function startHeat() {
+  setPhase("Stage I — The Heat", _cookArrow('dexterity') + "Dexterity Check · Pull at the right moment");
+  setDialogue("Knowing how long to leave the fish on the stove is key. Pull it off too soon — it is raw. Leave it too long — it is coal.");
+
+  // Perfect window position based on difficulty
+  const windowWidth = cfg.heatWindowMs / 1000 * cfg.heatRate; // approx pct width
+  perfectStart = cfg.perfectZoneCenter - windowWidth / 2;
+  perfectEnd   = cfg.perfectZoneCenter + windowWidth / 2;
+
+  heatLevel = 0; heatDone = false; heatLastTs = null;
+  document.getElementById("liftBtn").disabled = false;
+  document.getElementById("heatResultLabel").textContent = "";
+  heatAnimId = requestAnimationFrame(drawHeat);
+}
+
+function drawHeat(ts) {
+  if (heatDone) return;
+  if (!heatLastTs) heatLastTs = ts;
+  const dt = (ts - heatLastTs) / 1000;
+  heatLastTs = ts;
+
+  heatLevel = Math.min(100, heatLevel + cfg.heatRate * dt);
+
+  ctx.clearRect(0, 0, CW, CH);
+
+  // Galley wall bg
+  const wallG = ctx.createLinearGradient(0, 0, 0, CH);
+  wallG.addColorStop(0, "#1a1108");
+  wallG.addColorStop(1, "#0d0906");
+  ctx.fillStyle = wallG; ctx.fillRect(0, 0, CW, CH);
+
+  // Stone blocks
+  ctx.strokeStyle = "rgba(60,40,20,0.4)"; ctx.lineWidth = 1;
+  for (let bx = 0; bx < CW; bx += 48)  { ctx.beginPath(); ctx.moveTo(bx, 0); ctx.lineTo(bx, CH); ctx.stroke(); }
+  for (let by = 0; by < CH; by += 32)  { ctx.beginPath(); ctx.moveTo(0, by); ctx.lineTo(CW, by); ctx.stroke(); }
+
+  // Hearth glow (behind stove)
+  const glow = ctx.createRadialGradient(CW*0.5, CH*0.85, 0, CW*0.5, CH*0.85, 160);
+  const glowInt = Math.min(1, heatLevel / 60);
+  glow.addColorStop(0, `rgba(220,130,30,${0.35 * glowInt})`);
+  glow.addColorStop(1, "transparent");
+  ctx.fillStyle = glow; ctx.fillRect(0, 0, CW, CH);
+
+  // Stove base
+  ctx.fillStyle = "#1c1410"; ctx.fillRect(CW*0.2, CH*0.72, CW*0.6, CH*0.28);
+  ctx.fillStyle = "#2a1e14"; ctx.fillRect(CW*0.22, CH*0.7, CW*0.56, CH*0.04);
+
+  // Fire flames (animated)
+  drawFlames(ts, ctx, CW*0.5, CH*0.72, 100 * (heatLevel / 100));
+
+  // Pan
+  const panCy = CH * 0.62;
+  ctx.fillStyle = "#0e0a06";
+  ctx.beginPath();
+  ctx.ellipse(CW*0.5, panCy, 100, 18, 0, 0, Math.PI*2);
+  ctx.fill();
+  ctx.fillStyle = "#1a1209";
+  ctx.beginPath();
+  ctx.ellipse(CW*0.5, panCy - 4, 94, 16, 0, 0, Math.PI*2);
+  ctx.fill();
+
+  // Handle
+  ctx.strokeStyle = "#2a1e14"; ctx.lineWidth = 8; ctx.lineCap = "round";
+  ctx.beginPath(); ctx.moveTo(CW*0.5 + 100, panCy); ctx.lineTo(CW*0.5 + 155, panCy - 12); ctx.stroke();
+
+  // Fish in pan — color morphs with heat
+  drawFishInPan(ctx, CW*0.5, panCy - 4, heatLevel);
+
+  // Steam wisps above perfect zone
+  if (heatLevel > 45) drawSteam(ts, ctx, CW*0.5, panCy - 22, heatLevel);
+
+  // Sizzle particles at very high heat
+  if (heatLevel > 80) drawSizzle(ts, ctx, CW*0.5, panCy);
+
+  // ── THERMOMETER (right side) ──
+  drawThermometer(ctx, CW - 52, CH * 0.12, 28, CH * 0.78);
+
+  // Auto-fail if too late
+  if (heatLevel >= 99 && !heatDone) {
+    heatDone = true;
+    cancelAnimationFrame(heatAnimId);
+    resolveHeat(heatLevel);
+    return;
+  }
+
+  heatAnimId = requestAnimationFrame(drawHeat);
+}
+
+function drawFlames(ts, c, cx, baseY, strength) {
+  const numFlames = 5;
+  for (let i = 0; i < numFlames; i++) {
+    const fx = cx + (i - 2) * 22;
+    const flameH = (strength * 0.5 + 10) * (0.7 + 0.3 * Math.sin(ts * 0.006 + i * 1.2));
+    const grad = c.createLinearGradient(fx, baseY, fx, baseY - flameH);
+    grad.addColorStop(0, "rgba(220,100,10,0.95)");
+    grad.addColorStop(0.4, "rgba(240,180,20,0.85)");
+    grad.addColorStop(1, "rgba(255,230,80,0)");
+    c.fillStyle = grad;
+    c.beginPath();
+    c.moveTo(fx - 10, baseY);
+    c.quadraticCurveTo(fx - 5, baseY - flameH * 0.6, fx, baseY - flameH);
+    c.quadraticCurveTo(fx + 5, baseY - flameH * 0.6, fx + 10, baseY);
+    c.closePath(); c.fill();
+  }
+}
+
+function drawFishInPan(c, cx, cy, heat) {
+  // Fish color: cold grey → raw beige → cooked golden → burnt dark
+  let r, g, b;
+  if (heat < 30) {
+    r = lerp(120, 180, heat / 30);
+    g = lerp(110, 155, heat / 30);
+    b = lerp(100, 110, heat / 30);
+  } else if (heat < perfectStart) {
+    const t = (heat - 30) / (perfectStart - 30);
+    r = lerp(180, 210, t); g = lerp(155, 170, t); b = lerp(110, 90, t);
+  } else if (heat <= perfectEnd) {
+    const t = (heat - perfectStart) / (perfectEnd - perfectStart);
+    const glow = Math.sin(t * Math.PI);
+    r = lerp(210, 230, t); g = lerp(170, 165, t); b = lerp(90, 60, t);
+    // golden shimmer overlay
+    c.save();
+    c.globalAlpha = glow * 0.35;
+    const shimmer = c.createRadialGradient(cx, cy, 0, cx, cy, 60);
+    shimmer.addColorStop(0, "rgba(243,195,118,1)");
+    shimmer.addColorStop(1, "transparent");
+    c.fillStyle = shimmer; c.fillRect(cx-80, cy-30, 160, 60);
+    c.restore();
+  } else {
+    const t = Math.min(1, (heat - perfectEnd) / (100 - perfectEnd));
+    r = lerp(200, 60, t); g = lerp(150, 35, t); b = lerp(60, 20, t);
+  }
+
+  c.save();
+  c.fillStyle = `rgb(${Math.round(r)},${Math.round(g)},${Math.round(b)})`;
+  c.beginPath();
+  c.ellipse(cx, cy, 58, 14, -0.12, 0, Math.PI*2);
+  c.fill();
+  // skin texture lines
+  c.strokeStyle = `rgba(0,0,0,0.18)`; c.lineWidth = 1;
+  for (let i = -3; i <= 3; i++) {
+    c.beginPath(); c.moveTo(cx + i*14, cy - 10); c.lineTo(cx + i*14, cy + 10); c.stroke();
+  }
+  // tail
+  c.fillStyle = `rgb(${Math.round(r*0.85)},${Math.round(g*0.85)},${Math.round(b*0.85)})`;
+  c.beginPath();
+  c.moveTo(cx - 58, cy);
+  c.lineTo(cx - 76, cy - 10);
+  c.lineTo(cx - 76, cy + 10);
+  c.closePath(); c.fill();
+  c.restore();
+}
+
+function drawSteam(ts, c, cx, topY, heat) {
+  const numWisps = Math.floor(heat / 25);
+  for (let i = 0; i < numWisps; i++) {
+    const wx = cx + (i - numWisps/2) * 22;
+    const phase = ts * 0.001 + i * 0.7;
+    const ox = Math.sin(phase) * 10;
+    c.save();
+    c.globalAlpha = 0.18 * (heat / 100);
+    c.strokeStyle = "#c8c8d8"; c.lineWidth = 2; c.lineCap = "round";
+    c.beginPath();
+    c.moveTo(wx, topY);
+    c.quadraticCurveTo(wx + ox, topY - 24, wx - ox, topY - 48);
+    c.stroke(); c.restore();
+  }
+}
+
+function drawSizzle(ts, c, cx, cy) {
+  for (let i = 0; i < 6; i++) {
+    const angle = (ts * 0.003 + i * 60) % 360 * Math.PI/180;
+    const r = 55 + Math.random() * 20;
+    const px = cx + Math.cos(angle) * r;
+    const py = cy + Math.sin(angle) * r * 0.25;
+    c.save(); c.globalAlpha = 0.6 * Math.random();
+    c.fillStyle = "#f3c376";
+    c.beginPath(); c.arc(px, py, 1.5, 0, Math.PI*2); c.fill();
+    c.restore();
+  }
+}
+
+function drawThermometer(c, x, y, w, h) {
+  const fillPct = heatLevel / 100;
+
+  // Track
+  c.fillStyle = "#0e0a06";
+  c.beginPath(); c.roundRect(x, y, w, h, 12); c.fill();
+
+  // Perfect zone band
+  const pStartY = y + h * (1 - perfectEnd/100);
+  const pEndY   = y + h * (1 - perfectStart/100);
+  c.save();
+  c.beginPath(); c.roundRect(x, y, w, h, 12); c.clip();
+  c.fillStyle = "rgba(243,195,118,0.22)";
+  c.fillRect(x, pStartY, w, pEndY - pStartY);
+  // pulse border on perfect zone
+  const inPerfect = heatLevel >= perfectStart && heatLevel <= perfectEnd;
+  if (inPerfect) {
+    c.strokeStyle = `rgba(243,195,118,${0.6 + 0.4*Math.sin(Date.now()*0.01)})`;
+    c.lineWidth = 2;
+    c.strokeRect(x, pStartY, w, pEndY - pStartY);
+  }
+  c.restore();
+
+  // Fill
+  const fillY = y + h * (1 - fillPct);
+  const fillGrad = c.createLinearGradient(0, y+h, 0, y);
+  fillGrad.addColorStop(0,   "#2a8eff");
+  fillGrad.addColorStop(0.45,"#f3c376");
+  fillGrad.addColorStop(0.7, "#e07030");
+  fillGrad.addColorStop(1,   "#8d1a0a");
+  c.save();
+  c.beginPath(); c.roundRect(x, y, w, h, 12); c.clip();
+  c.fillStyle = fillGrad;
+  c.fillRect(x, fillY, w, h - (fillY - y));
+  c.restore();
+
+  // Bulb at bottom
+  c.fillStyle = heatLevel > 80 ? "#c03010" : heatLevel > 50 ? "#e07030" : "#2a8eff";
+  c.beginPath(); c.arc(x + w/2, y + h + 10, 14, 0, Math.PI*2); c.fill();
+
+  // "PERFECT" label
+  const labelY = (pStartY + pEndY) / 2;
+  c.save();
+  c.translate(x - 6, labelY);
+  c.rotate(-Math.PI/2);
+  c.fillStyle = inPerfect ? "#f3c376" : "rgba(243,195,118,0.45)";
+  c.font = `bold 9px "IM Fell English SC", serif`;
+  c.textAlign = "center";
+  c.fillText("PERFECT", 0, 0);
+  c.restore();
+}
+
+function lerp(a, b, t) { return a + (b - a) * Math.max(0, Math.min(1, t)); }
+
+document.getElementById("liftBtn").addEventListener("click", () => {
+  if (heatDone) return;
+  heatDone = true;
+  cancelAnimationFrame(heatAnimId);
+  resolveHeat(heatLevel);
+});
+
+function resolveHeat(heat) {
+  let score, label, dialogue;
+  const center = (perfectStart + perfectEnd) / 2;
+
+  if (heat < perfectStart - 12) {
+    score = 3; label = "RAW — TOO SOON";
+    dialogue = "It is raw. You pulled it from the heat before it was ready. I can fix this. Do not touch anything.";
+  } else if (heat < perfectStart) {
+    score = 8; label = "SLIGHTLY EARLY";
+    dialogue = "A little early. It will do. The texture is not what I would choose, but it will do.";
+  } else if (heat <= perfectEnd) {
+    const dist = Math.abs(heat - center) / ((perfectEnd - perfectStart) / 2);
+    score = Math.round(15 - dist * 5);
+    label = dist < 0.3 ? "PERFECT TIMING" : "GOOD TIMING";
+    dialogue = dist < 0.3
+      ? "...Timing. Better than I expected. Do not let it go to your head."
+      : "Acceptable. The centre could have been better, but I have seen worse.";
+  } else if (heat < 92) {
+    score = 6; label = "OVERCOOKED";
+    dialogue = "You left it too long. It will be dry. The crew will not complain — they are too cold to care — but I notice.";
+  } else {
+    score = 0; label = "BURNT";
+    dialogue = "You have turned good fish into charcoal. I am... not surprised. Stand back.";
+  }
+
+  stage1Score = score;
+  document.getElementById("heatResultLabel").textContent = label;
+  document.getElementById("liftBtn").disabled = true;
+  setDialogue(dialogue);
+  showScoreTally(); updateTally(stage1Score, null, null);
+
+  // Draw one last frame with the result
+  drawHeat(performance.now());
+
+  setTimeout(() => {
+    goToScreen("screen-season");
+    setTimeout(startSeasoning, 500);
+  }, 1800);
+}
+
+/* ══════════════════════════════════════════
+   STAGE 2: SEASONING
+══════════════════════════════════════════ */
+const SPICES = [
+  { key: "salt",   label: "SALT",       icon: "🧂", pourRate: 18 },
+  { key: "pepper", label: "PEPPER",     icon: "🌶️", pourRate: 14 },
+  { key: "herbs",  label: "SEA HERBS",  icon: "🌿", pourRate: 12 },
+];
+
+let spiceLevels    = { salt: 0, pepper: 0, herbs: 0 };
+let pouringKey     = null;
+let pourInterval   = null;
+let tasteUsed      = false;
+let seasoningDone  = false;
+
+function startSeasoning() {
+  setPhase("Stage II — The Seasoning", _cookArrow('wisdom') + "Wisdom Check · Apply salt, pepper, and herbs");
+  setDialogue("The size of the fish determines how much it needs. Too much salt and you are seasoning the ocean. Too little and it is flavorless — and you will answer for it.");
+  document.getElementById("seasonFishPreview").textContent = CATCH_ICONS[catchRoll] || "🐠";
+  buildSpiceRow();
+  updateSeasonSubmit();
+}
+
+function buildSpiceRow() {
+  const row = document.getElementById("spiceRow");
+  row.innerHTML = "";
+  SPICES.forEach(sp => {
+    const target = cfg.spiceTargets[sp.key];
+    const col = document.createElement("div");
+    col.className = "spice-col";
+    col.innerHTML = `
+      <div class="spice-label">${sp.label}</div>
+      <div class="spice-jar" id="jar-${sp.key}" data-key="${sp.key}">${sp.icon}</div>
+      <div class="spice-meter-wrap" id="wrap-${sp.key}">
+        <div class="spice-target" id="target-${sp.key}"
+          style="bottom:${target[0]}%; height:${target[1]-target[0]}%"></div>
+        <div class="spice-meter-fill" id="fill-${sp.key}" style="height:0%"></div>
+        <div class="spice-meter-pct" id="pct-${sp.key}">0%</div>
+      </div>
+    `;
+    row.appendChild(col);
+
+    const jar = col.querySelector(`#jar-${sp.key}`);
+    jar.addEventListener("mousedown", () => startPour(sp.key, sp.pourRate));
+    jar.addEventListener("touchstart", (e) => { e.preventDefault(); startPour(sp.key, sp.pourRate); }, {passive:false});
+  });
+
+  document.addEventListener("mouseup",  stopPour);
+  document.addEventListener("touchend", stopPour);
+}
+
+function startPour(key, rate) {
+  if (seasoningDone) return;
+  pouringKey = key;
+  document.getElementById("jar-" + key).classList.add("pouring");
+  clearInterval(pourInterval);
+  pourInterval = setInterval(() => {
+    spiceLevels[key] = Math.min(100, spiceLevels[key] + rate * 0.1);
+    updateSpiceMeter(key);
+  }, 100);
+}
+
+function stopPour() {
+  if (!pouringKey) return;
+  document.getElementById("jar-" + pouringKey)?.classList.remove("pouring");
+  clearInterval(pourInterval);
+  pouringKey = null;
+}
+
+function updateSpiceMeter(key) {
+  const lvl = spiceLevels[key];
+  document.getElementById("fill-" + key).style.height  = lvl + "%";
+  document.getElementById("pct-"  + key).textContent   = Math.round(lvl) + "%";
+  const target = cfg.spiceTargets[key];
+  const inZone = lvl >= target[0] && lvl <= target[1];
+  document.getElementById("fill-" + key).style.background =
+    inZone ? "linear-gradient(to top, var(--lamp-warm), var(--lamp))"
+           : lvl > target[1]
+             ? "linear-gradient(to top, var(--blood), oklch(0.6 0.18 30))"
+             : "linear-gradient(to top, var(--sea-light), var(--ice-dim))";
+}
+
+function updateSeasonSubmit() {
+  // always enabled — player can submit at any time
+}
+
+document.getElementById("tasteBtn").addEventListener("click", () => {
+  if (tasteUsed || seasoningDone) return;
+  tasteUsed = true;
+  document.getElementById("tasteBtn").disabled = true;
+
+  const hints = [];
+  SPICES.forEach(sp => {
+    const t = cfg.spiceTargets[sp.key];
+    const lvl = spiceLevels[sp.key];
+    if (lvl < t[0] - 8)       hints.push("more " + sp.label.toLowerCase());
+    else if (lvl > t[1] + 8)  hints.push("less "  + sp.label.toLowerCase());
+  });
+
+  let fb, dialogue;
+  if (hints.length === 0) {
+    fb = "The balance is right. Finish it.";
+    dialogue = "...Hmm. Taste it yourself. It is almost correct. Continue.";
+  } else {
+    fb = hints.join(", ") + ".";
+    dialogue = "You need " + hints.join(", ") + ". Pay attention to the amounts.";
+  }
+  document.getElementById("tasteFeedback").textContent = fb;
+  setDialogue(dialogue);
+});
+
+document.getElementById("seasonSubmitBtn").addEventListener("click", () => {
+  if (seasoningDone) return;
+  seasoningDone = true;
+  stopPour();
+  resolveSeasonin();
+});
+
+function resolveSeasonin() {
+  let score = 0;
+  const results = [];
+
+  SPICES.forEach(sp => {
+    const t   = cfg.spiceTargets[sp.key];
+    const lvl = spiceLevels[sp.key];
+    const center = (t[0] + t[1]) / 2;
+    const half   = (t[1] - t[0]) / 2;
+    if (lvl >= t[0] && lvl <= t[1]) {
+      const closeness = 1 - Math.abs(lvl - center) / half;
+      const pts = Math.round(3 + closeness * 2);
+      score += pts;
+      results.push(sp.label + ": ✓");
+    } else if (Math.abs(lvl - center) < half * 2) {
+      score += 2;
+      results.push(sp.label + ": close");
+    } else {
+      results.push(sp.label + ": ✗");
+    }
+  });
+
+  stage2Score = Math.min(15, score);
+
+  const total = stage1Score + stage2Score;
+  let dialogue;
+  if (score >= 13)      dialogue = "The seasoning is... correct. I will not say anything further.";
+  else if (score >= 9)  dialogue = "Acceptable. You have not ruined the salt, at least.";
+  else if (score >= 5)  dialogue = "The balance is off. One of you is too heavy with the hand.";
+  else                  dialogue = "You have seasoned this like you have never eaten food. Remarkable.";
+
+  setDialogue(dialogue);
+  updateTally(stage1Score, stage2Score, null);
+
+  setTimeout(() => {
+    goToScreen("screen-plate");
+    setTimeout(startPlating, 500);
+  }, 1600);
+}
+
+/* ══════════════════════════════════════════
+   STAGE 3: PLATING
+══════════════════════════════════════════ */
+const FOOD_ITEMS = [
+  { id: "fish",    icon: CATCH_ICONS[catchRoll] || "🐟", label: "The Fish",
+    targetX: 0.42, targetY: 0.45 },
+  { id: "citrus",  icon: "🍋", label: "Lemon Slice",
+    targetX: 0.68, targetY: 0.32 },
+  { id: "sauce",   icon: "🥄", label: "Sauce Drizzle",
+    targetX: 0.30, targetY: 0.65 },
+];
+
+const GARNISH_OPTIONS = [
+  { id: "dill",   icon: "🌿", label: "Dill",    bonus: catchRoll === 4 ? 3 : catchRoll === 3 ? 2 : 1 },
+  { id: "roe",    icon: "🫧", label: "Roe",     bonus: catchRoll === 2 ? 3 : catchRoll === 4 ? 2 : 1 },
+  { id: "butter", icon: "🧈", label: "Butter",  bonus: catchRoll === 1 ? 3 : 2 },
+];
+
+let placedItems   = {};   // id → {x,y} on plate (0-1 coords)
+let draggingItem  = null;
+let plateDone     = false;
+let chosenGarnish = null;
+
+function startPlating() {
+  setPhase("Stage III — The Plate", _cookArrow('charisma') + "Charisma Check · Arrange the dish properly");
+  setDialogue("Proper presentation requires knowing what people will want to see. Place the fish first — it is the centrepiece. Everything else supports it.");
+  buildPlate();
+}
+
+function buildPlate() {
+  const plateArea = document.getElementById("plateArea");
+  const tray      = document.getElementById("foodTray");
+  tray.innerHTML  = "";
+
+  FOOD_ITEMS.forEach(item => {
+    const trayItem = document.createElement("div");
+    trayItem.className = "tray-item";
+    const token = document.createElement("div");
+    token.className = "tray-token";
+    token.id = "tray-" + item.id;
+    token.textContent = item.icon;
+    token.dataset.itemId = item.id;
+    const lbl = document.createElement("div");
+    lbl.className = "tray-label";
+    lbl.textContent = item.label;
+    trayItem.appendChild(token);
+    trayItem.appendChild(lbl);
+    tray.appendChild(trayItem);
+
+    // Pointer events for drag
+    token.addEventListener("pointerdown", (e) => startDrag(e, item));
+  });
+
+  // Zone hints on plate (invisible until dragging)
+  FOOD_ITEMS.forEach(item => {
+    const hint = document.createElement("div");
+    hint.className = "plate-zone-hint";
+    hint.id = "hint-" + item.id;
+    hint.style.cssText = `
+      width: 48px; height: 48px;
+      left: ${item.targetX * 100}%;
+      top:  ${item.targetY * 100}%;
+      opacity: 0;
+    `;
+    plateArea.appendChild(hint);
+  });
+}
+
+function startDrag(e, item) {
+  if (plateDone || placedItems[item.id]) return;
+  e.preventDefault();
+  draggingItem = { ...item };
+
+  const trayToken = document.getElementById("tray-" + item.id);
+
+  // Create floating token
+  const floater = document.createElement("div");
+  floater.className = "food-token dragging";
+  floater.id = "floater-" + item.id;
+  floater.textContent = item.icon;
+  floater.style.position = "fixed";
+  floater.style.pointerEvents = "none";
+  document.body.appendChild(floater);
+
+  const moveFloater = (clientX, clientY) => {
+    floater.style.left = clientX + "px";
+    floater.style.top  = clientY + "px";
+    // Show zone hints while dragging
+    document.querySelectorAll(".plate-zone-hint").forEach(h => h.style.opacity = "0.35");
+  };
+
+  const getCoords = (ev) => ev.touches ? [ev.touches[0].clientX, ev.touches[0].clientY] : [ev.clientX, ev.clientY];
+
+  const onMove = (ev) => { const [cx, cy] = getCoords(ev); moveFloater(cx, cy); };
+  const onUp   = (ev) => {
+    const [cx, cy] = getCoords(ev);
+    document.body.removeEventListener("pointermove", onMove);
+    document.body.removeEventListener("pointerup",   onUp);
+    document.body.removeChild(floater);
+    document.querySelectorAll(".plate-zone-hint").forEach(h => h.style.opacity = "0");
+
+    // Check if dropped on plate
+    const plateArea = document.getElementById("plateArea");
+    const pr = plateArea.getBoundingClientRect();
+    const px = cx - pr.left, py = cy - pr.top;
+    const plateR = pr.width / 2;
+    const distFromCenter = Math.hypot(px - pr.width/2, py - pr.height/2);
+
+    if (distFromCenter < plateR * 0.9) {
+      // Dropped on plate
+      const relX = px / pr.width;
+      const relY = py / pr.height;
+      placeOnPlate(item, relX, relY, pr);
+      trayToken.classList.add("used");
+    }
+  };
+
+  const [startX, startY] = getCoords(e);
+  moveFloater(startX, startY);
+  document.body.addEventListener("pointermove", onMove);
+  document.body.addEventListener("pointerup",   onUp);
+}
+
+function placeOnPlate(item, relX, relY, plateRect) {
+  placedItems[item.id] = { x: relX, y: relY };
+
+  const plateArea = document.getElementById("plateArea");
+  const token = document.createElement("div");
+  token.className = "food-token placed";
+  token.textContent = item.icon;
+  token.style.left = (relX * 100) + "%";
+  token.style.top  = (relY * 100) + "%";
+
+  // Accuracy check
+  const dist = Math.hypot(relX - item.targetX, relY - item.targetY) * plateRect.width;
+  if (dist < cfg.plateTolerance) token.classList.add("accurate");
+
+  plateArea.appendChild(token);
+
+  // React with Ingrid dialogue after each item
+  const placed = Object.keys(placedItems).length;
+  const reacts = [
+    ["Hmm. The fish placement.", "The fish is well-centred.", "You left the fish in a corner. This is not a corner fish."],
+    ["The lemon. Yes.", "Good. Acid to balance.", "Too much garnish on one side. Think about the eye."],
+    ["...", "You understand balance.", "It will be eaten regardless."],
+  ];
+  const r = reacts[placed - 1];
+  if (r) {
+    const pick = dist < cfg.plateTolerance ? r[1] : r[2];
+    setDialogue(pick);
+  }
+
+  // If all placed, move to garnish step
+  if (Object.keys(placedItems).length === FOOD_ITEMS.length) {
+    setTimeout(showGarnishStep, 600);
+  }
+}
+
+function showGarnishStep() {
+  setPhase("Stage III — Garnish", "Choose what finishes the dish");
+  setDialogue("Now. The garnish. Choose carefully — the right finish elevates. The wrong one insults the fish.");
+  document.getElementById("plateWorkspace").style.display = "none";
+  document.getElementById("plateTitle").textContent = "— STAGE III · GARNISH —";
+  const garnishStep = document.getElementById("garnishStep");
+  garnishStep.style.display = "flex";
+
+  const row = document.getElementById("garnishRow");
+  row.innerHTML = "";
+  GARNISH_OPTIONS.forEach(g => {
+    const opt = document.createElement("div");
+    opt.className = "garnish-opt";
+    opt.innerHTML = `<div class="gem">${g.icon}</div><div class="glbl">${g.label}</div>`;
+    opt.addEventListener("click", () => {
+      document.querySelectorAll(".garnish-opt").forEach(o => o.classList.remove("chosen"));
+      opt.classList.add("chosen");
+      chosenGarnish = g;
+      document.getElementById("garnishSubmitBtn").disabled = false;
+      setDialogue(g.bonus >= 3
+        ? "...Yes. That pairs well. You thought about this."
+        : g.bonus >= 2
+          ? "A reasonable choice."
+          : "If you must.");
+    });
+    row.appendChild(opt);
+  });
+}
+
+document.getElementById("garnishSubmitBtn").addEventListener("click", () => {
+  if (!chosenGarnish || plateDone) return;
+  plateDone = true;
+  resolvePlating();
+});
+
+function resolvePlating() {
+  let score = 0;
+  const plateArea = document.getElementById("plateArea");
+  const pr = plateArea.getBoundingClientRect();
+
+  FOOD_ITEMS.forEach(item => {
+    const p = placedItems[item.id];
+    if (!p) return;
+    const dist = Math.hypot(p.x - item.targetX, p.y - item.targetY) * pr.width;
+    if (dist < cfg.plateTolerance * 0.5)         score += 5;
+    else if (dist < cfg.plateTolerance)           score += 3;
+    else if (dist < cfg.plateTolerance * 1.8)     score += 1;
+  });
+
+  stage3Score = Math.min(15, score);
+  garnishBonus = chosenGarnish ? chosenGarnish.bonus : 0;
+
+  let dialogue;
+  if (score >= 13) dialogue = "...Presentable. I will allow this to leave my kitchen.";
+  else if (score >= 9) dialogue = "It is acceptable. The presentation could be tighter.";
+  else if (score >= 5) dialogue = "It looks like something that fell from a height. But it is cooked.";
+  else dialogue = "We will say it is rustic. That is the kindest word I have.";
+  setDialogue(dialogue);
+
+  updateTally(stage1Score, stage2Score, stage3Score);
+
+  setTimeout(() => {
+    goToScreen("screen-result");
+    setTimeout(showResult, 500);
+  }, 1600);
+}
+
+/* ══════════════════════════════════════════
+   FINAL RESULT
+══════════════════════════════════════════ */
+function showResult() {
+  const total = stage1Score + stage2Score + stage3Score + garnishBonus;
+  const proficiency = total >= 35;
+
+  let verdict, ingridFinal, tag;
+  if (total >= 42) {
+    tag = "MASTERWORK";
+    verdict = "A dish that would not embarrass this galley. Remarkable — given who cooked it.";
+    ingridFinal = "Take the tools. You have earned them. Do not make me regret this.";
+  } else if (total >= 35) {
+    tag = "PROFICIENT";
+    verdict = "The crew will eat well tonight. You have proven you can cook — or at least, that you can follow instruction.";
+    ingridFinal = "You have thirty-five points. Here are the utensils. Learn to use them properly.";
+  } else if (total >= 28) {
+    tag = "ACCEPTABLE";
+    verdict = "The fish is cooked. The seasoning is not criminal. The presentation leaves something to be desired.";
+    ingridFinal = "You have potential. Some. Return tomorrow and do not embarrass me.";
+  } else if (total >= 18) {
+    tag = "EDIBLE · BARELY";
+    verdict = "It will sustain the crew. That is the best I can say.";
+    ingridFinal = "...Edible. Barely. Sit down.";
+  } else {
+    tag = "A LEARNING EXPERIENCE";
+    verdict = "I have fixed most of it. The crew will eat. You will watch in silence.";
+    ingridFinal = "We will not speak of this. You will try again.";
+  }
+
+  setDialogue(ingridFinal);
+  setPhase("— Ingrid's Verdict —", total + " / 45 points");
+
+  const card = document.getElementById("resultCard");
+  card.innerHTML = `
+    <div class="result-tag">— ${tag} —</div>
+    <div class="result-score">${total}</div>
+    <div class="result-max">out of 45 points</div>
+    ${proficiency ? `<div class="result-proficiency">🍳 Cook's Utensils Proficiency Awarded</div>` : ""}
+    <div class="result-verdict">${verdict}</div>
+    <div class="result-ingrid">"${ingridFinal}"</div>
+  `;
+
+  // Persist to state
+  const s = appState;
+  s.completed = [...new Set([...s.completed, "ingrid"])];
+  if (s.completed.includes("haldor") && s.completed.includes("ingrid")) {
+    s.completedDays = [...new Set([...s.completedDays, 1])];
+    if (s.currentDay < 2) s.currentDay = 2;
+  }
+  s.cookingScore = total;
+  s.cooksProficiency = proficiency;
+  saveState(s);
+
+  document.getElementById("toHubBtn").addEventListener("click", () => {
+    window.location.href = "index.html";
+  });
+  document.getElementById("retryBtn").addEventListener("click", () => {
+    window.location.reload();
+  });
+}
+
+})();
+</script>
+</body>
+</html>

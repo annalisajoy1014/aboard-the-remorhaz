@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Day N · [Activity] — Aboard the Remorhaz</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+/* ── PAGE-SPECIFIC STYLES GO HERE ── */
+
+/* Stage — centered flex, all mini-games use this */
+.stage {
+  position: fixed; inset: 0; z-index: 1;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* Main game area — left panel + right NPC sidebar */
+.game-area {
+  display: flex; align-items: stretch;
+  width: min(92vw, 1200px); height: min(76vh, 680px);
+  box-shadow: 0 30px 80px rgba(0,0,0,0.6);
+}
+
+/* Left: gameplay panel */
+.game-panel {
+  flex: 1; position: relative; overflow: hidden;
+  border: 1px solid color-mix(in oklch, var(--paper-deep) 25%, transparent);
+  border-right: none;
+}
+
+/* Right: NPC sidebar — copy and rename classes per NPC */
+.npc-sidebar {
+  width: 300px; flex-shrink: 0;
+  background: linear-gradient(160deg,
+    color-mix(in oklch, var(--paper) 11%, var(--ink)) 0%,
+    color-mix(in oklch, var(--paper)  7%, var(--sea-deep)) 100%);
+  border: 1px solid color-mix(in oklch, var(--paper-deep) 28%, transparent);
+  padding: 36px 28px 28px;
+  display: flex; flex-direction: column; gap: 18px;
+}
+.npc-portrait {
+  width: 100px; height: 100px; border-radius: 50%; margin: 0 auto;
+  border: 2px solid var(--paper-deep);
+  outline: 5px solid color-mix(in oklch, var(--paper-deep) 28%, transparent);
+  background: var(--hull-darkest) center/cover no-repeat;
+}
+.npc-name {
+  font-family: "IM Fell English SC", serif; font-size: 20px;
+  letter-spacing: 0.08em; color: var(--paper); text-align: center;
+}
+.npc-role {
+  font-family: "Caveat", cursive; font-size: 15px;
+  color: var(--paper-deep); text-align: center; margin-top: -10px;
+}
+.sidebar-rule {
+  width: 100%; height: 1px;
+  background: linear-gradient(to right, transparent, var(--paper-deep), transparent);
+  flex-shrink: 0;
+}
+.npc-dialogue {
+  font-family: "IM Fell English", serif; font-style: italic;
+  font-size: 15.5px; line-height: 1.58; color: var(--paper);
+  flex: 1; min-height: 0; transition: opacity 0.35s;
+}
+.phase-label {
+  font-family: "IM Fell English SC", serif; font-size: 11px;
+  letter-spacing: 0.2em; color: var(--blood); text-align: center;
+}
+.instruction-label {
+  font-family: "Caveat", cursive; font-size: 14px;
+  color: var(--paper-deep); text-align: center; margin-top: -10px;
+}
+
+/* Parchment reveal card — used for end-of-game results */
+.result-card {
+  background: linear-gradient(135deg, var(--paper) 0%, var(--paper-dim) 100%);
+  color: var(--ink); padding: 36px 48px; max-width: 480px; width: 90%;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.65), inset 0 0 0 1px rgba(255,255,255,0.3);
+  animation: card-rise 0.55s cubic-bezier(0.2,0.8,0.3,1) both;
+  position: relative; overflow: hidden;
+}
+.result-card::before {
+  content: ""; position: absolute; inset: 0;
+  background: radial-gradient(ellipse at 80% 110%, color-mix(in oklch, var(--lamp) 8%, transparent), transparent 60%);
+  pointer-events: none;
+}
+@keyframes card-rise {
+  from { transform: translateY(36px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+.result-tag {
+  font-family: "IM Fell English SC", serif; font-size: 10px;
+  letter-spacing: 0.28em; color: var(--blood); margin-bottom: 6px;
+}
+.result-title {
+  font-family: "IM Fell English SC", serif; font-size: 28px;
+  letter-spacing: 0.06em; color: var(--ink); margin-bottom: 2px;
+}
+.result-desc {
+  font-family: "IM Fell English", serif; font-style: italic;
+  font-size: 15px; line-height: 1.6; color: var(--ink); margin-bottom: 14px;
+}
+.result-npc-quote {
+  font-family: "Caveat", cursive; font-size: 17px; color: var(--hull-dark);
+  border-top: 1px solid var(--paper-deep); padding-top: 12px; line-height: 1.45;
+}
+.result-actions {
+  display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;
+}
+</style>
+</head>
+<body>
+
+<div class="backdrop"></div>
+<div class="snow" id="snow"></div>
+
+<span class="corner tl"></span>
+<span class="corner tr"></span>
+<span class="corner bl"></span>
+<span class="corner br"></span>
+
+<!-- Update eyebrow and title per page -->
+<div class="page-header">
+  <div class="eyebrow">— Glassblade Trading Co., Charter Vessel —</div>
+  <div class="title">Day N · Activity</div>
+  <div class="rule"></div>
+</div>
+
+<button class="back-btn" id="backBtn">← Return to Deck</button>
+
+<div class="stage">
+  <div class="game-area">
+
+    <!-- LEFT: gameplay -->
+    <div class="game-panel" id="gamePanel">
+      <!-- Game content goes here -->
+    </div>
+
+    <!-- RIGHT: NPC sidebar — update portrait src, name, role, dialogue -->
+    <div class="npc-sidebar">
+      <div class="npc-portrait" id="npcPortrait"></div>
+      <div class="npc-name">NPC Name</div>
+      <div class="npc-role">Role · Day N</div>
+      <div class="sidebar-rule"></div>
+      <div class="npc-dialogue" id="npcDialogue">
+        "Opening dialogue goes here."
+      </div>
+      <div class="sidebar-rule"></div>
+      <div class="phase-label" id="phaseLabel">Act I — Title</div>
+      <div class="instruction-label" id="instructionLabel">DC check description</div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+(function () {
+
+/* ── SNOW ── */
+const snowEl = document.getElementById("snow");
+for (let i = 0; i < 55; i++) {
+  const f = document.createElement("div");
+  f.className = "flake";
+  const sz = 1 + Math.random() * 2.5;
+  Object.assign(f.style, {
+    width: sz + "px", height: sz + "px",
+    left:  Math.random() * 100 + "%",
+    top:   Math.random() * 100 + "%",
+    animationDuration: (8 + Math.random() * 12) + "s",
+    animationDelay:   (-Math.random() * 15) + "s",
+  });
+  snowEl.appendChild(f);
+}
+
+/* ── BACK BUTTON ── */
+document.getElementById("backBtn").addEventListener("click", () => {
+  window.location.href = "index.html";
+});
+
+/* ── NPC PORTRAIT ── */
+document.getElementById("npcPortrait").style.backgroundImage = "url('assets/PORTRAIT.jpg')";
+
+/* ── STATE HELPERS ── */
+function loadState() {
+  try {
+    const raw = localStorage.getItem("remorhaz");
+    if (!raw) return { currentDay: 1, completed: [], completedDays: [] };
+    const s = JSON.parse(raw);
+    return {
+      currentDay:    s.currentDay    || 1,
+      completed:     Array.from(s.completed    || []),
+      completedDays: Array.from(s.completedDays || []),
+      lastCatch:     s.lastCatch || null,
+    };
+  } catch { return { currentDay: 1, completed: [], completedDays: [] }; }
+}
+function saveState(s) {
+  localStorage.setItem("remorhaz", JSON.stringify(s));
+}
+
+/* ── DIALOGUE HELPER ── */
+function setDialogue(text) {
+  const el = document.getElementById("npcDialogue");
+  el.style.opacity = "0";
+  setTimeout(() => { el.textContent = '"' + text + '"'; el.style.opacity = "1"; }, 220);
+}
+
+function setPhase(p, inst) {
+  document.getElementById("phaseLabel").textContent       = p;
+  document.getElementById("instructionLabel").textContent = inst;
+}
+
+/* ── GAME LOGIC GOES HERE ── */
+
+})();
+</script>
+</body>
+</html>

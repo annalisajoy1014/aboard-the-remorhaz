@@ -1,0 +1,1445 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Day 2 · Ship Maintenance — Aboard the Remorhaz</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+
+/* ── LAYOUT ── */
+.stage {
+  position: fixed; inset: 0; z-index: 1;
+  display: flex; align-items: center; justify-content: center;
+}
+.game-area {
+  display: flex; align-items: stretch;
+  width: min(92vw, 1200px); height: min(76vh, 680px);
+  box-shadow: 0 30px 80px rgba(0,0,0,0.6);
+}
+.game-panel {
+  flex: 1; position: relative; overflow: hidden;
+  border: 1px solid color-mix(in oklch, var(--paper-deep) 25%, transparent);
+  border-right: none;
+}
+
+/* ── SCREENS ── */
+.screen {
+  position: absolute; inset: 0;
+  display: none; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 18px; padding: 28px;
+  background: linear-gradient(to bottom, oklch(0.13 0.03 45), oklch(0.09 0.02 40));
+}
+.screen.active { display: flex; }
+
+/* ── KALT SIDEBAR ── */
+.kalt-sidebar {
+  width: 300px; flex-shrink: 0;
+  background: linear-gradient(160deg,
+    color-mix(in oklch, var(--paper) 11%, var(--ink)) 0%,
+    color-mix(in oklch, var(--paper)  7%, var(--sea-deep)) 100%);
+  border: 1px solid color-mix(in oklch, var(--paper-deep) 28%, transparent);
+  padding: 36px 28px 28px;
+  display: flex; flex-direction: column; gap: 16px;
+}
+.kalt-portrait {
+  width: 100px; height: 100px; border-radius: 50%; margin: 0 auto;
+  border: 2px solid var(--paper-deep);
+  outline: 5px solid color-mix(in oklch, var(--paper-deep) 28%, transparent);
+  background: var(--hull-darkest) center/cover no-repeat;
+}
+.kalt-name {
+  font-family: "IM Fell English SC", serif; font-size: 18px;
+  letter-spacing: 0.08em; color: var(--paper); text-align: center;
+}
+.kalt-role {
+  font-family: "Caveat", cursive; font-size: 14px;
+  color: var(--paper-deep); text-align: center; margin-top: -8px;
+}
+.sidebar-rule {
+  width: 100%; height: 1px; flex-shrink: 0;
+  background: linear-gradient(to right, transparent, var(--paper-deep), transparent);
+}
+.kalt-dialogue {
+  font-family: "IM Fell English", serif; font-style: italic;
+  font-size: 15px; line-height: 1.58; color: var(--paper);
+  flex: 1; min-height: 80px; transition: opacity 0.3s;
+}
+.phase-label {
+  font-family: "IM Fell English SC", serif; font-size: 11px;
+  letter-spacing: 0.2em; color: var(--blood); text-align: center;
+}
+.instruction-label {
+  font-family: "Caveat", cursive; font-size: 13px;
+  color: var(--paper-deep); text-align: center; margin-top: -8px;
+}
+.score-tally { display: flex; flex-direction: column; gap: 5px; }
+.score-row {
+  display: flex; justify-content: space-between;
+  border-bottom: 1px dotted color-mix(in oklch, var(--paper-deep) 35%, transparent);
+  padding-bottom: 4px;
+  font-family: "IM Fell English SC", serif; font-size: 11px;
+  letter-spacing: 0.1em; color: var(--paper-deep);
+}
+.score-row span:last-child {
+  font-family: "IM Fell English", serif; font-style: italic; color: var(--paper);
+}
+.score-total-row {
+  display: flex; justify-content: space-between; padding-top: 4px; margin-top: 2px;
+  font-family: "IM Fell English SC", serif; font-size: 12px;
+  letter-spacing: 0.12em; color: var(--lamp);
+}
+
+/* ── INTRO SCREEN ── */
+.intro-icon { font-size: 46px; }
+.intro-title {
+  font-family: "IM Fell English SC", serif; font-size: 21px;
+  letter-spacing: 0.1em; color: var(--lamp);
+}
+.intro-body {
+  font-family: "IM Fell English", serif; font-style: italic;
+  font-size: 15.5px; line-height: 1.6; color: var(--paper-dim);
+  text-align: center; max-width: 460px;
+}
+.mood-tag {
+  font-family: "IM Fell English SC", serif; font-size: 10px;
+  letter-spacing: 0.26em; color: var(--blood);
+}
+.prior-results {
+  display: flex; gap: 22px; align-items: flex-start; justify-content: center;
+}
+.prior-item {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  font-family: "IM Fell English SC", serif; font-size: 10px;
+  letter-spacing: 0.16em; color: var(--paper-deep);
+}
+.prior-val {
+  font-family: "IM Fell English", serif; font-style: italic;
+  font-size: 13px; color: var(--paper);
+}
+
+/* ── SHARED CANVAS WRAPPER ── */
+.stage-canvas { display: block; border-radius: 2px; }
+
+/* ── STAGE LABELS & FEEDBACK ── */
+.screen-title {
+  font-family: "IM Fell English SC", serif; font-size: 13px;
+  letter-spacing: 0.26em; color: var(--blood); margin-bottom: -6px;
+}
+.stage-feedback {
+  font-family: "IM Fell English SC", serif; font-size: 12px;
+  letter-spacing: 0.22em; color: var(--lamp);
+  min-height: 18px; text-align: center;
+}
+
+/* ── TIMER BAR ── */
+.timer-bar-wrap {
+  width: 480px; height: 7px;
+  background: var(--hull-darkest); border-radius: 4px; overflow: hidden;
+}
+.timer-bar-fill {
+  height: 100%; width: 100%;
+  background: linear-gradient(to right, var(--lamp-warm), var(--blood));
+  transition: width 0.1s linear;
+}
+
+/* ── SAIL STAGE UI ── */
+.seam-progress {
+  display: flex; gap: 20px; align-items: center; justify-content: center;
+}
+.seam-pip {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  font-family: "IM Fell English SC", serif; font-size: 10px;
+  letter-spacing: 0.18em; color: var(--paper-deep);
+}
+.seam-pip-dot {
+  width: 12px; height: 12px; border-radius: 50%;
+  background: var(--hull-mid); border: 1px solid var(--rope-dark);
+  transition: background 0.3s, box-shadow 0.3s;
+}
+.seam-pip-dot.active {
+  background: var(--blood);
+  box-shadow: 0 0 8px color-mix(in oklch, var(--blood) 60%, transparent);
+  animation: seam-pulse 0.7s ease-in-out infinite;
+}
+.seam-pip-dot.done {
+  background: var(--lamp);
+  box-shadow: 0 0 6px color-mix(in oklch, var(--lamp) 40%, transparent);
+}
+@keyframes seam-pulse { 0%,100%{opacity:0.75} 50%{opacity:1} }
+.stitch-hint {
+  font-family: "Caveat", cursive; font-size: 17px; color: var(--paper-dim);
+  text-align: center; min-height: 24px;
+}
+
+/* ── HULL STAGE UI ── */
+.integrity-row {
+  display: flex; gap: 12px; align-items: center; justify-content: center;
+  font-family: "IM Fell English SC", serif; font-size: 10px;
+  letter-spacing: 0.2em; color: var(--paper-deep);
+}
+.integrity-bar-wrap {
+  width: 220px; height: 10px;
+  background: var(--hull-darkest); border-radius: 5px; overflow: hidden;
+}
+.integrity-bar-fill {
+  height: 100%; width: 100%;
+  background: linear-gradient(to right, var(--blood), var(--lamp));
+  transition: width 0.35s ease;
+}
+.integrity-val {
+  font-family: "IM Fell English", serif; font-style: italic;
+  color: var(--paper); font-size: 14px; min-width: 36px;
+}
+
+/* ── RESULT CARD ── */
+.result-card {
+  background: linear-gradient(135deg, var(--paper) 0%, var(--paper-dim) 100%);
+  color: var(--ink); padding: 32px 44px; max-width: 500px; width: 92%;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.65), inset 0 0 0 1px rgba(255,255,255,0.3);
+  animation: card-rise 0.55s cubic-bezier(0.2,0.8,0.3,1) both;
+  position: relative; overflow: hidden;
+}
+.result-card::before {
+  content: ""; position: absolute; inset: 0;
+  background: radial-gradient(ellipse at 80% 110%, color-mix(in oklch, var(--lamp) 10%, transparent), transparent 60%);
+  pointer-events: none;
+}
+@keyframes card-rise { from{transform:translateY(36px);opacity:0} to{transform:translateY(0);opacity:1} }
+.result-tag { font-family:"IM Fell English SC",serif; font-size:10px; letter-spacing:0.28em; color:var(--blood); margin-bottom:6px; }
+.result-score { font-family:"IM Fell English SC",serif; font-size:52px; letter-spacing:0.04em; color:var(--ink); line-height:1; }
+.result-max  { font-family:"Caveat",cursive; font-size:18px; color:var(--paper-deep); margin-bottom:8px; }
+.result-verdict { font-family:"IM Fell English",serif; font-style:italic; font-size:16px; line-height:1.6; color:var(--ink); margin-bottom:14px; }
+.result-bonus {
+  background: color-mix(in oklch, var(--lamp) 14%, transparent);
+  border: 1px solid var(--lamp); padding: 10px 16px; margin-bottom:14px;
+  font-family:"IM Fell English SC",serif; font-size:12px; letter-spacing:0.18em; color:var(--ink);
+}
+.result-kalt { font-family:"Caveat",cursive; font-size:17px; color:var(--hull-dark); border-top:1px solid var(--paper-deep); padding-top:12px; line-height:1.45; }
+.result-actions { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin-top:4px; }
+
+/* ── TRANSITION OVERLAY ── */
+.transition-overlay {
+  position: absolute; inset: 0; z-index: 30;
+  background: oklch(0.08 0.02 40); opacity: 0;
+  pointer-events: none; transition: opacity 0.35s;
+}
+.transition-overlay.fade-in { opacity: 1; pointer-events: auto; }
+
+</style>
+</head>
+<body>
+
+<div class="backdrop"></div>
+<div class="snow" id="snow"></div>
+
+<span class="corner tl"></span>
+<span class="corner tr"></span>
+<span class="corner bl"></span>
+<span class="corner br"></span>
+
+<div class="page-header">
+  <div class="eyebrow">— Glassblade Trading Co., Charter Vessel —</div>
+  <div class="title">Day 2 · Maintenance</div>
+  <div class="rule"></div>
+</div>
+
+<button class="back-btn" id="backBtn">← Return to Deck</button>
+
+<div class="stage">
+  <div class="game-area">
+
+    <!-- LEFT: game screens -->
+    <div class="game-panel" id="gamePanel">
+      <div class="transition-overlay" id="fadeOverlay"></div>
+
+      <!-- INTRO -->
+      <div class="screen active" id="screen-intro">
+        <div class="screen-title">— THE FORWARD DECK —</div>
+        <div class="intro-icon">⚒️</div>
+        <div class="intro-title">Ship Maintenance &amp; Repairs</div>
+        <div class="intro-body" id="introBody">&nbsp;</div>
+        <div class="prior-results" id="priorResults"></div>
+        <div class="mood-tag" id="moodTag">&nbsp;</div>
+        <button class="btn-primary" id="beginBtn">REPORT FOR DUTY</button>
+      </div>
+
+      <!-- STAGE 1: ROPE INSPECTION -->
+      <div class="screen" id="screen-rope">
+        <div class="screen-title">— STAGE I · ROPE INSPECTION —</div>
+        <canvas class="stage-canvas" id="ropeCanvas" width="480" height="252"></canvas>
+        <div class="stage-feedback" id="ropeFeedback"></div>
+        <div class="timer-bar-wrap"><div class="timer-bar-fill" id="ropeTimerFill"></div></div>
+      </div>
+
+      <!-- STAGE 2: SAIL STITCHING -->
+      <div class="screen" id="screen-sail">
+        <div class="screen-title">— STAGE II · SAIL REPAIR —</div>
+        <div class="seam-progress" id="seamProgress"></div>
+        <canvas class="stage-canvas" id="sailCanvas" width="480" height="252"></canvas>
+        <div class="stitch-hint" id="stitchHint">Click each glowing stitch dot to drive the needle.</div>
+      </div>
+
+      <!-- STAGE 3: HULL REPAIR -->
+      <div class="screen" id="screen-hull">
+        <div class="screen-title">— STAGE III · HULL REPAIR —</div>
+        <canvas class="stage-canvas" id="hullCanvas" width="480" height="252"></canvas>
+        <div class="stage-feedback" id="hullFeedback"></div>
+        <div class="integrity-row">
+          <span>HULL</span>
+          <div class="integrity-bar-wrap">
+            <div class="integrity-bar-fill" id="integrityFill"></div>
+          </div>
+          <span class="integrity-val" id="integrityVal">100%</span>
+        </div>
+      </div>
+
+      <!-- RESULT -->
+      <div class="screen" id="screen-result">
+        <div class="result-card" id="resultCard"></div>
+        <div class="result-actions">
+          <button class="btn-primary" id="toHubBtn">Return to Deck</button>
+          <button class="btn-secondary" id="retryBtn">Try Again</button>
+        </div>
+      </div>
+
+    </div><!-- /game-panel -->
+
+    <!-- RIGHT: Kalt sidebar -->
+    <div class="kalt-sidebar">
+      <div class="kalt-portrait" id="kaltPortrait"></div>
+      <div class="kalt-name">Kalt Ironfist</div>
+      <div class="kalt-role">Ship's Carpenter · Day 2</div>
+      <div class="sidebar-rule"></div>
+      <div class="kalt-dialogue" id="kaltDialogue">&nbsp;</div>
+      <div class="sidebar-rule"></div>
+      <div class="phase-label" id="phaseLabel">Dexterity (Crafting) · Strength (Repair)</div>
+      <div class="instruction-label" id="instructionLabel">DC 10 / DC 12 · Earn crew respect</div>
+      <div class="score-tally" id="scoreTally" style="display:none">
+        <div class="score-row"><span>Rope Inspection</span><span id="ts1">—</span></div>
+        <div class="score-row"><span>Sail Repair</span><span id="ts2">—</span></div>
+        <div class="score-row"><span>Hull Repair</span><span id="ts3">—</span></div>
+        <div class="score-total-row"><span>Total</span><span id="tsTotal">—</span></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+(function () {
+
+/* ══════════════════════════════════════════
+   SNOW
+══════════════════════════════════════════ */
+const snowEl = document.getElementById("snow");
+for (let i = 0; i < 55; i++) {
+  const f = document.createElement("div");
+  f.className = "flake";
+  const sz = 1 + Math.random() * 2.5;
+  Object.assign(f.style, {
+    width: sz + "px", height: sz + "px",
+    left:  Math.random() * 100 + "%",
+    top:   Math.random() * 100 + "%",
+    animationDuration: (8 + Math.random() * 12) + "s",
+    animationDelay:   (-Math.random() * 15) + "s",
+  });
+  snowEl.appendChild(f);
+}
+
+/* ══════════════════════════════════════════
+   STATE & DIFFICULTY
+══════════════════════════════════════════ */
+function loadState() {
+  try {
+    const s = JSON.parse(localStorage.getItem("remorhaz") || "{}");
+    return {
+      currentDay:       s.currentDay       || 1,
+      completed:        Array.from(s.completed    || []),
+      completedDays:    Array.from(s.completedDays || []),
+      lastCatch:        s.lastCatch        || null,
+      cookingScore:     s.cookingScore     || 0,
+      cooksProficiency: s.cooksProficiency || false,
+    };
+  } catch { return { currentDay: 1, completed: [], completedDays: [], cookingScore: 0 }; }
+}
+function saveState(s) { localStorage.setItem("remorhaz", JSON.stringify(s)); }
+
+const appState   = loadState();
+const catchRoll  = appState.lastCatch?.roll ?? 2;
+const cookScore  = appState.cookingScore ?? 0;
+const cookProf   = appState.cooksProficiency ?? false;
+
+// Kalt's mood: -2 (contemptuous) → +2 (grudgingly impressed)
+let kaltMood = 0;
+if (catchRoll >= 4)              kaltMood += 1;
+else if (catchRoll <= 1)         kaltMood -= 1;
+if (cookProf || cookScore >= 35) kaltMood += 1;
+else if (cookScore < 18)         kaltMood -= 1;
+kaltMood = Math.max(-2, Math.min(2, kaltMood));
+
+const CFGS = {
+  "-2": {
+    label:    "EMPIRE WEAKLINGS · KALT HAS NO FAITH IN YOU",
+    stage1Time: 9500, stage1Spots: 7,
+    stage2DotWindow: 2000, stage2DotsPerTear: 5,
+    stage3Rate: 800,  crackLife: 3500, largePct: 0.45,
+    winThreshold: 30,
+    kaltIntro:  "Empire weaklings. Captain sends me soft hands and expects good work. Fine. Don't break anything that isn't already broken.",
+    kaltPre1:   "Forward rope lines. Find the wear points before they snap mid-voyage. I expect very little from you.",
+    kaltPre2:   "The mainsail. Stitching dots mark where the needle goes. If you need me to explain stitching, turn around now.",
+    kaltPre3:   "Hull breach. Small cracks you tap shut. Big cracks you hold until they seal. Don't let the sea in.",
+    kaltFailD:  "Exactly as I expected. I'll fix what you missed. Stay out of my way.",
+    kaltGoodD:  "...Barely adequate.",
+    kaltGreatD: "You didn't ruin it. That is the highest compliment you will receive from me today.",
+    kaltFinal:  ["You are exactly as useless as I predicted.", "You managed. Barely. Don't celebrate.", "You work better than you look. I said nothing.", "You surprised me. I won't forgive you for that.", "...I have underestimated you. Don't make a habit of it."],
+  },
+  "-1": {
+    label:    "POOR SHOWING · KALT IS UNIMPRESSED",
+    stage1Time: 11000, stage1Spots: 6,
+    stage2DotWindow: 2300, stage2DotsPerTear: 5,
+    stage3Rate: 1000, crackLife: 4000, largePct: 0.38,
+    winThreshold: 28,
+    kaltIntro:  "So you're the ones they sent me. I've worked with worse. Probably. We'll see if that holds.",
+    kaltPre1:   "Rope inspection. Wear points glow when the fibres start to separate. Find every one.",
+    kaltPre2:   "Sail repairs. Stitch dots appear along each tear one at a time. Don't miss them.",
+    kaltPre3:   "Hull cracks. Click to tap, hold to seal. The integrity gauge tells you how badly you're failing.",
+    kaltFailD:  "Hm. Again. Properly this time.",
+    kaltGoodD:  "That will do.",
+    kaltGreatD: "Not bad. Don't look pleased with yourself.",
+    kaltFinal:  ["I've seen worse. Not often.", "Adequate. Which is more than I expected.", "Good work. Don't take that as warmth.", "You have some skill. I'll grant you that.", "...Aye. You know what you're doing."],
+  },
+  "0": {
+    label:    "STANDARD DUTY · KALT IS WATCHING",
+    stage1Time: 13000, stage1Spots: 6,
+    stage2DotWindow: 2700, stage2DotsPerTear: 4,
+    stage3Rate: 1200, crackLife: 4800, largePct: 0.32,
+    winThreshold: 26,
+    kaltIntro:  "You're assigned to me today. Keep up. Don't ask stupid questions. Follow my lead.",
+    kaltPre1:   "Forward rope inspection. Weak points glow orange when you look close. Click every one you find.",
+    kaltPre2:   "Sail stitching. Dots appear one at a time along the tears. Click while they glow.",
+    kaltPre3:   "Hull repair. Quick cracks need one click. Deep ones — hold until the seal takes. Watch the gauge.",
+    kaltFailD:  "You missed some. I'll note it.",
+    kaltGoodD:  "Adequate.",
+    kaltGreatD: "Good work. Don't let it make you soft.",
+    kaltFinal:  ["Barely passing. That's something.", "You kept up. Good.", "Solid work. The ship is better for it.", "You have a knack for this.", "...Fine work. The crew's noticed."],
+  },
+  "1": {
+    label:    "DECENT HISTORY · KALT IS RESERVED",
+    stage1Time: 14500, stage1Spots: 5,
+    stage2DotWindow: 3000, stage2DotsPerTear: 4,
+    stage3Rate: 1500, crackLife: 5300, largePct: 0.28,
+    winThreshold: 24,
+    kaltIntro:  "Captain tells me you've been pulling your weight. We'll see if that holds when the work gets real.",
+    kaltPre1:   "Rope inspection. Take your time — a missed wear point means a line snapping when we need it most.",
+    kaltPre2:   "Sail needs stitching. Dots mark where the needle goes. You'll manage.",
+    kaltPre3:   "Hull cracks. Tap the small ones. Hold the big ones. Keep the ship sound.",
+    kaltFailD:  "Hm. Pay more attention.",
+    kaltGoodD:  "Aye. Not bad.",
+    kaltGreatD: "That's how it's done. Keep that standard.",
+    kaltFinal:  ["Better than nothing. Ship's in decent shape.", "Good effort. I'll say that.", "You did well. The crew's grateful, even if they don't say so.", "Strong work. You've earned a meal with us tonight.", "...That's the best maintenance I've seen from a non-dwarf. Ever."],
+  },
+  "2": {
+    label:    "PROVEN CREW · KALT IS GRUDGINGLY IMPRESSED",
+    stage1Time: 16000, stage1Spots: 5,
+    stage2DotWindow: 3400, stage2DotsPerTear: 4,
+    stage3Rate: 1800, crackLife: 5800, largePct: 0.24,
+    winThreshold: 22,
+    kaltIntro:  "Good catch. Fed the crew well. Captain says you have some sense in you. Fine. Prove it holds under real work.",
+    kaltPre1:   "Forward ropes. You've got capable hands — I've been told. Let's see if the rest of you is as useful.",
+    kaltPre2:   "Mainsail stitching. I think you can follow dots on a sail without me holding your hand.",
+    kaltPre3:   "Hull breach. Quick ones, steady ones. You'll figure it out — apparently you usually do.",
+    kaltFailD:  "...Don't make that a habit.",
+    kaltGoodD:  "Aye. Good.",
+    kaltGreatD: "...I'll say this. You work as well as you cook.",
+    kaltFinal:  ["You kept the ship sound. That's what matters.", "Good maintenance. The hull will hold.", "You've more than earned your place on this voyage.", "Aye. You're useful. I said it. Don't repeat it.", "Empire-born. Works like a dwarf. I'll tell no one."],
+  },
+};
+
+const cfg = CFGS[kaltMood.toString()];
+let stage1Score = 0, stage2Score = 0, stage3Score = 0;
+
+/* ══════════════════════════════════════════
+   SIDEBAR HELPERS
+══════════════════════════════════════════ */
+document.getElementById("kaltPortrait").style.backgroundImage = "url('assets/kalt.jpg')";
+
+function setDialogue(text) {
+  const el = document.getElementById("kaltDialogue");
+  el.style.opacity = "0";
+  setTimeout(() => { el.textContent = '"' + text + '"'; el.style.opacity = "1"; }, 260);
+}
+function setPhase(p, inst) {
+  document.getElementById("phaseLabel").textContent       = p;
+  document.getElementById("instructionLabel").textContent = inst;
+}
+function showScoreTally() { document.getElementById("scoreTally").style.display = "flex"; }
+function updateTally(s1, s2, s3) {
+  document.getElementById("ts1").textContent = s1 !== null ? s1 + " / 15" : "—";
+  document.getElementById("ts2").textContent = s2 !== null ? s2 + " / 15" : "—";
+  document.getElementById("ts3").textContent = s3 !== null ? s3 + " / 15" : "—";
+  const t = (s1||0)+(s2||0)+(s3||0);
+  document.getElementById("tsTotal").textContent = (s1!==null||s2!==null||s3!==null) ? t + " / 45" : "—";
+}
+
+/* ══════════════════════════════════════════
+   SCREEN SWITCHER
+══════════════════════════════════════════ */
+const fadeOverlay = document.getElementById("fadeOverlay");
+function goToScreen(id) {
+  fadeOverlay.classList.add("fade-in");
+  setTimeout(() => {
+    document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+    document.getElementById(id).classList.add("active");
+    fadeOverlay.classList.remove("fade-in");
+  }, 380);
+}
+
+/* ══════════════════════════════════════════
+   INTRO SCREEN
+══════════════════════════════════════════ */
+const CATCH_NAMES = { 1:"Silver Fish", 2:"Sea Eel", 3:"Arctic Halibut", 4:"Arctic Char" };
+const MOOD_LABELS = ["Contemptuous","Dismissive","Watching","Reserved","Grudgingly Impressed"];
+
+document.getElementById("introBody").textContent = cfg.kaltIntro;
+document.getElementById("moodTag").textContent   = cfg.label;
+setDialogue(cfg.kaltIntro);
+
+(function buildPriorResults() {
+  const el = document.getElementById("priorResults");
+  const catchText = appState.lastCatch ? `${CATCH_NAMES[catchRoll]||"Unknown"} · Roll ${catchRoll}` : "No record";
+  const cookText  = cookScore ? `${cookScore}/45${cookProf?" ·  ✓ Proficient":""}` : "No record";
+  el.innerHTML = `
+    <div class="prior-item"><span>Fishing</span><span class="prior-val">${catchText}</span></div>
+    <div class="prior-item"><span>Cooking</span><span class="prior-val">${cookText}</span></div>
+    <div class="prior-item"><span>Kalt's Mood</span><span class="prior-val">${MOOD_LABELS[kaltMood+2]}</span></div>`;
+})();
+
+document.getElementById("beginBtn").addEventListener("click", () => {
+  setDialogue(cfg.kaltPre1);
+  goToScreen("screen-rope");
+  setTimeout(startRopeInspection, 500);
+});
+document.getElementById("backBtn").addEventListener("click", () => { window.location.href = "index.html"; });
+
+/* ══════════════════════════════════════════
+   CANVAS HELPERS
+══════════════════════════════════════════ */
+function lerp(a, b, t) { return a + (b-a) * Math.max(0, Math.min(1, t)); }
+
+// Draw a braided horizontal rope from (x0,y) to (x1,y)
+function drawBraidedRope(ctx, x0, x1, y) {
+  ctx.strokeStyle = "rgba(0,0,0,0.55)"; ctx.lineWidth = 8; ctx.lineCap = "butt";
+  ctx.beginPath(); ctx.moveTo(x0, y+2); ctx.lineTo(x1, y+2); ctx.stroke();
+  for (let strand = 0; strand < 2; strand++) {
+    ctx.beginPath();
+    ctx.strokeStyle = strand === 0 ? "rgba(167,138,94,0.92)" : "rgba(98,74,47,0.92)";
+    ctx.lineWidth = 2.8; ctx.lineCap = "round";
+    for (let x = x0; x <= x1; x += 3) {
+      const t = (x - x0) / 22;
+      const oy = Math.sin(t * Math.PI + strand * Math.PI) * 2.8;
+      x === x0 ? ctx.moveTo(x, y+oy) : ctx.lineTo(x, y+oy);
+    }
+    ctx.stroke();
+  }
+  ctx.strokeStyle = "rgba(220,195,148,0.28)"; ctx.lineWidth = 0.8;
+  ctx.beginPath(); ctx.moveTo(x0, y-1.5); ctx.lineTo(x1, y-1.5); ctx.stroke();
+}
+
+// Iron cleat anchoring the rope
+function drawCleat(ctx, cx, cy) {
+  ctx.fillStyle = "#2a1e0f";
+  ctx.fillRect(cx-16, cy-14, 32, 10);
+  ctx.fillStyle = "#1a120a";
+  ctx.fillRect(cx-11, cy-10, 22, 5);
+  ctx.fillStyle = "#4a3a28";
+  ctx.beginPath(); ctx.arc(cx, cy-9, 5, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = "rgba(255,210,150,0.18)";
+  ctx.fillRect(cx-16, cy-14, 32, 1.5);
+}
+
+// Dark wood plank background with subtle grain
+function drawPlanks(ctx, w, h, baseLight = 0) {
+  const bg = ctx.createLinearGradient(0, 0, 0, h);
+  bg.addColorStop(0, baseLight ? "#1a1209" : "#110d07");
+  bg.addColorStop(1, baseLight ? "#0e0906" : "#080604");
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h);
+
+  ctx.strokeStyle = "rgba(40,28,14,0.45)"; ctx.lineWidth = 0.8;
+  for (let by = 0; by < h; by += 38) {
+    ctx.beginPath(); ctx.moveTo(0, by+0.5); ctx.lineTo(w, by+0.5); ctx.stroke();
+  }
+  // grain striations
+  ctx.save(); ctx.globalAlpha = 0.22;
+  for (let i = 0; i < 18; i++) {
+    const gy = (i/18)*h + Math.sin(i*1.9)*1.2;
+    ctx.strokeStyle = i%3===0 ? "rgba(80,55,28,0.5)" : "rgba(35,22,10,0.7)";
+    ctx.lineWidth = i%5===0 ? 0.9 : 0.5;
+    ctx.beginPath(); ctx.moveTo(0, gy);
+    for (let x = 0; x <= w; x += 10)
+      ctx.lineTo(x, gy + Math.sin(x*0.014 + i*0.8)*0.9);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// Lantern glow pooling from upper right
+function drawLanternGlow(ctx, w, h) {
+  const lg = ctx.createRadialGradient(w*0.84, 0, 0, w*0.84, 0, w*0.45);
+  lg.addColorStop(0, "rgba(243,195,118,0.16)");
+  lg.addColorStop(0.5, "rgba(243,195,118,0.05)");
+  lg.addColorStop(1, "transparent");
+  ctx.fillStyle = lg; ctx.fillRect(0, 0, w, h);
+}
+
+/* ══════════════════════════════════════════
+   STAGE 1: ROPE INSPECTION  (Dex / Crafting DC 10)
+══════════════════════════════════════════ */
+function startRopeInspection() {
+  const canvas = document.getElementById("ropeCanvas");
+  const ctx    = canvas.getContext("2d");
+  const CW = canvas.width, CH = canvas.height;
+  const ROPE_Y = CH * 0.50;
+  const ROPE_X0 = 52, ROPE_X1 = CW - 52;
+
+  let spots       = [];    // { x, y, phase, radius, spawnAt, lifetime, clicked, faded }
+  let spotted     = 0;
+  let totalSpawned = 0;
+  const TOTAL     = cfg.stage1Spots;
+  let timeLeft    = cfg.stage1Time;
+  let elapsed     = 0;
+  let lastTs      = null;
+  let animId      = null;
+  let done        = false;
+  let nextSpawn   = 1100;
+
+  setPhase("Stage I — Rope Inspection", "Dexterity (Crafting) · DC 10 · Find every wear point");
+
+  const timerInterval = setInterval(() => {
+    timeLeft = Math.max(0, timeLeft - 100);
+    document.getElementById("ropeTimerFill").style.width = (timeLeft / cfg.stage1Time * 100) + "%";
+    if (timeLeft === 0) { clearInterval(timerInterval); endRopeStage(); }
+  }, 100);
+
+  canvas.style.cursor = "crosshair";
+  canvas.addEventListener("click", onRopeClick);
+
+  function onRopeClick(e) {
+    if (done) return;
+    const rect = canvas.getBoundingClientRect();
+    const mx = (e.clientX - rect.left) * (CW / rect.width);
+    const my = (e.clientY - rect.top)  * (CH / rect.height);
+    for (const s of spots) {
+      if (s.clicked || s.faded) continue;
+      if (Math.hypot(mx - s.x, my - s.y) < s.radius + 10) {
+        s.clicked = true; spotted++;
+        document.getElementById("ropeFeedback").textContent = spotted + " / " + TOTAL + " wear points found";
+        const pct = spotted / TOTAL;
+        setDialogue(pct >= 1 ? "Every one. That is... unexpected." :
+                    pct >= 0.7 ? "Most of them. The ones you missed will cost us." :
+                    cfg.kaltGoodD);
+        break;
+      }
+    }
+  }
+
+  function draw(ts) {
+    if (done) return;
+    if (!lastTs) lastTs = ts;
+    const dt = ts - lastTs; lastTs = ts;
+    elapsed += dt;
+
+    // Spawn wear spots on schedule
+    if (totalSpawned < TOTAL && elapsed >= nextSpawn) {
+      const margin = 70;
+      const nx = margin + Math.random() * (ROPE_X1 - ROPE_X0 - margin*2) + ROPE_X0;
+      spots.push({
+        x: nx, y: ROPE_Y + (Math.random()-0.5)*5,
+        phase:    Math.random() * Math.PI * 2,
+        radius:   14 + Math.random() * 9,
+        spawnAt:  elapsed,
+        lifetime: 2600 + Math.random() * 1400,
+        clicked: false, faded: false,
+      });
+      totalSpawned++;
+      const remaining    = cfg.stage1Time - elapsed;
+      const spotsLeft    = TOTAL - totalSpawned;
+      nextSpawn = elapsed + (spotsLeft > 0 ? (remaining / (spotsLeft + 1)) * (0.6 + Math.random() * 0.8) : Infinity);
+    }
+
+    ctx.clearRect(0, 0, CW, CH);
+    drawPlanks(ctx, CW, CH);
+    drawLanternGlow(ctx, CW, CH);
+
+    // Secondary rope above and below (atmospheric depth)
+    ctx.save(); ctx.globalAlpha = 0.18;
+    drawBraidedRope(ctx, ROPE_X0+20, ROPE_X1-20, ROPE_Y - 62);
+    drawBraidedRope(ctx, ROPE_X0+10, ROPE_X1-10, ROPE_Y + 68);
+    ctx.restore();
+
+    // Main rope
+    drawBraidedRope(ctx, ROPE_X0, ROPE_X1, ROPE_Y);
+    drawCleat(ctx, ROPE_X0, ROPE_Y);
+    drawCleat(ctx, ROPE_X1, ROPE_Y);
+
+    // Wear spots
+    for (const s of spots) {
+      const age = elapsed - s.spawnAt;
+      if (age > s.lifetime) { s.faded = true; continue; }
+      if (s.clicked) {
+        // Sealed marker
+        ctx.save(); ctx.globalAlpha = 0.55;
+        ctx.strokeStyle = "#c8b070"; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.ellipse(s.x, s.y, s.radius*0.55, s.radius*0.2, 0, 0, Math.PI*2); ctx.stroke();
+        ctx.restore();
+        continue;
+      }
+      const progress = age / s.lifetime;
+      const envelope = progress < 0.14 ? progress/0.14 : progress > 0.82 ? (1-progress)/0.18 : 1;
+      const flicker  = 0.65 + 0.35 * Math.sin(elapsed * 0.008 + s.phase);
+      const alpha    = envelope * flicker;
+
+      // Outer glow
+      const glow = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, s.radius * 2.2);
+      glow.addColorStop(0,   `rgba(210,88,22,${alpha*0.52})`);
+      glow.addColorStop(0.45,`rgba(180,60,14,${alpha*0.22})`);
+      glow.addColorStop(1,   "transparent");
+      ctx.fillStyle = glow;
+      ctx.fillRect(s.x - s.radius*2.5, s.y - s.radius*2.5, s.radius*5, s.radius*5);
+
+      // Frayed core patch
+      ctx.save();
+      ctx.globalAlpha = alpha * 0.78;
+      ctx.fillStyle = "#b03808";
+      ctx.beginPath();
+      ctx.ellipse(s.x, s.y, s.radius*0.58, s.radius*0.22, 0, 0, Math.PI*2);
+      ctx.fill();
+      // fraying texture lines
+      ctx.strokeStyle = "rgba(80,20,4,0.6)"; ctx.lineWidth = 0.8;
+      for (let fi = 0; fi < 4; fi++) {
+        const angle = (fi/4)*Math.PI + s.phase;
+        ctx.beginPath();
+        ctx.moveTo(s.x + Math.cos(angle)*3, s.y + Math.sin(angle)*2);
+        ctx.lineTo(s.x + Math.cos(angle)*(s.radius*0.5+4), s.y + Math.sin(angle)*(s.radius*0.18+3));
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // Vignette
+    const vig = ctx.createRadialGradient(CW*0.5, CH*0.5, CW*0.18, CW*0.5, CH*0.5, CW*0.72);
+    vig.addColorStop(0, "transparent"); vig.addColorStop(1, "rgba(0,0,0,0.52)");
+    ctx.fillStyle = vig; ctx.fillRect(0, 0, CW, CH);
+
+    animId = requestAnimationFrame(draw);
+  }
+
+  animId = requestAnimationFrame(draw);
+
+  function endRopeStage() {
+    if (done) return;
+    done = true;
+    cancelAnimationFrame(animId);
+    canvas.removeEventListener("click", onRopeClick);
+    clearInterval(timerInterval);
+
+    const pct    = spotted / TOTAL;
+    stage1Score  = Math.round(Math.min(15, pct * 15));
+    const missed = TOTAL - spotted;
+
+    let dialogue;
+    if (pct >= 1)       dialogue = "Every single wear point. You have better eyes than I gave you credit for.";
+    else if (pct >= 0.7) dialogue = `${missed} missed. The lines you didn't find will be checked again. By me.`;
+    else if (pct >= 0.4) dialogue = `Half. I'll inspect the rest myself. Try not to feel ashamed. Actually — feel ashamed.`;
+    else                 dialogue = "You missed most of them. These ropes will snap in the first real storm. Useless.";
+    setDialogue(dialogue);
+
+    showScoreTally();
+    updateTally(stage1Score, null, null);
+    document.getElementById("ropeFeedback").textContent = `${spotted} / ${TOTAL} found · ${stage1Score} / 15 pts`;
+
+    setTimeout(() => {
+      goToScreen("screen-sail");
+      setTimeout(startSailRepair, 500);
+    }, 2000);
+  }
+}
+
+/* ══════════════════════════════════════════
+   STAGE 2: SAIL STITCHING  (Dex / Crafting DC 10)
+══════════════════════════════════════════ */
+function startSailRepair() {
+  const canvas = document.getElementById("sailCanvas");
+  const ctx    = canvas.getContext("2d");
+  const CW = canvas.width, CH = canvas.height;
+
+  setPhase("Stage II — Sail Repair", "Dexterity (Crafting) · DC 10 · Click each stitch dot");
+  setDialogue(cfg.kaltPre2);
+
+  // Three tears: each defined as a line across the sail with a list of stitch points
+  const TEARS = [
+    { label: "Tear I",   points: genStitchPoints(68, 88, CW*0.22, CH*0.28, CW*0.78, CH*0.36) },
+    { label: "Tear II",  points: genStitchPoints(100, 120, CW*0.15, CH*0.56, CW*0.85, CH*0.48) },
+    { label: "Tear III", points: genStitchPoints(130, 148, CW*0.25, CH*0.74, CW*0.75, CH*0.80) },
+  ];
+  function genStitchPoints(yCenter, yVariance, x0, y0, x1, y1) {
+    const count = cfg.stage2DotsPerTear;
+    const pts = [];
+    for (let i = 0; i < count; i++) {
+      const t = (i + 0.5) / count;
+      pts.push({
+        x: x0 + (x1-x0)*t + (Math.random()-0.5)*14,
+        y: y0 + (y1-y0)*t + (Math.random()-0.5)*8,
+        stitched: false,
+      });
+    }
+    return pts;
+  }
+
+  // Build seam progress pips
+  const seamProg = document.getElementById("seamProgress");
+  seamProg.innerHTML = "";
+  TEARS.forEach((tear, ti) => {
+    const pip = document.createElement("div");
+    pip.className = "seam-pip";
+    pip.innerHTML = `<div class="seam-pip-dot${ti===0?" active":""}" id="pip-${ti}"></div><span>${tear.label}</span>`;
+    seamProg.appendChild(pip);
+  });
+
+  let currentTear = 0;
+  let currentDot  = 0;
+  let dotSpawnedAt = null;
+  let totalHit    = 0;
+  let totalDots   = TEARS.reduce((s, t) => s + t.points.length, 0);
+  let animId      = null;
+  let done        = false;
+  let ts0         = null;
+
+  canvas.style.cursor = "crosshair";
+  canvas.addEventListener("click", onSailClick);
+
+  function onSailClick(e) {
+    if (done) return;
+    const tear = TEARS[currentTear];
+    const dot  = tear.points[currentDot];
+    if (!dot || dot.stitched) return;
+    if (dotSpawnedAt === null) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const mx = (e.clientX - rect.left) * (CW / rect.width);
+    const my = (e.clientY - rect.top)  * (CH / rect.height);
+    const dist = Math.hypot(mx - dot.x, my - dot.y);
+
+    if (dist < 22) {
+      dot.stitched = true;
+      totalHit++;
+      dotSpawnedAt = null;
+
+      currentDot++;
+      if (currentDot >= tear.points.length) {
+        // Tear done
+        document.getElementById(`pip-${currentTear}`).classList.remove("active");
+        document.getElementById(`pip-${currentTear}`).classList.add("done");
+        currentTear++;
+        currentDot = 0;
+        if (currentTear >= TEARS.length) {
+          endSailStage();
+          return;
+        }
+        document.getElementById(`pip-${currentTear}`).classList.add("active");
+        setDialogue(currentTear === 1 ? "Second tear. Keep the same rhythm." :
+                    currentTear === 2 ? "Last one. Make it clean." : cfg.kaltGoodD);
+      }
+      // Spawn next dot after brief pause
+      setTimeout(() => { if (!done) dotSpawnedAt = performance.now(); }, 340);
+    }
+  }
+
+  function draw(ts) {
+    if (done) return;
+    if (!ts0) { ts0 = ts; dotSpawnedAt = ts; }
+
+    ctx.clearRect(0, 0, CW, CH);
+
+    // Sail background (canvas material)
+    const sailG = ctx.createLinearGradient(0, 0, 0, CH);
+    sailG.addColorStop(0, "#ede4cc");
+    sailG.addColorStop(1, "#d8cfb4");
+    ctx.fillStyle = sailG; ctx.fillRect(0, 0, CW, CH);
+
+    // Weave texture
+    ctx.save(); ctx.globalAlpha = 0.06;
+    ctx.strokeStyle = "#6a5c3a"; ctx.lineWidth = 0.6;
+    for (let wy = 0; wy < CH; wy += 5) {
+      ctx.beginPath(); ctx.moveTo(0, wy); ctx.lineTo(CW, wy); ctx.stroke();
+    }
+    for (let wx = 0; wx < CW; wx += 8) {
+      ctx.beginPath(); ctx.moveTo(wx, 0); ctx.lineTo(wx, CH); ctx.stroke();
+    }
+    ctx.restore();
+
+    // Wooden batten strips (top & bottom)
+    const batG = ctx.createLinearGradient(0, 0, 0, 18);
+    batG.addColorStop(0, "#5a4025"); batG.addColorStop(1, "#3a2a18");
+    ctx.fillStyle = batG;
+    ctx.fillRect(0, 0, CW, 16);
+    ctx.fillRect(0, CH-16, CW, 16);
+    ctx.fillStyle = "rgba(255,210,150,0.22)";
+    ctx.fillRect(0, 0, CW, 1.5);
+    ctx.fillRect(0, CH-16, CW, 1.5);
+
+    // Draw all 3 tear lines
+    TEARS.forEach((tear, ti) => {
+      const first = tear.points[0], last = tear.points[tear.points.length-1];
+      const done_t = (ti < currentTear);
+      const isActive = (ti === currentTear);
+
+      // Raw tear (zigzag) drawn behind stitches
+      ctx.save();
+      ctx.strokeStyle = done_t ? "rgba(60,40,20,0.15)" : isActive ? "rgba(60,28,8,0.55)" : "rgba(60,28,8,0.28)";
+      ctx.lineWidth   = done_t ? 1 : 2;
+      ctx.setLineDash(done_t ? [] : [5,3]);
+      ctx.beginPath();
+      ctx.moveTo(first.x - 10, first.y);
+      tear.points.forEach((pt, i) => {
+        const jog = (i%2===0 ? 4 : -4);
+        ctx.lineTo(pt.x + (Math.random()-0.5)*2, pt.y + jog);
+      });
+      ctx.lineTo(last.x + 10, last.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+
+      // Stitched dots (completed)
+      tear.points.forEach(pt => {
+        if (!pt.stitched) return;
+        ctx.save();
+        ctx.fillStyle = "#c49820";
+        ctx.beginPath(); ctx.arc(pt.x, pt.y, 4.5, 0, Math.PI*2); ctx.fill();
+        ctx.strokeStyle = "#8a6a14"; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.arc(pt.x, pt.y, 4.5, 0, Math.PI*2); ctx.stroke();
+        ctx.restore();
+      });
+
+      // Stitch thread connecting completed dots
+      if (tear.points.filter(p => p.stitched).length > 1) {
+        const stitched = tear.points.filter(p => p.stitched);
+        ctx.save();
+        ctx.strokeStyle = "rgba(196,152,32,0.55)"; ctx.lineWidth = 1.5; ctx.setLineDash([3,4]);
+        ctx.beginPath();
+        stitched.forEach((pt, i) => i===0 ? ctx.moveTo(pt.x, pt.y) : ctx.lineTo(pt.x, pt.y));
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.restore();
+      }
+    });
+
+    // Active stitch dot (current target)
+    if (currentTear < TEARS.length && !done) {
+      const dot = TEARS[currentTear].points[currentDot];
+      if (dot && !dot.stitched && dotSpawnedAt !== null) {
+        const age      = performance.now() - dotSpawnedAt;
+        const life     = cfg.stage2DotWindow;
+        const progress = Math.min(1, age / life);
+        const pulse    = 0.6 + 0.4 * Math.sin(ts * 0.009);
+        const envelope = progress < 0.12 ? progress/0.12 : progress > 0.78 ? (1-progress)/0.22 : 1;
+        const alpha    = envelope * pulse;
+
+        // Timeout warning ring
+        if (progress > 0.6) {
+          const warn = (progress - 0.6) / 0.4;
+          ctx.save();
+          ctx.strokeStyle = `rgba(160,40,14,${warn*0.7})`;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(dot.x, dot.y, 20, -Math.PI/2, -Math.PI/2 + progress*Math.PI*2);
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // Glow
+        const dg = ctx.createRadialGradient(dot.x, dot.y, 0, dot.x, dot.y, 28);
+        dg.addColorStop(0, `rgba(200,160,30,${alpha*0.55})`);
+        dg.addColorStop(1, "transparent");
+        ctx.fillStyle = dg;
+        ctx.fillRect(dot.x-28, dot.y-28, 56, 56);
+
+        // Needle dot
+        ctx.fillStyle = `rgba(212,160,28,${alpha})`;
+        ctx.beginPath(); ctx.arc(dot.x, dot.y, 7, 0, Math.PI*2); ctx.fill();
+        ctx.strokeStyle = `rgba(80,50,8,${alpha*0.8})`; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(dot.x, dot.y, 7, 0, Math.PI*2); ctx.stroke();
+
+        // Crosshair lines
+        ctx.save(); ctx.globalAlpha = alpha * 0.45;
+        ctx.strokeStyle = "#c49820"; ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(dot.x-14, dot.y); ctx.lineTo(dot.x-9, dot.y);
+        ctx.moveTo(dot.x+9,  dot.y); ctx.lineTo(dot.x+14, dot.y);
+        ctx.moveTo(dot.x, dot.y-14); ctx.lineTo(dot.x, dot.y-9);
+        ctx.moveTo(dot.x, dot.y+9);  ctx.lineTo(dot.x, dot.y+14);
+        ctx.stroke();
+        ctx.restore();
+
+        // Dot times out
+        if (age > life && !dot.stitched) {
+          // missed — advance silently, Kalt mutters
+          dot.stitched = false; // keep unstitched (missed)
+          dotSpawnedAt = null;
+          setDialogue(cfg.kaltFailD);
+          currentDot++;
+          if (currentDot >= TEARS[currentTear].points.length) {
+            document.getElementById(`pip-${currentTear}`).classList.remove("active");
+            currentTear++;
+            currentDot = 0;
+            if (currentTear < TEARS.length) document.getElementById(`pip-${currentTear}`).classList.add("active");
+            if (currentTear >= TEARS.length) { endSailStage(); return; }
+          }
+          setTimeout(() => { if (!done) dotSpawnedAt = performance.now(); }, 300);
+        }
+      }
+    }
+
+    // Subtle sail shadow edges
+    ctx.save();
+    const leftShad = ctx.createLinearGradient(0, 0, 28, 0);
+    leftShad.addColorStop(0, "rgba(0,0,0,0.14)"); leftShad.addColorStop(1, "transparent");
+    ctx.fillStyle = leftShad; ctx.fillRect(0, 0, 28, CH);
+    const rightShad = ctx.createLinearGradient(CW, 0, CW-28, 0);
+    rightShad.addColorStop(0, "rgba(0,0,0,0.14)"); rightShad.addColorStop(1, "transparent");
+    ctx.fillStyle = rightShad; ctx.fillRect(CW-28, 0, 28, CH);
+    ctx.restore();
+
+    animId = requestAnimationFrame(draw);
+  }
+
+  animId = requestAnimationFrame(draw);
+
+  function endSailStage() {
+    if (done) return;
+    done = true;
+    cancelAnimationFrame(animId);
+    canvas.removeEventListener("click", onSailClick);
+
+    const pct    = totalHit / totalDots;
+    stage2Score  = Math.round(Math.min(15, pct * 15));
+
+    let dialogue;
+    if (pct >= 0.95)     dialogue = "Every stitch placed. ...Fine. I'll admit that is competent work.";
+    else if (pct >= 0.75) dialogue = "Most of the tears sealed. The ones you missed I'll do myself. Quietly.";
+    else if (pct >= 0.5)  dialogue = "Half the stitches. The sail will hold in calm weather. That is the best I can say.";
+    else                  dialogue = "You missed most of the stitches. This sail will tear in the first real wind. Magnificent.";
+    setDialogue(dialogue);
+
+    updateTally(stage1Score, stage2Score, null);
+    document.getElementById("stitchHint").textContent = `${totalHit} / ${totalDots} stitches · ${stage2Score} / 15 pts`;
+
+    setTimeout(() => {
+      goToScreen("screen-hull");
+      setTimeout(startHullRepair, 500);
+    }, 2000);
+  }
+}
+
+/* ══════════════════════════════════════════
+   STAGE 3: HULL REPAIR  (Str / Repair DC 12)
+══════════════════════════════════════════ */
+function startHullRepair() {
+  const canvas = document.getElementById("hullCanvas");
+  const ctx    = canvas.getContext("2d");
+  const CW = canvas.width, CH = canvas.height;
+
+  setPhase("Stage III — Hull Repair", "Strength (Repair) · DC 12 · Seal before breach");
+  setDialogue(cfg.kaltPre3);
+
+  const PLANK_H = 38;
+  const PLANK_COUNT = Math.floor(CH / PLANK_H);
+  // Plank Y centers (skip topmost and bottommost rows)
+  const PLANK_YS = Array.from({length: PLANK_COUNT-2}, (_, i) => (i+1)*PLANK_H + PLANK_H/2);
+
+  let cracks = [];      // { x, y, isLarge, born, patched, breached }
+  let waterParticles = [];
+  let waterLevel = CH + 20;  // starts off screen, rises as breaches happen
+  let hullDamage = 0;        // 0-100
+  let spawnInterval = null;
+  let animId = null;
+  let done = false;
+  let ts0  = null;
+  let totalCracks   = 0;
+  let patchedCracks = 0;
+
+  // Hold mechanic for large cracks
+  let holdTarget = null;  // { crackIdx, startTime }
+  let holdRingProgress = 0;
+  const HOLD_NEEDED = 1400; // ms to seal a large crack
+
+  function updateIntegrity() {
+    const pct = Math.max(0, 100 - hullDamage);
+    document.getElementById("integrityFill").style.width = pct + "%";
+    document.getElementById("integrityVal").textContent   = Math.round(pct) + "%";
+    // Color shift: green→amber→red handled by gradient
+    const fill = document.getElementById("integrityFill");
+    if (pct < 35)      fill.style.background = "linear-gradient(to right, #7a1008, #c03020)";
+    else if (pct < 60) fill.style.background = "linear-gradient(to right, #b07010, #d4a020)";
+    else               fill.style.background = ""; // CSS default
+  }
+
+  function spawnCrack() {
+    if (done) return;
+    const isLarge = Math.random() < cfg.largePct;
+    const py = PLANK_YS[Math.floor(Math.random() * PLANK_YS.length)];
+    const margin = 50;
+    const px = margin + Math.random() * (CW - margin*2);
+    cracks.push({ x: px, y: py, isLarge, born: performance.now(), patched: false, breached: false });
+    totalCracks++;
+  }
+
+  spawnInterval = setInterval(spawnCrack, cfg.stage3Rate);
+  // Initial crack right away
+  setTimeout(spawnCrack, 400);
+
+  // Total stage time: 25 seconds
+  const STAGE_DURATION = 25000;
+  let stageTimeLeft = STAGE_DURATION;
+  const stageTimer = setInterval(() => {
+    stageTimeLeft -= 100;
+    if (stageTimeLeft <= 0) { clearInterval(stageTimer); endHullStage(); }
+  }, 100);
+
+  canvas.style.cursor = "crosshair";
+
+  // Pointer events
+  canvas.addEventListener("pointerdown", onHullDown);
+  document.addEventListener("pointerup",   onHullUp);
+  document.addEventListener("pointercancel", onHullUp);
+
+  function getCrackAt(mx, my) {
+    for (let i = cracks.length-1; i >= 0; i--) {
+      const c = cracks[i];
+      if (c.patched || c.breached) continue;
+      if (Math.hypot(mx-c.x, my-c.y) < (c.isLarge ? 26 : 20)) return i;
+    }
+    return -1;
+  }
+
+  function onHullDown(e) {
+    if (done) return;
+    const rect = canvas.getBoundingClientRect();
+    const mx = (e.clientX - rect.left) * (CW / rect.width);
+    const my = (e.clientY - rect.top)  * (CH / rect.height);
+    const idx = getCrackAt(mx, my);
+    if (idx < 0) return;
+
+    const c = cracks[idx];
+    if (!c.isLarge) {
+      // Small crack: instant seal
+      c.patched = true; patchedCracks++;
+      spawnSealParticles(c.x, c.y);
+      setDialogue(patchedCracks % 3 === 0 ? cfg.kaltGoodD : "");
+    } else {
+      // Large crack: hold required
+      holdTarget = { crackIdx: idx, startTime: performance.now() };
+    }
+  }
+
+  function onHullUp() {
+    if (holdTarget) {
+      const elapsed = performance.now() - holdTarget.startTime;
+      if (elapsed >= HOLD_NEEDED * 0.92) {
+        // Sealed
+        const c = cracks[holdTarget.crackIdx];
+        if (c && !c.patched && !c.breached) {
+          c.patched = true; patchedCracks++;
+          spawnSealParticles(c.x, c.y);
+          setDialogue(cfg.kaltGoodD);
+        }
+      } else {
+        setDialogue(cfg.kaltFailD);
+      }
+      holdTarget = null;
+    }
+  }
+
+  // Seal spark particles
+  let sealParticles = [];
+  function spawnSealParticles(x, y) {
+    for (let i = 0; i < 8; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 0.5 + Math.random() * 1.2;
+      sealParticles.push({
+        x, y, vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed,
+        life: 1, decay: 0.045 + Math.random() * 0.03,
+      });
+    }
+  }
+
+  // Water drip particles from unpatched cracks
+  function spawnDrip(c) {
+    if (Math.random() > 0.06) return;
+    waterParticles.push({
+      x: c.x + (Math.random()-0.5)*6, y: c.y + 4,
+      vy: 0.8 + Math.random() * 1.4, vx: (Math.random()-0.5)*0.4,
+      r: 1.2 + Math.random() * 1.8, life: 1,
+    });
+  }
+
+  function draw(ts) {
+    if (done) return;
+    if (!ts0) ts0 = ts;
+    const now = performance.now();
+
+    ctx.clearRect(0, 0, CW, CH);
+    drawPlanks(ctx, CW, CH, 1);
+    drawLanternGlow(ctx, CW, CH);
+
+    // Plank edge lines (horizontal dividers)
+    ctx.strokeStyle = "rgba(0,0,0,0.5)"; ctx.lineWidth = 1.5;
+    for (let i = 0; i <= PLANK_COUNT; i++) {
+      const py = i * PLANK_H;
+      ctx.beginPath(); ctx.moveTo(0, py+0.5); ctx.lineTo(CW, py+0.5); ctx.stroke();
+    }
+    // Vertical seams at plank joints
+    ctx.strokeStyle = "rgba(0,0,0,0.4)"; ctx.lineWidth = 0.8;
+    const SEAM_W = 140;
+    for (let i = 0; i < PLANK_COUNT; i++) {
+      const offset = (i%2)*70;
+      for (let sx = offset; sx < CW; sx += SEAM_W) {
+        ctx.beginPath(); ctx.moveTo(sx, i*PLANK_H); ctx.lineTo(sx, (i+1)*PLANK_H); ctx.stroke();
+      }
+    }
+
+    // Rising water at bottom
+    if (hullDamage > 0) {
+      waterLevel = CH - (hullDamage / 100) * (CH * 0.42);
+      ctx.save();
+      const wG = ctx.createLinearGradient(0, waterLevel, 0, CH);
+      wG.addColorStop(0, "rgba(28,58,100,0.7)");
+      wG.addColorStop(1, "rgba(14,32,62,0.9)");
+      ctx.fillStyle = wG; ctx.fillRect(0, waterLevel, CW, CH - waterLevel);
+
+      // Surface ripple
+      ctx.strokeStyle = "rgba(120,180,220,0.35)"; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(0, waterLevel);
+      for (let x = 0; x <= CW; x += 8)
+        ctx.lineTo(x, waterLevel + Math.sin(x*0.025 + ts*0.002)*2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Water drip particles
+    waterParticles = waterParticles.filter(p => p.life > 0);
+    waterParticles.forEach(p => {
+      p.x += p.vx; p.y += p.vy; p.vy += 0.06; p.life -= 0.018;
+      ctx.save(); ctx.globalAlpha = p.life * 0.6;
+      ctx.fillStyle = "#4a8ab4";
+      ctx.beginPath(); ctx.ellipse(p.x, p.y, p.r*0.6, p.r, 0, 0, Math.PI*2); ctx.fill();
+      ctx.restore();
+    });
+
+    // Cracks
+    cracks.forEach((c, ci) => {
+      const age  = now - c.born;
+      const life = cfg.crackLife;
+
+      if (!c.patched && !c.breached && age > life) {
+        c.breached = true;
+        hullDamage = Math.min(100, hullDamage + (c.isLarge ? 18 : 9));
+        updateIntegrity();
+        setDialogue(hullDamage > 55 ? "You're letting the sea IN. Fix them FASTER." : cfg.kaltFailD);
+      }
+
+      if (c.patched) {
+        // Dark patch
+        ctx.save(); ctx.globalAlpha = 0.75;
+        ctx.fillStyle = "#2a1e10";
+        const pw = c.isLarge ? 38 : 26, ph = c.isLarge ? 12 : 8;
+        ctx.fillRect(c.x - pw/2, c.y - ph/2, pw, ph);
+        ctx.strokeStyle = "rgba(80,60,30,0.6)"; ctx.lineWidth = 1;
+        ctx.strokeRect(c.x - pw/2, c.y - ph/2, pw, ph);
+        ctx.restore();
+        return;
+      }
+
+      if (c.breached) {
+        // Full breach — permanent crack with constant drip
+        ctx.save();
+        ctx.strokeStyle = "rgba(140,195,230,0.9)"; ctx.lineWidth = c.isLarge ? 3.5 : 2;
+        ctx.shadowColor = "rgba(100,180,240,0.6)"; ctx.shadowBlur = 6;
+        ctx.beginPath();
+        ctx.moveTo(c.x - (c.isLarge?18:12), c.y); ctx.lineTo(c.x + (c.isLarge?18:12), c.y);
+        ctx.stroke(); ctx.restore();
+        spawnDrip(c);
+        return;
+      }
+
+      // Active crack — expanding over time
+      const progress  = Math.min(1, age / life);
+      const halfLen   = (c.isLarge ? 16 : 10) * (0.2 + progress*0.8);
+      const intensity = 0.5 + progress * 0.5;
+      const flicker   = 0.8 + 0.2 * Math.sin(ts * 0.012 + ci);
+
+      // Glow
+      if (progress > 0.3) {
+        const cg = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, halfLen*2.2);
+        cg.addColorStop(0, `rgba(100,180,240,${intensity*0.4*flicker})`);
+        cg.addColorStop(1, "transparent");
+        ctx.fillStyle = cg;
+        ctx.fillRect(c.x-halfLen*2.5, c.y-halfLen*2.5, halfLen*5, halfLen*5);
+      }
+
+      // Crack line
+      ctx.save();
+      ctx.strokeStyle = `rgba(180,220,255,${intensity*flicker})`;
+      ctx.lineWidth   = c.isLarge ? 2.8 : 1.8;
+      ctx.shadowColor = `rgba(100,180,240,${intensity*0.5})`;
+      ctx.shadowBlur  = 4;
+      // Main line
+      ctx.beginPath(); ctx.moveTo(c.x-halfLen, c.y); ctx.lineTo(c.x+halfLen, c.y); ctx.stroke();
+      // Fork lines (splinter effect)
+      if (c.isLarge && progress > 0.2) {
+        ctx.globalAlpha = 0.5; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(c.x+halfLen*0.4, c.y); ctx.lineTo(c.x+halfLen*0.8, c.y-5); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(c.x-halfLen*0.3, c.y); ctx.lineTo(c.x-halfLen*0.7, c.y+4); ctx.stroke();
+      }
+      ctx.restore();
+
+      // Water drip from active cracks nearing breach
+      if (progress > 0.55 && c.isLarge) spawnDrip(c);
+      if (progress > 0.72) spawnDrip(c);
+
+      // Hold-in-progress indicator for large cracks
+      if (holdTarget && holdTarget.crackIdx === ci) {
+        const hp = Math.min(1, (now - holdTarget.startTime) / HOLD_NEEDED);
+        ctx.save();
+        ctx.strokeStyle = `rgba(212,160,28,${0.7 + hp*0.3})`;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, 18, -Math.PI/2, -Math.PI/2 + hp*Math.PI*2);
+        ctx.stroke();
+        ctx.fillStyle = `rgba(212,160,28,${hp*0.3})`;
+        ctx.beginPath(); ctx.arc(c.x, c.y, 18, 0, Math.PI*2); ctx.fill();
+        ctx.restore();
+
+        // Auto-complete at 100%
+        if (hp >= 1 && !c.patched) {
+          c.patched = true; patchedCracks++;
+          spawnSealParticles(c.x, c.y);
+          holdTarget = null;
+          setDialogue(cfg.kaltGreatD);
+        }
+      }
+    });
+
+    // Seal spark particles
+    sealParticles = sealParticles.filter(p => p.life > 0);
+    sealParticles.forEach(p => {
+      p.x += p.vx; p.y += p.vy; p.life -= p.decay;
+      ctx.save(); ctx.globalAlpha = p.life * 0.8;
+      ctx.fillStyle = "#d4a020";
+      ctx.beginPath(); ctx.arc(p.x, p.y, 2, 0, Math.PI*2); ctx.fill();
+      ctx.restore();
+    });
+
+    // Countdown hint (last 8 seconds)
+    if (stageTimeLeft < 8000 && stageTimeLeft > 0) {
+      ctx.save();
+      ctx.font = `bold 11px "IM Fell English SC", serif`;
+      ctx.fillStyle = `rgba(210,80,20,${0.6 + 0.4*Math.sin(ts*0.01)})`;
+      ctx.textAlign = "center";
+      ctx.fillText("FINISH THE REPAIRS", CW/2, 24);
+      ctx.restore();
+    }
+
+    // Vignette
+    const vig = ctx.createRadialGradient(CW*0.5, CH*0.5, CW*0.2, CW*0.5, CH*0.5, CW*0.75);
+    vig.addColorStop(0, "transparent"); vig.addColorStop(1, "rgba(0,0,0,0.5)");
+    ctx.fillStyle = vig; ctx.fillRect(0, 0, CW, CH);
+
+    animId = requestAnimationFrame(draw);
+  }
+
+  animId = requestAnimationFrame(draw);
+
+  function endHullStage() {
+    if (done) return;
+    done = true;
+    cancelAnimationFrame(animId);
+    clearInterval(spawnInterval);
+    clearInterval(stageTimer);
+    canvas.removeEventListener("pointerdown", onHullDown);
+    document.removeEventListener("pointerup",    onHullUp);
+    document.removeEventListener("pointercancel", onHullUp);
+
+    const integrityPct = Math.max(0, 100 - hullDamage);
+    stage3Score = Math.round(Math.min(15, (patchedCracks / Math.max(1, totalCracks)) * 15));
+
+    let dialogue;
+    if (integrityPct >= 90)     dialogue = "Hull is sound. ...You sealed most of them. That will hold through the voyage.";
+    else if (integrityPct >= 68) dialogue = "Some breaches. The ship will sail. I'll be recaulking tonight because of you.";
+    else if (integrityPct >= 45) dialogue = "Too many breaches. You'll be bailing water before we make port. I hope you like buckets.";
+    else                         dialogue = "The hull is compromised. I have never seen this level of failure. It is almost impressive.";
+    setDialogue(dialogue);
+
+    updateTally(stage1Score, stage2Score, stage3Score);
+    document.getElementById("hullFeedback").textContent =
+      `${patchedCracks} / ${totalCracks} sealed · Hull ${Math.round(integrityPct)}% · ${stage3Score} / 15 pts`;
+
+    setTimeout(() => {
+      goToScreen("screen-result");
+      setTimeout(showResult, 500);
+    }, 2200);
+  }
+}
+
+/* ══════════════════════════════════════════
+   FINAL RESULT
+══════════════════════════════════════════ */
+function showResult() {
+  const total = stage1Score + stage2Score + stage3Score;
+  const earned = total >= cfg.winThreshold;
+
+  const TIERS = [
+    { min:42, tag:"MASTERWORK",           verdict:`Every task completed with a standard that surprised even Kalt. The crew has noticed. They respect you now — and that respect is not easily given on the Remorhaz.` },
+    { min:35, tag:"COMPETENT CREW",       verdict:`The ropes are checked, the sail is stitched, and the hull holds water. You have done real work today. Kalt won't say it, but you've earned your place on this ship.` },
+    { min:27, tag:"ADEQUATE",             verdict:`The ship is in acceptable condition. You missed things — Kalt noticed every one — but the vessel will reach port. That has to be enough for now.` },
+    { min:18, tag:"ROUGH EDGES",          verdict:`You completed the tasks, after a fashion. Kalt has quietly fixed most of what you missed. The crew watched. They are... withholding judgment.` },
+    { min:0,  tag:"EMPIRE WEAKLING",      verdict:`Kalt fixed it. All of it. He said nothing. He didn't need to. The look said enough. Perhaps tomorrow will go better.` },
+  ];
+
+  const tier = TIERS.find(t => total >= t.min) || TIERS[TIERS.length-1];
+  const kaltIdx = Math.min(4, Math.max(0, Math.round((total/45)*4)));
+  const kaltFinal = cfg.kaltFinal[kaltIdx];
+
+  setDialogue(kaltFinal);
+  setPhase("— Kalt's Assessment —", total + " / 45 points");
+
+  const card = document.getElementById("resultCard");
+  card.innerHTML = `
+    <div class="result-tag">— ${tier.tag} —</div>
+    <div class="result-score">${total}</div>
+    <div class="result-max">out of 45 points</div>
+    ${earned ? `<div class="result-bonus">⚒ Crew Respect Earned · +1 to future ship-related checks</div>` : ""}
+    <div class="result-verdict">${tier.verdict}</div>
+    <div class="result-kalt">"${kaltFinal}"</div>
+  `;
+
+  // Save to state
+  const s = appState;
+  s.completed      = [...new Set([...s.completed, "kalt"])];
+  s.maintenanceScore   = total;
+  s.crewRespect    = earned;
+  if (s.completed.includes("haldor") && s.completed.includes("ingrid") && s.completed.includes("kalt")) {
+    s.completedDays = [...new Set([...s.completedDays, 2])];
+    if (s.currentDay < 3) s.currentDay = 3;
+  }
+  saveState(s);
+
+  document.getElementById("toHubBtn").addEventListener("click", () => { window.location.href = "index.html"; });
+  document.getElementById("retryBtn").addEventListener("click", () => { window.location.reload(); });
+}
+
+})();
+</script>
+</body>
+</html>
