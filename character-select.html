@@ -9,8 +9,9 @@
 .stage {
   position: fixed; inset: 0; z-index: 1;
   display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  gap: 32px; padding: 80px 24px 40px;
+  align-items: center; justify-content: flex-start;
+  gap: 28px; padding: 80px 24px 48px;
+  overflow-y: auto;
 }
 
 /* ── HEADER ── */
@@ -41,69 +42,74 @@
 
 /* ── CHARACTER CARDS ── */
 .cards {
-  display: flex; gap: 28px; align-items: stretch; flex-wrap: wrap;
+  display: flex; gap: 28px; align-items: flex-start; flex-wrap: wrap;
   justify-content: center;
 }
 
 .char-card {
-  width: 260px; flex-shrink: 0;
-  background:
-    radial-gradient(80px 60px at 22% 18%, rgba(134,109,77,0.09), transparent 70%),
-    linear-gradient(160deg, color-mix(in oklch, var(--paper) 9%, var(--ink)) 0%, color-mix(in oklch, var(--paper) 5%, var(--sea-deep)) 100%);
+  width: 280px; flex-shrink: 0;
+  background: linear-gradient(160deg,
+    color-mix(in oklch, var(--paper) 9%, var(--ink)) 0%,
+    color-mix(in oklch, var(--paper) 5%, var(--sea-deep)) 100%);
   border: 1px solid color-mix(in oklch, var(--paper-deep) 28%, transparent);
-  padding: 32px 24px 28px;
-  display: flex; flex-direction: column; align-items: center; gap: 14px;
-  cursor: pointer; position: relative;
+  padding: 0;
+  display: flex; flex-direction: column; align-items: stretch;
+  cursor: pointer; position: relative; overflow: hidden;
   transition: border-color 0.25s, box-shadow 0.25s, transform 0.2s;
   user-select: none;
-}
-.char-card::before {
-  content: ""; position: absolute; inset: 8px;
-  border: 1px solid color-mix(in oklch, var(--paper-deep) 12%, transparent);
-  pointer-events: none;
-  transition: border-color 0.25s;
 }
 .char-card:hover {
   border-color: color-mix(in oklch, var(--paper-deep) 60%, transparent);
   box-shadow: 0 0 0 1px color-mix(in oklch, var(--paper-deep) 18%, transparent),
-              0 20px 40px rgba(0,0,0,0.4);
-  transform: translateY(-3px);
+              0 24px 48px rgba(0,0,0,0.5);
+  transform: translateY(-4px);
 }
 .char-card.selected {
   border-color: var(--lamp);
   box-shadow: 0 0 0 1px color-mix(in oklch, var(--lamp) 40%, transparent),
-              0 0 32px color-mix(in oklch, var(--lamp) 22%, transparent),
-              0 20px 40px rgba(0,0,0,0.5);
-}
-.char-card.selected::before {
-  border-color: color-mix(in oklch, var(--lamp) 22%, transparent);
+              0 0 38px color-mix(in oklch, var(--lamp) 26%, transparent),
+              0 24px 48px rgba(0,0,0,0.55);
 }
 
-/* Avatar circle */
-.char-avatar {
-  width: 88px; height: 88px; border-radius: 50%;
-  background: radial-gradient(circle at 38% 32%, var(--hull-mid), var(--hull-darkest));
-  border: 2px solid color-mix(in oklch, var(--paper-deep) 45%, transparent);
-  outline: 5px solid color-mix(in oklch, var(--paper-deep) 16%, transparent);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 36px;
-  box-shadow: 0 6px 18px rgba(0,0,0,0.5);
-  transition: border-color 0.25s, box-shadow 0.25s;
-  flex-shrink: 0;
+/* Portrait section */
+.char-portrait-wrap {
+  position: relative; width: 100%; height: 300px;
+  overflow: hidden; flex-shrink: 0;
 }
-.char-card.selected .char-avatar {
-  border-color: var(--lamp);
-  box-shadow: 0 0 0 3px color-mix(in oklch, var(--lamp) 28%, transparent),
-              0 6px 18px rgba(0,0,0,0.5);
+.char-portrait {
+  width: 100%; height: 100%;
+  object-fit: cover; object-position: center 15%;
+  display: block;
+  transition: transform 0.45s ease;
 }
-
+.char-card:hover .char-portrait { transform: scale(1.04); }
+.char-portrait-fade {
+  position: absolute; bottom: 0; left: 0; right: 0; height: 140px;
+  background: linear-gradient(to bottom, transparent,
+    color-mix(in oklch, var(--ink) 92%, transparent) 85%, var(--ink));
+  pointer-events: none;
+}
 .char-name {
-  font-family: "IM Fell English SC", serif; font-size: 18px;
+  position: absolute; bottom: 14px; left: 0; right: 0;
+  font-family: "IM Fell English SC", serif; font-size: 19px;
   letter-spacing: 0.08em; color: var(--paper); text-align: center;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.9), 0 0 30px rgba(0,0,0,0.6);
+  padding: 0 12px;
+}
+.char-card.selected .char-portrait-wrap::after {
+  content: ""; position: absolute; inset: 0;
+  box-shadow: inset 0 0 0 2px color-mix(in oklch, var(--lamp) 55%, transparent);
+  pointer-events: none;
+}
+
+/* Info section below portrait */
+.char-info {
+  padding: 14px 20px 18px;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
 }
 .char-class {
   font-family: "Caveat", cursive; font-size: 15px;
-  color: var(--paper-deep); text-align: center; margin-top: -8px;
+  color: var(--paper-deep); text-align: center;
 }
 
 .sidebar-rule {
@@ -280,12 +286,17 @@ CHARACTERS.forEach(ch => {
   card.dataset.id = ch.id;
   card.innerHTML = `
     <div class="check-badge">✓</div>
-    <div class="char-avatar">${ch.avatar}</div>
-    <div class="char-name">${ch.name}</div>
-    <div class="char-class">${ch.classLabel}</div>
-    <div class="sidebar-rule"></div>
-    <div class="char-desc">${ch.desc}</div>
-    <div class="char-stats">${buildStatPips(ch.stats)}</div>
+    <div class="char-portrait-wrap">
+      <img class="char-portrait" src="assets/${ch.id}.jpg" alt="${ch.name}">
+      <div class="char-portrait-fade"></div>
+      <div class="char-name">${ch.name}</div>
+    </div>
+    <div class="char-info">
+      <div class="char-class">${ch.classLabel}</div>
+      <div class="sidebar-rule"></div>
+      <div class="char-desc">${ch.desc}</div>
+      <div class="char-stats">${buildStatPips(ch.stats)}</div>
+    </div>
   `;
   card.addEventListener("click", () => selectChar(ch.id));
   container.appendChild(card);
