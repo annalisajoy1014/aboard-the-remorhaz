@@ -852,6 +852,71 @@ body.splash-active .back-btn { visibility: hidden; opacity: 0; }
   from { opacity: 0.8; }
   to   { opacity: 1; }
 }
+
+/* ── BG3 NARRATIVE SCENE + SKILL CHECK ── */
+.bg3-panel { display:flex; flex-direction:column; align-items:center; gap:12px; max-width:480px; }
+.skill-check-card {
+  width:min(380px,92%);
+  background:
+    radial-gradient(60px 50px at 20% 20%,rgba(134,109,77,.07),transparent 70%),
+    linear-gradient(160deg,color-mix(in oklch,var(--paper) 7%,var(--ink)) 0%,color-mix(in oklch,var(--paper) 4%,var(--sea-deep)) 100%);
+  border:1px solid color-mix(in oklch,var(--lamp) 35%,transparent);
+  padding:16px 20px 18px; position:relative;
+  display:flex; flex-direction:column; align-items:center; gap:10px;
+  box-shadow:0 0 22px color-mix(in oklch,var(--lamp) 8%,transparent),0 8px 22px rgba(0,0,0,.4);
+}
+.skill-check-card::before {
+  content:""; position:absolute; inset:5px;
+  border:1px solid color-mix(in oklch,var(--lamp) 14%,transparent);
+  pointer-events:none;
+}
+.sck-name {
+  font-family:"IM Fell English SC",serif; font-size:10px;
+  letter-spacing:.32em; color:var(--blood);
+  display:flex; align-items:center; gap:10px;
+}
+.sck-name::before,.sck-name::after { content:""; width:22px; height:1px; background:var(--blood); opacity:.5; }
+.sck-dc { font-family:"Caveat",cursive; font-size:13px; color:var(--paper-deep); margin-top:-5px; }
+.sck-die-row { display:flex; align-items:center; gap:14px; min-height:50px; }
+.sck-die {
+  font-family:"IM Fell English SC",serif; font-size:36px; line-height:1;
+  color:var(--lamp); min-width:44px; text-align:center;
+  text-shadow:0 0 16px color-mix(in oklch,var(--lamp) 40%,transparent);
+  transition:color .3s,text-shadow .3s;
+}
+.sck-die.is-fail { color:var(--blood); text-shadow:0 0 16px color-mix(in oklch,var(--blood) 40%,transparent); }
+.sck-breakdown { font-family:"IM Fell English",serif; font-style:italic; font-size:12px; color:var(--paper-deep); line-height:1.5; }
+.sck-verdict { font-family:"IM Fell English SC",serif; font-style:normal; font-size:12px; letter-spacing:.08em; }
+.sck-verdict.pass { color:var(--lamp); }
+.sck-verdict.fail { color:var(--blood); }
+.btn-roll-check {
+  font-family:"IM Fell English SC",serif; font-size:12px;
+  letter-spacing:.2em; color:var(--paper);
+  background:color-mix(in oklch,var(--lamp) 10%,var(--ink));
+  border:1px solid color-mix(in oklch,var(--lamp) 40%,transparent);
+  padding:10px 24px; cursor:pointer; border-radius:1px;
+  transition:background .2s,border-color .2s,transform .1s;
+  box-shadow:0 0 12px color-mix(in oklch,var(--lamp) 10%,transparent),0 4px 10px rgba(0,0,0,.4);
+}
+.btn-roll-check:hover:not(:disabled) {
+  background:color-mix(in oklch,var(--lamp) 18%,var(--ink));
+  border-color:color-mix(in oklch,var(--lamp) 65%,transparent);
+}
+.btn-roll-check:active:not(:disabled) { transform:translateY(1px); }
+.btn-roll-check:disabled { opacity:.35; cursor:default; }
+.sck-result-prose {
+  font-family:"IM Fell English",serif; font-style:italic;
+  font-size:14px; line-height:1.6; color:var(--paper-dim);
+  text-align:center; max-width:360px;
+  margin:0; padding-top:10px;
+  border-top:1px solid color-mix(in oklch,var(--paper-deep) 25%,transparent);
+  opacity:0; transition:opacity .6s;
+}
+.sck-result-prose.show { opacity:1; }
+.sck-result-prose.pass { color:color-mix(in oklch,var(--lamp) 60%,var(--paper-dim)); }
+.splash-post { display:none; flex-direction:column; align-items:center; gap:14px; width:100%; }
+.splash-post.show { display:flex; animation:post-rise .45s cubic-bezier(.2,.8,.3,1) both; }
+@keyframes post-rise { from{transform:translateY(14px);opacity:0} to{transform:translateY(0);opacity:1} }
 </style>
 </head>
 <body>
@@ -893,28 +958,48 @@ body.splash-active .back-btn { visibility: hidden; opacity: 0; }
       <div class="pulse-eye" id="pulseEye">— the water moves —</div>
       <div class="act-label" id="actLabel">— WATCH THE WATER · WAIT FOR THE SIGN —</div>
 
-      <!-- Start splash with controls -->
+      <!-- Start splash with BG3 narrative + controls -->
       <div class="start-splash" id="startSplash">
+        <div class="splash-eyebrow">— Day 1 · Before Dawn —</div>
         <div class="splash-title">The Deep Watch</div>
         <div class="splash-rule"></div>
-        <div class="controls-card">
-          <div class="controls-title">— HOW TO FISH —</div>
-          <ul class="controls-list">
-            <li>
-              <span class="cl-num">ACT I</span>
-              <span>Watch for fish to swarm the net, then <span class="cl-keys"><span class="kbd">Click</span> <span class="kbd">Space</span></span> to haul. Strike too early or wait too long and the catch is lost.</span>
-            </li>
-            <li>
-              <span class="cl-num">ACT II</span>
-              <span><span class="cl-keys"><span class="kbd">Click</span></span> rapidly for sharp tugs, or <span class="cl-keys"><span class="kbd">Hold</span></span> the mouse / <span class="cl-keys"><span class="kbd">Space</span></span> for a steady haul.</span>
-            </li>
-            <li>
-              <span class="cl-num">ACT III</span>
-              <span>See what the sea gave you, and choose where to go next.</span>
-            </li>
-          </ul>
+
+        <div class="bg3-panel">
+          <p class="splash-flavor">You find Haldor at the starboard rail in the grey pre-dawn, watching the black water with the patience of a man who has done this a thousand times. He hands you a rope without looking at you.</p>
+          <p class="splash-flavor">"Watch the water," he says quietly. "Not the net, not yer hands — the <em>water</em>. It'll tell ye when."</p>
+
+          <div class="skill-check-card">
+            <div class="sck-name">Perception <span id="perArrow"></span></div>
+            <div class="sck-dc">DC 8 · Read the Sea Conditions</div>
+            <div class="sck-die-row">
+              <div class="sck-die" id="sckDie">—</div>
+              <div class="sck-breakdown" id="sckBreakdown" style="display:none"></div>
+            </div>
+            <button class="btn-roll-check" id="btnRollPerception">Roll Perception →</button>
+            <p class="sck-result-prose" id="sckResultProse"></p>
+          </div>
         </div>
-        <button class="btn-begin" id="btnBegin">Begin Watching →</button>
+
+        <div class="splash-post" id="splashPost">
+          <div class="controls-card">
+            <div class="controls-title">— HOW TO FISH —</div>
+            <ul class="controls-list">
+              <li>
+                <span class="cl-num">ACT I</span>
+                <span>Watch for fish to swarm the net, then <span class="cl-keys"><span class="kbd">Click</span> <span class="kbd">Space</span></span> to haul. Strike too early or wait too long and the catch is lost.</span>
+              </li>
+              <li>
+                <span class="cl-num">ACT II</span>
+                <span><span class="cl-keys"><span class="kbd">Click</span></span> rapidly for sharp tugs, or <span class="cl-keys"><span class="kbd">Hold</span></span> the mouse / <span class="cl-keys"><span class="kbd">Space</span></span> for a steady haul.</span>
+              </li>
+              <li>
+                <span class="cl-num">ACT III</span>
+                <span>See what the sea gave you, and choose where to go next.</span>
+              </li>
+            </ul>
+          </div>
+          <button class="btn-begin" id="btnBegin">Begin Watching →</button>
+        </div>
       </div>
 
       <!-- Brief inter-act toast -->
@@ -2078,9 +2163,61 @@ document.getElementById("backBtn").addEventListener("click", () => {
 });
 
 /* ──────────────────────────────────────────────
+   BG3 PERCEPTION CHECK
+─────────────────────────────────────────────── */
+let splashRollDone = false;
+
+(function () {
+  const intMod = _stat('intelligence');
+  const perArrowEl = document.getElementById("perArrow");
+  if (intMod >= 1)       perArrowEl.innerHTML = ' <span class="stat-arrow up">▲</span>';
+  else if (intMod <= -1) perArrowEl.innerHTML = ' <span class="stat-arrow dn">▼</span>';
+
+  const DC = 8;
+  const SUCCESS = "You study the surface carefully — the subtle pull of current beneath, the faint shimmer of bioluminescence drifting below. You have a sense of where the fish will run, and when the net will be fullest.";
+  const FAILURE = "The water gives nothing away. Cold, dark, inscrutable. You'll have to rely on instinct — and whatever luck the sea decides to offer.";
+
+  document.getElementById("btnRollPerception").addEventListener("click", function () {
+    this.disabled = true;
+    const roll  = Math.ceil(Math.random() * 10);
+    const total = roll + intMod;
+    const pass  = total >= DC;
+    const dieEl = document.getElementById("sckDie");
+    const brkEl = document.getElementById("sckBreakdown");
+    const resEl = document.getElementById("sckResultProse");
+
+    let ticks = 0;
+    const cycling = setInterval(() => {
+      dieEl.textContent = Math.ceil(Math.random() * 10);
+      ticks++;
+      if (ticks >= 12) {
+        clearInterval(cycling);
+        dieEl.textContent = roll;
+        dieEl.classList.toggle("is-fail", !pass);
+
+        const sign = intMod >= 0 ? "+" : "";
+        brkEl.style.display = "block";
+        brkEl.innerHTML = `Roll ${roll} ${sign}${intMod} INT = <span class="sck-verdict ${pass ? "pass" : "fail"}">${total} vs DC ${DC} — ${pass ? "✓ Success" : "✗ Failure"}</span>`;
+
+        setTimeout(() => {
+          resEl.textContent = pass ? SUCCESS : FAILURE;
+          resEl.classList.add("show", pass ? "pass" : "fail");
+
+          setTimeout(() => {
+            splashRollDone = true;
+            document.getElementById("splashPost").classList.add("show");
+          }, 1000);
+        }, 500);
+      }
+    }, 80);
+  });
+})();
+
+/* ──────────────────────────────────────────────
    SPLASH → START
 ─────────────────────────────────────────────── */
 function beginGame() {
+  if (!splashRollDone) return;
   const splash = document.getElementById("startSplash");
   if (splash.classList.contains("hidden")) return;
   splash.classList.add("hidden");
