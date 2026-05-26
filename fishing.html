@@ -957,7 +957,6 @@ body.splash-active .back-btn { visibility: hidden; opacity: 0; }
       </div>
 
       <!-- Act 1 overlays -->
-      <div class="haul-hint" id="haulHint">CLICK TO HAUL</div>
       <div class="pulse-eye" id="pulseEye">— the water moves —</div>
       <div class="act-label" id="actLabel">— WATCH THE WATER · WAIT FOR THE SIGN —</div>
 
@@ -1644,18 +1643,14 @@ function drawFrame(ts) {
     ctx.restore();
   });
 
-  // ── HAUL HINT ──
-  const hint = document.getElementById("haulHint");
+  // ── WATER SIGN ──
   const pulseEye = document.getElementById("pulseEye");
   if (!act1Clicked) {
     if (inWindow) {
-      hint.classList.add("visible");
       pulseEye.classList.add("visible");
-      setBannerAct1Urgent();
       if (netPulse > 0.5) setDialogue("Now — feel that? The net's speakin'. Pull, lad, PULL!");
     } else {
       if (!inWindow && watchMs > windowStart) {
-        hint.classList.remove("visible");
         pulseEye.classList.remove("visible");
       }
     }
@@ -1695,7 +1690,6 @@ function handleAct1(success, reason) {
   if (act1Clicked) return;
   act1Clicked = true;
   cancelAnimationFrame(animId);
-  document.getElementById("haulHint").classList.remove("visible");
   document.getElementById("actLabel").textContent = "";
   document.getElementById("pulseEye").classList.remove("visible");
 
@@ -2057,12 +2051,7 @@ function setBannerAct1() {
     <span>THEN <span class="pb-key">CLICK</span> OR <span class="pb-key">SPACE</span> TO HAUL</span>`;
 }
 function setBannerAct1Urgent() {
-  const b = document.getElementById("phaseBanner");
-  b.classList.add("urgent");
-  b.innerHTML = `
-    <span>THE NET IS FULL</span>
-    <span class="pb-sep"></span>
-    <span><span class="pb-key">CLICK</span> OR <span class="pb-key">SPACE</span> — HAUL NOW</span>`;
+  // intentionally empty — no explicit haul indicator shown to player
 }
 function setBannerAct2() {
   const b = document.getElementById("phaseBanner");
