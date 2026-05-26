@@ -1,0 +1,1641 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Aboard the Remorhaz — Logbook</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  /* shared.css provides: tokens, reset, backdrop, snow, corners, buttons, back-btn */
+
+  /* Hub overrides — backdrop and snow are position:absolute here
+     because they live inside .stage which is already position:fixed */
+  .backdrop { position: absolute; }
+  .snow     { position: absolute; }
+
+  /* ========== STAGE ========== */
+  .stage {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+  }
+
+  /* Vignette overlay */
+  .vignette {
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse 75% 65% at 50% 50%, transparent 50%, rgba(0,0,0,0.55) 100%);
+    pointer-events: none;
+    z-index: 6;
+  }
+
+  /* Frame chrome — header & footer */
+  .chrome {
+    position: absolute;
+    z-index: 8;
+    pointer-events: none;
+    color: var(--paper-dim);
+  }
+  .chrome-top {
+    top: 22px; left: 50%; transform: translateX(-50%);
+    text-align: center;
+  }
+  .chrome-top .eyebrow {
+    font-family: "Caveat", cursive;
+    font-size: 18px;
+    letter-spacing: 0.04em;
+    color: var(--paper-deep);
+  }
+  .chrome-top h1 {
+    font-family: "IM Fell English SC", serif;
+    font-weight: 400;
+    font-size: 36px;
+    letter-spacing: 0.18em;
+    color: var(--paper);
+    text-shadow: 0 1px 0 rgba(0,0,0,0.6), 0 0 22px rgba(0,0,0,0.4);
+  }
+  .chrome-top .sub {
+    margin-top: 4px;
+    font-family: "IM Fell English", serif;
+    font-style: italic;
+    font-size: 15px;
+    color: var(--paper-dim);
+    letter-spacing: 0.04em;
+  }
+  .chrome-top .rule {
+    margin: 8px auto 0;
+    width: 220px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--paper-deep), transparent);
+  }
+
+  .chrome-bottom-left {
+    bottom: 20px; left: 28px;
+    font-family: "Caveat", cursive;
+    font-size: 17px;
+    color: var(--paper-deep);
+    max-width: 280px;
+  }
+  .chrome-bottom-left .compass {
+    font-family: "IM Fell English SC", serif;
+    font-size: 13px;
+    letter-spacing: 0.2em;
+    color: var(--paper-dim);
+    margin-bottom: 2px;
+  }
+
+  /* Ship SVG container */
+  .ship-wrap {
+    position: absolute;
+    inset: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .ship-svg {
+    width: min(96vw, 1800px);
+    height: auto;
+    max-height: 96vh;
+    filter: drop-shadow(0 30px 50px rgba(0,0,0,0.6));
+    z-index: 2;
+  }
+
+  /* Ship rocking */
+  .ship-rock {
+    transform-origin: 850px 800px;
+    animation: rock 8.5s ease-in-out infinite;
+  }
+  @keyframes rock {
+    0%, 100% { transform: rotate(-1.1deg) translateY(0); }
+    50%      { transform: rotate(1.1deg)  translateY(-6px); }
+  }
+
+  /* Lantern flicker */
+  .flicker {
+    animation: flicker 3.2s ease-in-out infinite;
+    transform-origin: center;
+  }
+  .flicker-2 { animation-duration: 2.1s; animation-delay: -0.7s; }
+  .flicker-3 { animation-duration: 4.4s; animation-delay: -1.4s; }
+  @keyframes flicker {
+    0%, 100% { opacity: 0.85; }
+    40%      { opacity: 1.0; }
+    55%      { opacity: 0.72; }
+    70%      { opacity: 0.95; }
+  }
+
+  /* Amulet sparkle */
+  .amulet-glint {
+    transform-origin: center;
+    animation: amulet 5.5s ease-in-out infinite;
+  }
+  @keyframes amulet {
+    0%, 70%, 100% { opacity: 0; transform: scale(0.8); }
+    78%           { opacity: 1; transform: scale(1.4); }
+    86%           { opacity: 0; transform: scale(0.8); }
+  }
+
+  /* Net sway */
+  .sway {
+    transform-origin: 660px 605px;
+    animation: sway 6.2s ease-in-out infinite;
+  }
+  @keyframes sway {
+    0%, 100% { transform: rotate(-1.2deg); }
+    50%      { transform: rotate(1.2deg); }
+  }
+
+  /* Sail flap */
+  .sail-flap {
+    transform-origin: 850px 200px;
+    animation: sailflap 7s ease-in-out infinite;
+  }
+  @keyframes sailflap {
+    0%, 100% { transform: skewX(-1.3deg); }
+    50%      { transform: skewX(1.0deg); }
+  }
+
+  /* ========== HOTSPOTS ========== */
+  .hotspot {
+    cursor: pointer;
+    transition: transform 0.25s ease;
+  }
+  .hotspot .ring-outer {
+    fill: none;
+    stroke: var(--paper);
+    stroke-width: 2;
+    stroke-dasharray: 4 3;
+    opacity: 0.35;
+    transition: opacity 0.25s ease, stroke 0.25s ease;
+  }
+  .hotspot .ring-inner {
+    fill: none;
+    stroke: var(--lamp);
+    stroke-width: 2.5;
+    opacity: 0;
+    transition: opacity 0.25s ease;
+  }
+  .hotspot .glow {
+    opacity: 0;
+    transition: opacity 0.35s ease;
+  }
+  .hotspot .portrait-clip-img {
+    transition: transform 0.4s ease;
+  }
+  .hotspot:hover .ring-outer { opacity: 0.85; stroke: var(--lamp); }
+  .hotspot:hover .ring-inner { opacity: 1; }
+  .hotspot:hover .glow { opacity: 1; }
+  .hotspot:hover .portrait-clip-img { transform: scale(1.06); }
+  .hotspot.is-active .ring-inner { opacity: 1; }
+  .hotspot.is-active .ring-outer { stroke: var(--lamp); opacity: 0.9; }
+
+  .hotspot-label {
+    font-family: "IM Fell English SC", serif;
+    font-size: 14px;
+    letter-spacing: 0.16em;
+    fill: var(--paper);
+    text-anchor: middle;
+    opacity: 0.0;
+    transition: opacity 0.25s ease;
+    pointer-events: none;
+  }
+  .hotspot:hover + .hotspot-label,
+  .hotspot:hover .hotspot-label,
+  .hotspot.is-active + .hotspot-label {
+    opacity: 1;
+  }
+
+  /* Tooltip (HTML, follows cursor area) */
+  .tooltip {
+    position: absolute;
+    z-index: 12;
+    pointer-events: none;
+    background: linear-gradient(180deg, color-mix(in oklch, var(--paper) 96%, transparent), color-mix(in oklch, var(--paper-dim) 92%, transparent));
+    color: var(--ink);
+    padding: 10px 14px 11px;
+    border: 1px solid color-mix(in oklch, var(--paper-deep) 70%, black);
+    box-shadow: 0 10px 24px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(255,255,255,0.25);
+    max-width: 280px;
+    transform: translate(-50%, calc(-100% - 18px));
+    opacity: 0;
+    transition: opacity 0.18s ease;
+    border-radius: 2px;
+    font-family: "IM Fell English", serif;
+  }
+  .tooltip::after {
+    content: "";
+    position: absolute;
+    left: 50%; bottom: -8px;
+    width: 14px; height: 14px;
+    transform: translateX(-50%) rotate(45deg);
+    background: color-mix(in oklch, var(--paper-dim) 92%, transparent);
+    border-right: 1px solid color-mix(in oklch, var(--paper-deep) 70%, black);
+    border-bottom: 1px solid color-mix(in oklch, var(--paper-deep) 70%, black);
+  }
+  .tooltip.visible { opacity: 1; }
+  .tooltip .tt-name {
+    font-family: "IM Fell English SC", serif;
+    font-size: 14px;
+    letter-spacing: 0.14em;
+    color: var(--ink);
+    margin-bottom: 2px;
+  }
+  .tooltip .tt-role {
+    font-family: "Caveat", cursive;
+    font-size: 16px;
+    color: var(--paper-deep);
+    margin-bottom: 6px;
+    line-height: 1;
+  }
+  .tooltip .tt-line {
+    font-style: italic;
+    font-size: 14px;
+    color: var(--ink);
+    line-height: 1.35;
+  }
+  .tooltip .tt-day {
+    margin-top: 8px;
+    font-family: "IM Fell English SC", serif;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    color: var(--paper-deep);
+  }
+
+  /* ========== ROPE / DAY PROGRESS ========== */
+  .voyage {
+    position: absolute;
+    right: 38px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 9;
+    width: 92px;
+    height: 720px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    pointer-events: none;
+  }
+  .voyage-title {
+    font-family: "IM Fell English SC", serif;
+    font-size: 12px;
+    letter-spacing: 0.22em;
+    color: var(--paper-dim);
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    position: absolute;
+    left: -22px; top: 90px;
+    height: 540px;
+    text-align: center;
+  }
+  .rope-line {
+    position: absolute;
+    left: 50%; top: 30px; bottom: 30px;
+    width: 4px;
+    background:
+      repeating-linear-gradient(180deg,
+        var(--rope) 0 6px,
+        var(--rope-dark) 6px 10px);
+    transform: translateX(-50%);
+    border-radius: 2px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.6);
+  }
+  .rope-line::before, .rope-line::after {
+    content: "";
+    position: absolute;
+    left: 50%; width: 16px; height: 16px;
+    transform: translateX(-50%);
+    background: var(--rope);
+    border-radius: 50%;
+    box-shadow: inset -2px -2px 4px rgba(0,0,0,0.5), 0 2px 4px rgba(0,0,0,0.6);
+  }
+  .rope-line::before { top: -10px; }
+  .rope-line::after  { bottom: -10px; }
+
+  .knots {
+    position: absolute;
+    top: 24px; bottom: 24px;
+    left: 0; right: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    pointer-events: auto;
+  }
+  .knot {
+    position: relative;
+    width: 56px;
+    height: 56px;
+    display: flex; align-items: center; justify-content: center;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: var(--paper-dim);
+    font-family: "IM Fell English SC", serif;
+    font-size: 13px;
+    letter-spacing: 0.08em;
+    padding: 0;
+  }
+  .knot .bead {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, var(--rope), var(--rope-dark) 70%, #2a1f12 100%);
+    box-shadow: inset -3px -4px 6px rgba(0,0,0,0.55), 0 3px 6px rgba(0,0,0,0.6);
+    position: relative;
+    transition: box-shadow 0.25s, transform 0.2s;
+  }
+  .knot .bead::before {
+    /* knot wrap detail */
+    content: "";
+    position: absolute;
+    inset: 4px;
+    border-radius: 50%;
+    background: repeating-linear-gradient(45deg,
+      transparent 0 2px,
+      rgba(0,0,0,0.18) 2px 3px);
+  }
+  .knot .num {
+    position: absolute;
+    right: -32px;
+    width: 28px;
+    text-align: left;
+    color: var(--paper-dim);
+    font-size: 12px;
+    letter-spacing: 0.1em;
+  }
+  .knot .lbl {
+    position: absolute;
+    right: calc(100% + 8px);
+    width: 200px;
+    text-align: right;
+    font-family: "Caveat", cursive;
+    font-size: 16px;
+    color: var(--paper-dim);
+    line-height: 1.1;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+  .knot:hover .lbl { opacity: 1; }
+  .knot:hover .bead { transform: scale(1.12); }
+
+  .knot.is-current .bead {
+    background: radial-gradient(circle at 35% 30%, var(--lamp), var(--lamp-warm) 60%, var(--lamp-deep) 100%);
+    box-shadow:
+      inset -3px -4px 6px rgba(0,0,0,0.4),
+      0 0 0 2px color-mix(in oklch, var(--lamp) 55%, transparent),
+      0 0 18px color-mix(in oklch, var(--lamp) 70%, transparent);
+    animation: knotpulse 2.4s ease-in-out infinite;
+  }
+  @keyframes knotpulse {
+    0%, 100% { box-shadow: inset -3px -4px 6px rgba(0,0,0,0.4), 0 0 0 2px color-mix(in oklch, var(--lamp) 55%, transparent), 0 0 12px color-mix(in oklch, var(--lamp) 60%, transparent); }
+    50%      { box-shadow: inset -3px -4px 6px rgba(0,0,0,0.4), 0 0 0 3px color-mix(in oklch, var(--lamp) 75%, transparent), 0 0 26px color-mix(in oklch, var(--lamp) 90%, transparent); }
+  }
+  .knot.is-current .num,
+  .knot.is-current .lbl { color: var(--lamp); opacity: 1; }
+
+  .knot.is-done .bead {
+    background: radial-gradient(circle at 35% 30%, oklch(0.62 0.05 60), oklch(0.42 0.05 55) 70%, #1c1108 100%);
+    box-shadow: inset -3px -4px 6px rgba(0,0,0,0.6), 0 2px 5px rgba(0,0,0,0.6);
+  }
+  .knot.is-done .bead::after {
+    content: "✓";
+    position: absolute;
+    inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-family: "IM Fell English SC", serif;
+    color: var(--paper);
+    font-size: 17px;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+  }
+  .knot.is-done .num { color: var(--paper-dim); }
+
+  .voyage-foot {
+    position: absolute;
+    bottom: -28px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: "Caveat", cursive;
+    font-size: 16px;
+    color: var(--paper-deep);
+    white-space: nowrap;
+  }
+
+  /* ========== MODAL / SIDE PANEL ========== */
+  .modal-shroud {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at center, rgba(8,14,24,0.55), rgba(2,4,8,0.85));
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+    z-index: 20;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.32s ease;
+  }
+  .modal-shroud.open { opacity: 1; pointer-events: auto; }
+
+  .panel {
+    position: absolute;
+    right: 0; top: 0; bottom: 0;
+    width: 520px;
+    background:
+      radial-gradient(circle at 18% 0%, color-mix(in oklch, var(--lamp) 14%, transparent), transparent 55%),
+      linear-gradient(180deg, oklch(0.94 0.035 78), oklch(0.83 0.045 76) 60%, oklch(0.74 0.05 70));
+    color: var(--ink);
+    z-index: 21;
+    transform: translateX(110%);
+    transition: transform 0.45s cubic-bezier(0.7, 0, 0.2, 1);
+    box-shadow: -28px 0 60px rgba(0,0,0,0.65), inset 22px 0 40px rgba(0,0,0,0.18);
+    padding: 56px 48px 40px;
+    overflow-y: auto;
+    border-left: 1px solid color-mix(in oklch, var(--ink) 30%, transparent);
+  }
+  .panel.open { transform: translateX(0); }
+  .panel::before {
+    /* parchment texture */
+    content: "";
+    position: absolute; inset: 0;
+    pointer-events: none;
+    background-image:
+      radial-gradient(800px 600px at 90% 110%, rgba(60,40,20,0.18), transparent 60%),
+      radial-gradient(2px 2px at 12% 22%, rgba(60,40,20,0.12), transparent 60%),
+      radial-gradient(1px 1px at 73% 41%, rgba(60,40,20,0.1), transparent 60%),
+      radial-gradient(2px 2px at 24% 78%, rgba(60,40,20,0.15), transparent 60%),
+      radial-gradient(1px 1px at 51% 12%, rgba(60,40,20,0.08), transparent 60%);
+    mix-blend-mode: multiply;
+    opacity: 0.6;
+  }
+  .panel-close {
+    position: absolute;
+    top: 20px; right: 22px;
+    background: transparent;
+    border: 1px solid color-mix(in oklch, var(--ink) 40%, transparent);
+    color: var(--ink);
+    font-family: "IM Fell English SC", serif;
+    font-size: 12px;
+    letter-spacing: 0.18em;
+    padding: 8px 14px;
+    cursor: pointer;
+    border-radius: 1px;
+    transition: background 0.2s, color 0.2s;
+  }
+  .panel-close:hover {
+    background: var(--ink);
+    color: var(--paper);
+  }
+  .panel .eyebrow {
+    font-family: "Caveat", cursive;
+    font-size: 18px;
+    color: var(--paper-deep);
+    letter-spacing: 0.02em;
+  }
+  .panel .day-tag {
+    font-family: "IM Fell English SC", serif;
+    font-size: 12px;
+    letter-spacing: 0.24em;
+    color: var(--blood);
+    margin-top: 6px;
+  }
+  .panel h2 {
+    font-family: "IM Fell English SC", serif;
+    font-weight: 400;
+    font-size: 38px;
+    letter-spacing: 0.06em;
+    color: var(--ink);
+    line-height: 1.05;
+    margin: 4px 0 2px;
+  }
+  .panel h3 {
+    font-family: "Caveat", cursive;
+    font-weight: 400;
+    font-size: 22px;
+    color: var(--paper-deep);
+    margin-bottom: 22px;
+    letter-spacing: 0.01em;
+  }
+  .panel-portrait-wrap {
+    display: flex;
+    align-items: center;
+    gap: 22px;
+    margin-bottom: 22px;
+  }
+  .panel-portrait {
+    width: 140px; height: 140px;
+    border-radius: 50%;
+    background-position: center;
+    background-size: cover;
+    border: 3px solid color-mix(in oklch, var(--ink) 65%, transparent);
+    box-shadow:
+      0 0 0 6px color-mix(in oklch, var(--paper-deep) 50%, transparent),
+      0 12px 28px rgba(0,0,0,0.4);
+    flex-shrink: 0;
+  }
+  .panel-stats {
+    flex: 1;
+  }
+  .panel-stats .stat {
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 1px dotted color-mix(in oklch, var(--ink) 35%, transparent);
+    padding: 4px 0;
+    font-size: 14px;
+  }
+  .panel-stats .stat span:first-child {
+    font-family: "IM Fell English SC", serif;
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    color: var(--paper-deep);
+  }
+  .panel-stats .stat span:last-child {
+    font-style: italic;
+    color: var(--ink);
+  }
+  .panel hr.rule {
+    border: none;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, color-mix(in oklch, var(--ink) 45%, transparent), transparent);
+    margin: 18px 0;
+  }
+  .panel .dialogue {
+    position: relative;
+    font-family: "IM Fell English", serif;
+    font-size: 19px;
+    font-style: italic;
+    line-height: 1.5;
+    color: var(--ink);
+    padding: 12px 0 12px 36px;
+    margin-bottom: 20px;
+  }
+  .panel .dialogue::before {
+    content: "“";
+    position: absolute;
+    left: -2px; top: -12px;
+    font-family: "IM Fell English SC", serif;
+    font-size: 86px;
+    color: color-mix(in oklch, var(--paper-deep) 80%, transparent);
+    line-height: 1;
+  }
+  .panel .activity {
+    background: color-mix(in oklch, var(--paper-deep) 22%, transparent);
+    border-left: 3px solid var(--blood);
+    padding: 14px 18px;
+    margin-bottom: 22px;
+  }
+  .panel .activity .ah {
+    font-family: "IM Fell English SC", serif;
+    font-size: 12px;
+    letter-spacing: 0.22em;
+    color: var(--blood);
+    margin-bottom: 4px;
+  }
+  .panel .activity .at {
+    font-family: "IM Fell English", serif;
+    font-size: 16px;
+    color: var(--ink);
+    line-height: 1.4;
+  }
+  .panel .panel-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 22px;
+  }
+  .panel button.primary,
+  .panel button.secondary {
+    font-family: "IM Fell English SC", serif;
+    font-size: 13px;
+    letter-spacing: 0.18em;
+    padding: 12px 18px;
+    cursor: pointer;
+    border-radius: 1px;
+    transition: all 0.2s ease;
+  }
+  .panel button.primary {
+    background: var(--ink);
+    color: var(--paper);
+    border: 1px solid var(--ink);
+  }
+  .panel button.primary:hover {
+    background: var(--blood);
+    border-color: var(--blood);
+  }
+  .panel button.secondary {
+    background: transparent;
+    color: var(--ink);
+    border: 1px solid color-mix(in oklch, var(--ink) 40%, transparent);
+  }
+  .panel button.secondary:hover {
+    background: color-mix(in oklch, var(--ink) 12%, transparent);
+  }
+  .panel .status-line {
+    margin-top: 18px;
+    font-family: "Caveat", cursive;
+    font-size: 17px;
+    color: var(--blood);
+    min-height: 22px;
+  }
+
+  /* Compass rosette decoration bottom right */
+  .compass-deco {
+    position: absolute;
+    bottom: 28px; right: 160px;
+    width: 110px; height: 110px;
+    opacity: 0.55;
+    z-index: 7;
+    pointer-events: none;
+  }
+
+  /* Hide tooltip when shroud is open */
+  .modal-shroud.open ~ .tooltip { opacity: 0 !important; }
+</style>
+</head>
+<body>
+
+<div class="stage" id="stage">
+
+  <div class="backdrop"></div>
+
+  <!-- Snow -->
+  <div class="snow" id="snow"></div>
+
+  <!-- Corner brackets -->
+  <span class="corner tl"></span>
+  <span class="corner tr"></span>
+  <span class="corner bl"></span>
+  <span class="corner br"></span>
+
+  <!-- Header -->
+  <div class="chrome chrome-top">
+    <div class="eyebrow">— Glassblade Trading Co., Charter Vessel —</div>
+    <h1>The Remorhaz</h1>
+    <div class="sub">A nine-day voyage across the frozen seas of Eiselcross</div>
+    <div class="rule"></div>
+  </div>
+
+  <!-- Bottom-left logbook label -->
+  <div class="chrome chrome-bottom-left">
+    <div class="compass">LATITUDE 71° 14' N · LONGITUDE — UNCHARTED</div>
+    <div>Hover any soul aboard to learn their watch; click to read the day's chapter.</div>
+  </div>
+
+  <!-- SHIP SVG -->
+  <div class="ship-wrap">
+    <svg class="ship-svg" viewBox="0 0 1700 1050" xmlns="http://www.w3.org/2000/svg" aria-label="Cross-section of the sailing vessel Remorhaz">
+
+      <defs>
+        <!-- Wood gradient -->
+        <linearGradient id="hullGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"   stop-color="var(--hull-light)"/>
+          <stop offset="55%"  stop-color="var(--hull-mid)"/>
+          <stop offset="100%" stop-color="var(--hull-darkest)"/>
+        </linearGradient>
+        <linearGradient id="deckGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"   stop-color="var(--hull-hi)"/>
+          <stop offset="100%" stop-color="var(--hull-mid)"/>
+        </linearGradient>
+        <linearGradient id="interiorGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"   stop-color="oklch(0.30 0.08 55)"/>
+          <stop offset="60%"  stop-color="oklch(0.18 0.05 45)"/>
+          <stop offset="100%" stop-color="oklch(0.10 0.03 40)"/>
+        </linearGradient>
+        <linearGradient id="sailGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"   stop-color="var(--sail)"/>
+          <stop offset="100%" stop-color="var(--sail-shadow)"/>
+        </linearGradient>
+        <linearGradient id="seaGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"   stop-color="oklch(0.25 0.06 235)"/>
+          <stop offset="100%" stop-color="oklch(0.08 0.03 245)"/>
+        </linearGradient>
+
+        <!-- Lantern glow -->
+        <radialGradient id="lampGlow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%"   stop-color="oklch(0.92 0.18 75)" stop-opacity="0.9"/>
+          <stop offset="40%"  stop-color="oklch(0.78 0.18 65)" stop-opacity="0.55"/>
+          <stop offset="100%" stop-color="oklch(0.55 0.18 50)" stop-opacity="0"/>
+        </radialGradient>
+
+        <!-- Galley warm bath -->
+        <radialGradient id="galleyGlow" cx="50%" cy="40%" r="60%">
+          <stop offset="0%"   stop-color="oklch(0.78 0.16 70)" stop-opacity="0.55"/>
+          <stop offset="55%"  stop-color="oklch(0.55 0.16 55)" stop-opacity="0.30"/>
+          <stop offset="100%" stop-color="oklch(0.20 0.10 40)" stop-opacity="0"/>
+        </radialGradient>
+
+        <!-- Patterns -->
+        <pattern id="planks" x="0" y="0" width="36" height="14" patternUnits="userSpaceOnUse">
+          <rect width="36" height="14" fill="url(#hullGrad)"/>
+          <line x1="0" y1="14" x2="36" y2="14" stroke="var(--plank)" stroke-width="0.7" opacity="0.6"/>
+          <line x1="18" y1="0" x2="18" y2="14" stroke="var(--plank)" stroke-width="0.5" opacity="0.35"/>
+        </pattern>
+
+        <pattern id="deckPlanks" x="0" y="0" width="42" height="9" patternUnits="userSpaceOnUse">
+          <rect width="42" height="9" fill="url(#deckGrad)"/>
+          <line x1="0" y1="9" x2="42" y2="9" stroke="var(--plank)" stroke-width="0.6" opacity="0.6"/>
+          <line x1="14" y1="0" x2="14" y2="9" stroke="var(--plank)" stroke-width="0.4" opacity="0.4"/>
+          <line x1="30" y1="0" x2="30" y2="9" stroke="var(--plank)" stroke-width="0.4" opacity="0.4"/>
+        </pattern>
+
+        <pattern id="netPattern" x="0" y="0" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+          <path d="M 0 0 L 12 0 M 0 0 L 0 12" stroke="oklch(0.55 0.05 65)" stroke-width="0.7" opacity="0.85" fill="none"/>
+        </pattern>
+
+        <!-- Filters -->
+        <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="6"/>
+        </filter>
+        <filter id="bigGlow" x="-100%" y="-100%" width="300%" height="300%">
+          <feGaussianBlur stdDeviation="22"/>
+        </filter>
+
+        <!-- Portrait clips -->
+        <clipPath id="clip-ursula"><circle cx="0" cy="0" r="46"/></clipPath>
+        <clipPath id="clip-thorgrim"><circle cx="0" cy="0" r="46"/></clipPath>
+        <clipPath id="clip-haldor"><circle cx="0" cy="0" r="46"/></clipPath>
+        <clipPath id="clip-kalt"><circle cx="0" cy="0" r="46"/></clipPath>
+        <clipPath id="clip-ingrid"><circle cx="0" cy="0" r="46"/></clipPath>
+      </defs>
+
+      <!-- ===== SEA & ICE ===== -->
+      <!-- Distant ice floes / horizon -->
+      <g opacity="0.65">
+        <path d="M 0 720 L 110 712 L 150 720 L 230 715 L 320 720 L 0 720 Z" fill="oklch(0.78 0.025 220)" opacity="0.45"/>
+        <path d="M 1420 720 L 1480 712 L 1540 720 L 1620 715 L 1700 720 L 1700 740 L 1420 740 Z" fill="oklch(0.78 0.025 220)" opacity="0.4"/>
+        <path d="M 1380 730 L 1440 720 L 1500 728 L 1480 740 L 1380 740 Z" fill="oklch(0.62 0.02 225)" opacity="0.5"/>
+      </g>
+
+      <!-- Water -->
+      <rect x="0" y="720" width="1700" height="330" fill="url(#seaGrad)"/>
+
+      <!-- Water waves -->
+      <g opacity="0.6">
+        <path d="M 0 730 Q 80 722 160 730 T 320 730 T 480 730 T 640 730 T 800 730 T 960 730 T 1120 730 T 1280 730 T 1440 730 T 1700 730 L 1700 740 L 0 740 Z" fill="oklch(0.34 0.05 225)"/>
+        <path d="M 0 760 Q 90 752 180 760 T 360 760 T 540 760 T 720 760 T 900 760 T 1080 760 T 1260 760 T 1440 760 T 1700 760 L 1700 770 L 0 770 Z" fill="oklch(0.28 0.05 235)" opacity="0.7"/>
+        <path d="M 0 800 Q 110 790 220 800 T 440 800 T 660 800 T 880 800 T 1100 800 T 1320 800 T 1540 800 T 1700 800 L 1700 815 L 0 815 Z" fill="oklch(0.22 0.05 240)" opacity="0.55"/>
+        <path d="M 0 850 Q 130 838 260 850 T 520 850 T 780 850 T 1040 850 T 1300 850 T 1560 850 T 1700 850 L 1700 870 L 0 870 Z" fill="oklch(0.16 0.04 245)" opacity="0.55"/>
+        <path d="M 0 920 Q 150 908 300 920 T 600 920 T 900 920 T 1200 920 T 1500 920 T 1700 920 L 1700 940 L 0 940 Z" fill="oklch(0.12 0.04 245)" opacity="0.6"/>
+      </g>
+
+      <!-- Wake foam under ship -->
+      <g opacity="0.4">
+        <path d="M 200 735 Q 400 720 600 730 T 1000 728 T 1400 735 Q 1300 745 1100 742 T 700 740 T 300 742 Z" fill="oklch(0.85 0.02 220)" filter="url(#softGlow)"/>
+      </g>
+
+      <!-- Distant whale silhouette -->
+      <g opacity="0.18" transform="translate(1480 860)">
+        <path d="M 0 0 C 30 -8 70 -8 100 0 C 90 4 70 8 50 7 C 40 7 35 12 30 14 L 25 10 C 20 8 15 8 0 6 Z" fill="oklch(0.65 0.02 230)"/>
+        <path d="M 95 -2 L 110 -10 L 108 -2 Z" fill="oklch(0.65 0.02 230)"/>
+      </g>
+
+      <!-- ============= SHIP ============= -->
+      <g class="ship-rock">
+
+        <!-- ===== HULL FRONT (cutaway view exposes interior) ===== -->
+        <!-- Outer hull silhouette - drawn but with interior visible -->
+        <!-- Stern castle (raised aft, left side) -->
+        <path d="
+          M 260 540
+          L 268 470
+          L 286 450
+          L 380 440
+          L 470 460
+          L 478 540
+          Z" fill="url(#hullGrad)" stroke="var(--plank)" stroke-width="1.5"/>
+
+        <!-- Stern castle deck planks visible on top -->
+        <rect x="278" y="442" width="190" height="6" fill="oklch(0.42 0.05 55)"/>
+
+        <!-- Stern castle plank details -->
+        <g opacity="0.55" stroke="var(--plank)" stroke-width="0.6" fill="none">
+          <line x1="270" y1="490" x2="476" y2="490"/>
+          <line x1="270" y1="510" x2="476" y2="510"/>
+          <line x1="320" y1="450" x2="320" y2="540"/>
+          <line x1="380" y1="442" x2="380" y2="540"/>
+          <line x1="430" y1="450" x2="430" y2="540"/>
+        </g>
+
+        <!-- Stern lantern hanging off the back -->
+        <g class="flicker flicker-2" transform="translate(255 480)">
+          <ellipse cx="0" cy="0" rx="48" ry="42" fill="url(#lampGlow)" filter="url(#bigGlow)"/>
+        </g>
+        <g transform="translate(258 488)">
+          <line x1="0" y1="-22" x2="0" y2="-6" stroke="var(--rope-dark)" stroke-width="1"/>
+          <rect x="-7" y="-6" width="14" height="20" fill="oklch(0.25 0.04 50)" stroke="oklch(0.12 0.02 45)" stroke-width="1"/>
+          <rect x="-5" y="-3" width="10" height="14" fill="oklch(0.88 0.18 75)" opacity="0.92"/>
+          <line x1="-7" y1="2" x2="7" y2="2" stroke="oklch(0.12 0.02 45)" stroke-width="0.6"/>
+          <line x1="-7" y1="7" x2="7" y2="7" stroke="oklch(0.12 0.02 45)" stroke-width="0.6"/>
+        </g>
+
+        <!-- Main deck strip -->
+        <rect x="478" y="540" width="640" height="10" fill="url(#deckPlanks)"/>
+
+        <!-- Bow forecastle (raised, right side) -->
+        <path d="
+          M 1118 540
+          L 1118 510
+          L 1146 498
+          L 1240 498
+          L 1280 510
+          L 1300 540
+          Z" fill="url(#hullGrad)" stroke="var(--plank)" stroke-width="1.5"/>
+        <rect x="1148" y="500" width="130" height="6" fill="oklch(0.44 0.05 55)"/>
+        <g opacity="0.5" stroke="var(--plank)" stroke-width="0.6" fill="none">
+          <line x1="1118" y1="520" x2="1300" y2="520"/>
+          <line x1="1180" y1="498" x2="1180" y2="540"/>
+          <line x1="1230" y1="498" x2="1230" y2="540"/>
+        </g>
+
+        <!-- Bowsprit angled up-right -->
+        <g transform="translate(1280 510)">
+          <polygon points="0,0 0,18 195,-46 215,-44 205,-30 18,32 0,28" fill="url(#hullGrad)" stroke="var(--plank)" stroke-width="1"/>
+          <line x1="20" y1="-2" x2="200" y2="-44" stroke="var(--plank)" stroke-width="0.5" opacity="0.5"/>
+          <line x1="14" y1="14" x2="198" y2="-30" stroke="var(--plank)" stroke-width="0.5" opacity="0.5"/>
+        </g>
+
+        <!-- The big hull body (curving below) — cutaway: front planking removed showing interior -->
+        <!-- Outer hull arc (drawn as the cutaway "back wall" - dark interior color) -->
+        <path d="
+          M 260 540
+          L 478 540
+          L 1118 540
+          L 1300 540
+          C 1380 580, 1420 640, 1300 700
+          C 1200 800, 1050 880, 850 900
+          C 650 880, 500 800, 400 700
+          C 280 640, 260 580, 260 540 Z
+        " fill="url(#interiorGrad)"/>
+
+        <!-- Interior warm bath of galley light -->
+        <ellipse cx="760" cy="750" rx="360" ry="120" fill="url(#galleyGlow)" class="flicker"/>
+
+        <!-- ===== BELOW DECK INTERIOR DETAILS ===== -->
+
+        <!-- Lower deck divider line -->
+        <line x1="300" y1="630" x2="1290" y2="630" stroke="var(--plank)" stroke-width="2" opacity="0.55"/>
+
+        <!-- Middle compartment line (between mid-storage and galley) — gentle curve -->
+        <path d="M 380 720 L 1240 720" stroke="var(--plank)" stroke-width="1.6" opacity="0.45"/>
+
+        <!-- Storage barrels (mid-belly) -->
+        <g opacity="0.95">
+          <!-- A row of barrels in the storage area -->
+          <g transform="translate(420 670)">
+            <ellipse cx="0" cy="20" rx="26" ry="6" fill="oklch(0.18 0.03 45)" opacity="0.65"/>
+            <rect x="-22" y="-12" width="44" height="32" rx="6" fill="oklch(0.38 0.06 55)" stroke="oklch(0.15 0.03 45)" stroke-width="1"/>
+            <ellipse cx="0" cy="-12" rx="22" ry="4" fill="oklch(0.45 0.07 60)" stroke="oklch(0.15 0.03 45)" stroke-width="1"/>
+            <line x1="-22" y1="-2" x2="22" y2="-2" stroke="oklch(0.22 0.04 50)" stroke-width="1"/>
+            <line x1="-22" y1="10" x2="22" y2="10" stroke="oklch(0.22 0.04 50)" stroke-width="1"/>
+          </g>
+          <g transform="translate(490 668)">
+            <ellipse cx="0" cy="22" rx="28" ry="6" fill="oklch(0.18 0.03 45)" opacity="0.65"/>
+            <rect x="-24" y="-14" width="48" height="36" rx="7" fill="oklch(0.35 0.06 55)" stroke="oklch(0.13 0.03 45)" stroke-width="1"/>
+            <ellipse cx="0" cy="-14" rx="24" ry="4" fill="oklch(0.42 0.07 60)" stroke="oklch(0.13 0.03 45)" stroke-width="1"/>
+            <line x1="-24" y1="-3" x2="24" y2="-3" stroke="oklch(0.18 0.04 50)" stroke-width="1"/>
+            <line x1="-24" y1="11" x2="24" y2="11" stroke="oklch(0.18 0.04 50)" stroke-width="1"/>
+          </g>
+          <g transform="translate(563 672)">
+            <ellipse cx="0" cy="20" rx="26" ry="6" fill="oklch(0.18 0.03 45)" opacity="0.65"/>
+            <rect x="-22" y="-12" width="44" height="32" rx="6" fill="oklch(0.38 0.06 55)" stroke="oklch(0.15 0.03 45)" stroke-width="1"/>
+            <ellipse cx="0" cy="-12" rx="22" ry="4" fill="oklch(0.46 0.07 60)" stroke="oklch(0.15 0.03 45)" stroke-width="1"/>
+            <line x1="-22" y1="-2" x2="22" y2="-2" stroke="oklch(0.22 0.04 50)" stroke-width="1"/>
+            <line x1="-22" y1="10" x2="22" y2="10" stroke="oklch(0.22 0.04 50)" stroke-width="1"/>
+          </g>
+
+          <!-- Crates -->
+          <g transform="translate(870 660)">
+            <rect x="-26" y="-22" width="52" height="44" fill="oklch(0.36 0.06 55)" stroke="oklch(0.13 0.03 45)" stroke-width="1.2"/>
+            <line x1="-26" y1="0" x2="26" y2="0" stroke="oklch(0.20 0.04 50)" stroke-width="1"/>
+            <line x1="0" y1="-22" x2="0" y2="22" stroke="oklch(0.20 0.04 50)" stroke-width="1"/>
+            <line x1="-26" y1="-22" x2="26" y2="22" stroke="oklch(0.18 0.04 48)" stroke-width="0.7" opacity="0.6"/>
+            <line x1="-26" y1="22" x2="26" y2="-22" stroke="oklch(0.18 0.04 48)" stroke-width="0.7" opacity="0.6"/>
+          </g>
+          <g transform="translate(930 668)">
+            <rect x="-22" y="-18" width="44" height="36" fill="oklch(0.32 0.06 55)" stroke="oklch(0.12 0.03 45)" stroke-width="1.2"/>
+            <line x1="-22" y1="0" x2="22" y2="0" stroke="oklch(0.18 0.04 50)" stroke-width="1"/>
+            <line x1="-22" y1="-18" x2="22" y2="18" stroke="oklch(0.16 0.04 48)" stroke-width="0.7" opacity="0.6"/>
+            <line x1="-22" y1="18" x2="22" y2="-18" stroke="oklch(0.16 0.04 48)" stroke-width="0.7" opacity="0.6"/>
+          </g>
+        </g>
+
+        <!-- Hanging hammock for sleeping crew -->
+        <g opacity="0.85" transform="translate(1050 645)">
+          <line x1="-2" y1="-15" x2="-30" y2="0" stroke="var(--rope-dark)" stroke-width="1"/>
+          <line x1="42" y1="-15" x2="70" y2="0" stroke="var(--rope-dark)" stroke-width="1"/>
+          <path d="M -28 -2 Q 20 22 70 -2" fill="oklch(0.36 0.07 35)" stroke="oklch(0.18 0.04 40)" stroke-width="1"/>
+          <path d="M -28 -2 Q 20 18 70 -2" fill="none" stroke="oklch(0.45 0.08 35)" stroke-width="0.6"/>
+        </g>
+
+        <!-- ===== GALLEY (Below deck - the warm space) ===== -->
+        <!-- Galley floor -->
+        <rect x="540" y="780" width="500" height="10" fill="oklch(0.32 0.05 55)" opacity="0.85"/>
+        <line x1="540" y1="790" x2="1040" y2="790" stroke="var(--plank)" stroke-width="1" opacity="0.5"/>
+
+        <!-- Galley back wall (with shelves) -->
+        <g opacity="0.92">
+          <!-- Hearth/stove on left side of galley -->
+          <g transform="translate(600 760)">
+            <rect x="-32" y="-2" width="64" height="22" fill="oklch(0.16 0.03 40)" stroke="oklch(0.05 0.01 30)" stroke-width="1"/>
+            <!-- Fire inside -->
+            <g class="flicker">
+              <path d="M -20 18 Q -16 -2 -8 6 Q -2 -10 4 4 Q 12 -6 16 14 Q 18 22 -20 22 Z"
+                    fill="oklch(0.78 0.22 50)" opacity="0.95"/>
+              <path d="M -14 18 Q -10 6 -4 12 Q 2 0 6 12 Q 10 4 12 18 Z"
+                    fill="oklch(0.92 0.2 80)" opacity="0.9"/>
+            </g>
+            <!-- Chimney pipe up -->
+            <rect x="-6" y="-20" width="12" height="22" fill="oklch(0.18 0.03 40)" stroke="oklch(0.05 0.01 30)" stroke-width="0.8"/>
+            <!-- Cookpot above -->
+            <g transform="translate(0 -8)">
+              <ellipse cx="0" cy="0" rx="22" ry="6" fill="oklch(0.18 0.03 50)" stroke="oklch(0.06 0.01 30)" stroke-width="1"/>
+              <path d="M -22 0 Q -20 16 -8 18 L 8 18 Q 20 16 22 0 Z" fill="oklch(0.22 0.04 50)" stroke="oklch(0.06 0.01 30)" stroke-width="1"/>
+              <ellipse cx="0" cy="-1" rx="20" ry="4" fill="oklch(0.55 0.16 50)" opacity="0.85"/>
+              <!-- Steam wisp -->
+              <g opacity="0.55" class="flicker flicker-3">
+                <path d="M -8 -3 Q -10 -16 -2 -22 Q 6 -28 0 -38" stroke="oklch(0.85 0.02 220)" stroke-width="2" fill="none"/>
+                <path d="M 6 -3 Q 12 -14 4 -22" stroke="oklch(0.85 0.02 220)" stroke-width="1.5" fill="none"/>
+              </g>
+            </g>
+          </g>
+
+          <!-- Hanging fish from beams (right side of galley) -->
+          <g transform="translate(940 660)">
+            <line x1="-50" y1="0" x2="50" y2="0" stroke="var(--rope-dark)" stroke-width="1"/>
+            <!-- fish 1 -->
+            <g transform="translate(-30 30)">
+              <line x1="0" y1="-30" x2="0" y2="-2" stroke="var(--rope-dark)" stroke-width="0.6"/>
+              <path d="M 0 0 Q -6 -8 -22 -10 Q -28 -3 -22 4 Q -6 6 0 0 L 6 -2 L 6 -8 Z" fill="oklch(0.55 0.04 220)" stroke="oklch(0.22 0.03 220)" stroke-width="0.7"/>
+              <circle cx="-20" cy="-2" r="1" fill="oklch(0.1 0.02 45)"/>
+            </g>
+            <!-- fish 2 -->
+            <g transform="translate(0 30)">
+              <line x1="0" y1="-30" x2="0" y2="-2" stroke="var(--rope-dark)" stroke-width="0.6"/>
+              <path d="M 0 0 Q -6 -10 -24 -12 Q -32 -4 -24 4 Q -6 8 0 0 L 6 -3 L 6 -10 Z" fill="oklch(0.48 0.04 220)" stroke="oklch(0.2 0.03 220)" stroke-width="0.7"/>
+              <circle cx="-22" cy="-3" r="1" fill="oklch(0.1 0.02 45)"/>
+            </g>
+            <!-- fish 3 -->
+            <g transform="translate(30 30)">
+              <line x1="0" y1="-30" x2="0" y2="-2" stroke="var(--rope-dark)" stroke-width="0.6"/>
+              <path d="M 0 0 Q -6 -8 -22 -10 Q -28 -3 -22 4 Q -6 6 0 0 L 6 -2 L 6 -8 Z" fill="oklch(0.52 0.04 220)" stroke="oklch(0.22 0.03 220)" stroke-width="0.7"/>
+              <circle cx="-20" cy="-2" r="1" fill="oklch(0.1 0.02 45)"/>
+            </g>
+          </g>
+
+          <!-- Spice/jar shelves -->
+          <g transform="translate(880 770)">
+            <line x1="-40" y1="0" x2="40" y2="0" stroke="oklch(0.22 0.04 50)" stroke-width="1.5"/>
+            <rect x="-36" y="-12" width="9" height="12" fill="oklch(0.55 0.14 35)" stroke="oklch(0.18 0.04 40)" stroke-width="0.5"/>
+            <rect x="-22" y="-14" width="9" height="14" fill="oklch(0.55 0.1 95)" stroke="oklch(0.18 0.04 40)" stroke-width="0.5"/>
+            <rect x="-8"  y="-12" width="9" height="12" fill="oklch(0.45 0.12 55)" stroke="oklch(0.18 0.04 40)" stroke-width="0.5"/>
+            <rect x="6"   y="-13" width="9" height="13" fill="oklch(0.58 0.13 145)" stroke="oklch(0.18 0.04 40)" stroke-width="0.5"/>
+            <rect x="20"  y="-12" width="9" height="12" fill="oklch(0.4 0.1 30)" stroke="oklch(0.18 0.04 40)" stroke-width="0.5"/>
+          </g>
+
+          <!-- Galley lantern -->
+          <g class="flicker flicker-3" transform="translate(760 700)">
+            <ellipse cx="0" cy="0" rx="80" ry="50" fill="url(#lampGlow)" filter="url(#bigGlow)"/>
+          </g>
+          <g transform="translate(760 680)">
+            <line x1="0" y1="-30" x2="0" y2="-12" stroke="var(--rope-dark)" stroke-width="1"/>
+            <polygon points="0,-12 10,-2 8,16 -8,16 -10,-2" fill="oklch(0.22 0.04 50)" stroke="oklch(0.08 0.02 40)" stroke-width="0.8"/>
+            <polygon points="-7,0 7,0 6,14 -6,14" fill="oklch(0.88 0.18 75)"/>
+          </g>
+        </g>
+
+        <!-- ===== UPPER DECK ELEMENTS ===== -->
+
+        <!-- Mast (main, central) -->
+        <rect x="845" y="120" width="14" height="430" fill="oklch(0.32 0.05 55)" stroke="var(--plank)" stroke-width="0.5"/>
+        <line x1="845" y1="150" x2="859" y2="150" stroke="var(--plank)" stroke-width="0.4"/>
+        <line x1="845" y1="240" x2="859" y2="240" stroke="var(--plank)" stroke-width="0.4"/>
+        <line x1="845" y1="340" x2="859" y2="340" stroke="var(--plank)" stroke-width="0.4"/>
+        <line x1="845" y1="440" x2="859" y2="440" stroke="var(--plank)" stroke-width="0.4"/>
+
+        <!-- Yardarm -->
+        <rect x="700" y="218" width="310" height="6" fill="oklch(0.30 0.05 55)" stroke="var(--plank)" stroke-width="0.5"/>
+
+        <!-- Main sail (furled / partial) -->
+        <g class="sail-flap">
+          <path d="M 720 226 Q 850 290 990 226 L 985 360 Q 850 400 725 360 Z" fill="url(#sailGrad)" stroke="oklch(0.55 0.04 75)" stroke-width="1.2" opacity="0.96"/>
+          <!-- Sail fold lines -->
+          <line x1="800" y1="232" x2="800" y2="380" stroke="oklch(0.55 0.04 75)" stroke-width="0.6" opacity="0.5"/>
+          <line x1="850" y1="234" x2="850" y2="390" stroke="oklch(0.55 0.04 75)" stroke-width="0.6" opacity="0.5"/>
+          <line x1="900" y1="232" x2="900" y2="380" stroke="oklch(0.55 0.04 75)" stroke-width="0.6" opacity="0.5"/>
+          <!-- Reef points -->
+          <line x1="730" y1="300" x2="980" y2="300" stroke="oklch(0.55 0.04 75)" stroke-width="0.4" opacity="0.5"/>
+          <!-- Sail tear at corner — flavor -->
+          <path d="M 985 360 L 996 380 L 985 372 Z" fill="oklch(0.78 0.03 80)"/>
+        </g>
+
+        <!-- Rigging ropes from yardarm down to deck corners -->
+        <g stroke="var(--rope)" stroke-width="1.2" opacity="0.8" fill="none">
+          <line x1="708" y1="220" x2="540" y2="540"/>
+          <line x1="1003" y1="220" x2="1100" y2="540"/>
+          <line x1="730" y1="220" x2="680" y2="540"/>
+          <line x1="978" y1="220" x2="1020" y2="540"/>
+          <!-- Stays from masthead -->
+          <line x1="852" y1="120" x2="1300" y2="495"/>
+          <line x1="852" y1="120" x2="478" y2="540"/>
+          <line x1="852" y1="120" x2="1480" y2="465"/>
+        </g>
+
+        <!-- Smaller upper yard -->
+        <rect x="760" y="146" width="190" height="4" fill="oklch(0.30 0.05 55)" stroke="var(--plank)" stroke-width="0.4"/>
+        <g class="sail-flap" opacity="0.92">
+          <path d="M 776 152 Q 855 184 936 152 L 932 198 Q 855 212 778 198 Z" fill="url(#sailGrad)" stroke="oklch(0.55 0.04 75)" stroke-width="0.8"/>
+        </g>
+
+        <!-- ===== CROW'S NEST (Ursula) ===== -->
+        <g>
+          <!-- Crow's nest barrel -->
+          <ellipse cx="852" cy="120" rx="48" ry="9" fill="oklch(0.20 0.04 50)"/>
+          <path d="M 804 118 Q 804 92 852 90 Q 900 92 900 118 Z" fill="oklch(0.32 0.05 55)" stroke="var(--plank)" stroke-width="1"/>
+          <ellipse cx="852" cy="92" rx="48" ry="9" fill="oklch(0.42 0.06 60)" stroke="var(--plank)" stroke-width="1"/>
+          <!-- nest staves -->
+          <g stroke="var(--plank)" stroke-width="0.5" opacity="0.7">
+            <line x1="820" y1="93" x2="820" y2="118"/>
+            <line x1="836" y1="92" x2="836" y2="120"/>
+            <line x1="852" y1="91" x2="852" y2="120"/>
+            <line x1="868" y1="92" x2="868" y2="120"/>
+            <line x1="884" y1="93" x2="884" y2="118"/>
+          </g>
+          <!-- Pennant at top -->
+          <line x1="853" y1="90" x2="853" y2="50" stroke="oklch(0.32 0.05 55)" stroke-width="2"/>
+          <path d="M 853 52 L 890 60 L 853 70 Z" fill="oklch(0.46 0.16 30)" opacity="0.85"/>
+
+          <!-- Amulet glint (above Ursula, catching moonlight) -->
+          <g class="amulet-glint" transform="translate(853 90)">
+            <circle r="14" fill="oklch(0.85 0.02 220)" opacity="0.7" filter="url(#softGlow)"/>
+            <circle r="3" fill="white"/>
+          </g>
+        </g>
+
+        <!-- ===== HELM WHEEL (Captain Thorgrim's post) ===== -->
+        <g transform="translate(348 450)">
+          <!-- Wheel column -->
+          <rect x="-5" y="-2" width="10" height="20" fill="oklch(0.28 0.05 55)" stroke="var(--plank)" stroke-width="0.6"/>
+          <!-- Wheel -->
+          <circle r="22" fill="none" stroke="oklch(0.42 0.06 55)" stroke-width="3"/>
+          <circle r="6" fill="oklch(0.34 0.05 55)" stroke="var(--plank)" stroke-width="0.6"/>
+          <g stroke="oklch(0.42 0.06 55)" stroke-width="2">
+            <line x1="-28" y1="0" x2="-6" y2="0"/>
+            <line x1="6" y1="0" x2="28" y2="0"/>
+            <line x1="0" y1="-28" x2="0" y2="-6"/>
+            <line x1="0" y1="6" x2="0" y2="28"/>
+            <line x1="-20" y1="-20" x2="-5" y2="-5"/>
+            <line x1="20" y1="-20" x2="5" y2="-5"/>
+            <line x1="-20" y1="20" x2="-5" y2="5"/>
+            <line x1="20" y1="20" x2="5" y2="5"/>
+          </g>
+          <!-- Wheel handles -->
+          <g fill="oklch(0.42 0.06 55)">
+            <circle cx="-28" cy="0" r="3"/>
+            <circle cx="28" cy="0" r="3"/>
+            <circle cx="0" cy="-28" r="3"/>
+            <circle cx="0" cy="28" r="3"/>
+          </g>
+        </g>
+
+        <!-- ===== NETS & BARRELS (Haldor's area, main deck) ===== -->
+        <g class="sway">
+          <!-- Net draped over rail -->
+          <path d="M 600 540 L 740 540 L 760 620 L 580 620 Z" fill="url(#netPattern)" opacity="0.8"/>
+          <path d="M 600 540 L 740 540 L 760 620 L 580 620 Z" fill="none" stroke="oklch(0.42 0.05 55)" stroke-width="1" opacity="0.7"/>
+          <!-- Rope edges of net -->
+          <line x1="600" y1="540" x2="580" y2="620" stroke="var(--rope-dark)" stroke-width="1.5"/>
+          <line x1="740" y1="540" x2="760" y2="620" stroke="var(--rope-dark)" stroke-width="1.5"/>
+          <line x1="580" y1="620" x2="760" y2="620" stroke="var(--rope-dark)" stroke-width="1.5"/>
+          <!-- Hanging weights -->
+          <circle cx="610" cy="624" r="3" fill="oklch(0.32 0.03 50)"/>
+          <circle cx="660" cy="626" r="3" fill="oklch(0.32 0.03 50)"/>
+          <circle cx="710" cy="624" r="3" fill="oklch(0.32 0.03 50)"/>
+        </g>
+
+        <!-- Barrel on main deck near Haldor -->
+        <g transform="translate(540 522)">
+          <ellipse cx="0" cy="14" rx="20" ry="4" fill="oklch(0.16 0.03 45)" opacity="0.6"/>
+          <rect x="-18" y="-10" width="36" height="24" rx="4" fill="oklch(0.40 0.06 55)" stroke="var(--plank)" stroke-width="0.8"/>
+          <ellipse cx="0" cy="-10" rx="18" ry="3" fill="oklch(0.48 0.07 60)" stroke="var(--plank)" stroke-width="0.8"/>
+          <line x1="-18" y1="-2" x2="18" y2="-2" stroke="var(--plank)" stroke-width="0.8"/>
+          <line x1="-18" y1="6" x2="18" y2="6" stroke="var(--plank)" stroke-width="0.8"/>
+        </g>
+
+        <!-- Fishing pole leaning against rail -->
+        <line x1="772" y1="540" x2="900" y2="380" stroke="oklch(0.42 0.05 55)" stroke-width="2"/>
+        <line x1="900" y1="380" x2="930" y2="500" stroke="oklch(0.85 0.02 220)" stroke-width="0.6" opacity="0.7"/>
+        <circle cx="930" cy="500" r="2" fill="oklch(0.85 0.02 220)"/>
+
+        <!-- Coiled rope (Kalt's area) -->
+        <g transform="translate(1020 532)">
+          <ellipse cx="0" cy="8" rx="22" ry="6" fill="none" stroke="var(--rope)" stroke-width="2"/>
+          <ellipse cx="0" cy="4" rx="20" ry="5" fill="none" stroke="var(--rope)" stroke-width="2"/>
+          <ellipse cx="0" cy="0" rx="18" ry="4" fill="none" stroke="var(--rope)" stroke-width="2"/>
+          <ellipse cx="0" cy="-4" rx="16" ry="3" fill="none" stroke="var(--rope)" stroke-width="2"/>
+          <ellipse cx="0" cy="-8" rx="14" ry="3" fill="none" stroke="var(--rope-dark)" stroke-width="2"/>
+        </g>
+
+        <!-- ===== PORTHOLES (warm light spilling out) ===== -->
+        <g>
+          <!-- Porthole 1 -->
+          <circle cx="540" cy="675" r="22" fill="url(#lampGlow)" class="flicker flicker-2" opacity="0.85"/>
+          <circle cx="540" cy="675" r="10" fill="oklch(0.88 0.18 75)" stroke="oklch(0.22 0.04 50)" stroke-width="2"/>
+          <circle cx="540" cy="675" r="14" fill="none" stroke="oklch(0.45 0.06 55)" stroke-width="2"/>
+          <line x1="530" y1="675" x2="550" y2="675" stroke="oklch(0.22 0.04 50)" stroke-width="0.8"/>
+          <line x1="540" y1="665" x2="540" y2="685" stroke="oklch(0.22 0.04 50)" stroke-width="0.8"/>
+
+          <!-- Porthole 2 -->
+          <circle cx="700" cy="680" r="22" fill="url(#lampGlow)" class="flicker" opacity="0.8"/>
+          <circle cx="700" cy="680" r="10" fill="oklch(0.85 0.17 72)" stroke="oklch(0.22 0.04 50)" stroke-width="2"/>
+          <circle cx="700" cy="680" r="14" fill="none" stroke="oklch(0.45 0.06 55)" stroke-width="2"/>
+
+          <!-- Porthole 3 -->
+          <circle cx="980" cy="678" r="22" fill="url(#lampGlow)" class="flicker flicker-3" opacity="0.85"/>
+          <circle cx="980" cy="678" r="10" fill="oklch(0.86 0.17 70)" stroke="oklch(0.22 0.04 50)" stroke-width="2"/>
+          <circle cx="980" cy="678" r="14" fill="none" stroke="oklch(0.45 0.06 55)" stroke-width="2"/>
+          <line x1="970" y1="678" x2="990" y2="678" stroke="oklch(0.22 0.04 50)" stroke-width="0.8"/>
+
+          <!-- Porthole 4 (smaller, near bow) -->
+          <circle cx="1130" cy="672" r="18" fill="url(#lampGlow)" class="flicker flicker-2" opacity="0.7"/>
+          <circle cx="1130" cy="672" r="8" fill="oklch(0.82 0.16 70)" stroke="oklch(0.22 0.04 50)" stroke-width="2"/>
+          <circle cx="1130" cy="672" r="12" fill="none" stroke="oklch(0.45 0.06 55)" stroke-width="2"/>
+        </g>
+
+        <!-- Anchor at bow -->
+        <g transform="translate(1290 580)" opacity="0.85">
+          <line x1="0" y1="-30" x2="0" y2="20" stroke="oklch(0.42 0.04 60)" stroke-width="2"/>
+          <line x1="-12" y1="-26" x2="12" y2="-26" stroke="oklch(0.42 0.04 60)" stroke-width="2"/>
+          <path d="M -20 14 Q 0 24 20 14 L 14 24 L -14 24 Z" fill="oklch(0.42 0.04 60)"/>
+        </g>
+
+        <!-- Ribbon banner across midships with ship name -->
+        <g transform="translate(850 968)" opacity="0.95">
+          <path d="M -180 0 L -160 -10 L 160 -10 L 180 0 L 160 10 L -160 10 Z" fill="oklch(0.78 0.05 78)" stroke="oklch(0.32 0.05 55)" stroke-width="1"/>
+          <path d="M -180 0 L -160 -10 L -160 10 Z" fill="oklch(0.55 0.06 55)" opacity="0.5"/>
+          <path d="M 180 0 L 160 -10 L 160 10 Z" fill="oklch(0.55 0.06 55)" opacity="0.5"/>
+          <text x="0" y="5" text-anchor="middle" font-family="IM Fell English SC, serif" font-size="18" fill="oklch(0.25 0.04 50)" letter-spacing="6">REMORHAZ</text>
+        </g>
+
+        <!-- =============== HOTSPOTS =============== -->
+        <!-- Each hotspot: a group with portrait image clipped to a circle, decorative ring(s), label text.
+             data-zone identifies the NPC. -->
+
+        <!-- 1. URSULA — Crow's Nest (top of mast) -->
+        <g class="hotspot" data-zone="ursula" transform="translate(852 60)">
+          <circle class="glow" r="74" fill="url(#lampGlow)" filter="url(#bigGlow)" opacity="0"/>
+          <image href="assets/ursula.jpg" x="-46" y="-46" width="92" height="92" preserveAspectRatio="xMidYMid slice" clip-path="url(#clip-ursula)" class="portrait-clip-img"/>
+          <circle class="ring-outer" r="52"/>
+          <circle class="ring-inner" r="49"/>
+          <circle r="46" fill="none" stroke="oklch(0.25 0.04 50)" stroke-width="2"/>
+        </g>
+        <text class="hotspot-label" x="852" y="-2">URSULA · CROW'S NEST</text>
+
+        <!-- 2. THORGRIM — Helm (stern castle) -->
+        <g class="hotspot" data-zone="thorgrim" transform="translate(348 386)">
+          <circle class="glow" r="72" fill="url(#lampGlow)" filter="url(#bigGlow)" opacity="0"/>
+          <image href="assets/thorgrim.png" x="-46" y="-46" width="92" height="92" preserveAspectRatio="xMidYMid slice" clip-path="url(#clip-thorgrim)" class="portrait-clip-img"/>
+          <circle class="ring-outer" r="52"/>
+          <circle class="ring-inner" r="49"/>
+          <circle r="46" fill="none" stroke="oklch(0.25 0.04 50)" stroke-width="2"/>
+        </g>
+        <text class="hotspot-label" x="348" y="450" transform="translate(0 -116)" style="display:none">THORGRIM</text>
+        <text class="hotspot-label" x="348" y="325">CAPT. THORGRIM · HELM</text>
+
+        <!-- 3. HALDOR — Main Deck / Stern (near nets) -->
+        <g class="hotspot" data-zone="haldor" transform="translate(660 478)">
+          <circle class="glow" r="72" fill="url(#lampGlow)" filter="url(#bigGlow)" opacity="0"/>
+          <image href="assets/haldor.jpg" x="-46" y="-46" width="92" height="92" preserveAspectRatio="xMidYMid slice" clip-path="url(#clip-haldor)" class="portrait-clip-img"/>
+          <circle class="ring-outer" r="52"/>
+          <circle class="ring-inner" r="49"/>
+          <circle r="46" fill="none" stroke="oklch(0.25 0.04 50)" stroke-width="2"/>
+        </g>
+        <text class="hotspot-label" x="660" y="417">HALDOR · MAIN DECK</text>
+
+        <!-- 4. KALT — Rigging / Mid-deck (near mast/rope coil) -->
+        <g class="hotspot" data-zone="kalt" transform="translate(1020 470)">
+          <circle class="glow" r="72" fill="url(#lampGlow)" filter="url(#bigGlow)" opacity="0"/>
+          <image href="assets/kalt.jpg" x="-46" y="-46" width="92" height="92" preserveAspectRatio="xMidYMid slice" clip-path="url(#clip-kalt)" class="portrait-clip-img"/>
+          <circle class="ring-outer" r="52"/>
+          <circle class="ring-inner" r="49"/>
+          <circle r="46" fill="none" stroke="oklch(0.25 0.04 50)" stroke-width="2"/>
+        </g>
+        <text class="hotspot-label" x="1020" y="409">KALT · RIGGING</text>
+
+        <!-- 5. INGRID — Galley (below decks, warm cutaway) -->
+        <g class="hotspot" data-zone="ingrid" transform="translate(760 800)">
+          <circle class="glow" r="78" fill="url(#lampGlow)" filter="url(#bigGlow)" opacity="0"/>
+          <image href="assets/ingrid.png" x="-46" y="-46" width="92" height="92" preserveAspectRatio="xMidYMid slice" clip-path="url(#clip-ingrid)" class="portrait-clip-img"/>
+          <circle class="ring-outer" r="52"/>
+          <circle class="ring-inner" r="49"/>
+          <circle r="46" fill="none" stroke="oklch(0.25 0.04 50)" stroke-width="2"/>
+        </g>
+        <text class="hotspot-label" x="760" y="870">INGRID · GALLEY</text>
+
+      </g>
+      <!-- /ship-rock -->
+
+      <!-- Foreground sea spray -->
+      <g opacity="0.5">
+        <path d="M 200 940 Q 350 920 500 940 T 800 935 T 1100 945 T 1400 935 L 1400 980 L 200 980 Z" fill="oklch(0.10 0.04 245)"/>
+      </g>
+
+    </svg>
+  </div>
+
+  <!-- Snow overlay layer (extra) -->
+  <div class="vignette"></div>
+
+  <!-- Tooltip -->
+  <div class="tooltip" id="tooltip" role="tooltip" aria-hidden="true">
+    <div class="tt-name" id="tt-name"></div>
+    <div class="tt-role" id="tt-role"></div>
+    <div class="tt-line" id="tt-line"></div>
+    <div class="tt-day" id="tt-day"></div>
+  </div>
+
+  <!-- Voyage progress (rope with 9 knots) -->
+  <aside class="voyage" aria-label="Voyage progress">
+    <span class="voyage-title">— VOYAGE LOG · NINE DAYS NORTH —</span>
+    <div class="rope-line"></div>
+    <div class="knots" id="knots"></div>
+    <div class="voyage-foot">to Eiselcross</div>
+  </aside>
+
+  <!-- Modal shroud + side panel -->
+  <div class="modal-shroud" id="shroud"></div>
+  <aside class="panel" id="panel" role="dialog" aria-modal="true" aria-hidden="true">
+    <button class="panel-close" id="panelClose">✕  CLOSE</button>
+    <div class="eyebrow" id="p-eyebrow">— Aboard the Remorhaz —</div>
+    <div class="day-tag" id="p-day">DAY · 01</div>
+    <h2 id="p-name">Name</h2>
+    <h3 id="p-role">role</h3>
+
+    <div class="panel-portrait-wrap">
+      <div class="panel-portrait" id="p-portrait"></div>
+      <div class="panel-stats" id="p-stats"></div>
+    </div>
+
+    <hr class="rule"/>
+
+    <div class="dialogue" id="p-dialogue"></div>
+
+    <div class="activity">
+      <div class="ah" id="p-act-title">ACTIVITY</div>
+      <div class="at" id="p-act-desc"></div>
+    </div>
+
+    <div class="panel-actions">
+      <button class="primary" id="p-begin">BEGIN ACTIVITY</button>
+      <button class="secondary" id="p-later">RETURN TO DECK</button>
+    </div>
+
+    <div class="status-line" id="p-status"></div>
+  </aside>
+
+</div>
+
+<script>
+(() => {
+  /* ============== CHARACTER GUARD ============== */
+  try {
+    const _s = JSON.parse(localStorage.getItem("remorhaz") || "{}");
+    if (!_s.selectedCharacter) { window.location.replace("character-select.html"); }
+  } catch { window.location.replace("character-select.html"); }
+
+  /* ============== DATA ============== */
+  const NPCS = {
+    thorgrim: {
+      name: "Capt. Thorgrim Isskegg",
+      role: "Half-dwarf · Captain & Master of the Remorhaz",
+      day: 0,
+      dayLabel: "ANY HOUR",
+      zone: "Helm / Captain's Post",
+      portrait: "assets/thorgrim.png",
+      hook: "We sail at his word. Nothing on this deck moves until it does.",
+      dialogue: "Eyes on the horizon, traveller. The sea this far north does not forgive a slow watch — nor a slow tongue. State your business or stand aside; the wheel does not turn itself.",
+      stats: [
+        ["LINEAGE", "Half-dwarf"],
+        ["RANK",    "Captain"],
+        ["AT POST", "The wheel, always"],
+      ],
+      activityTitle: "SHIP-WIDE EVENTS",
+      activityDesc: "Speaking with Captain Thorgrim does not consume a day — he surfaces ship-wide news, course changes, and the day's order of march.",
+      special: true,
+    },
+    haldor: {
+      name: "Haldor Stormchaser",
+      role: "Scottish dwarf · Fisherman & deckhand",
+      day: 1,
+      dayLabel: "DAY · 01 — FISHING",
+      zone: "Main Deck · Stern",
+      portrait: "assets/haldor.jpg",
+      hook: "The sea doesn't care about your magic. Pull!",
+      dialogue: "Aye, ye've a strong back — good. The lines are out an' the nets are heavy. If ye want supper on this voyage, ye'll be earnin' it. Grab a pole, mind yer footing, an' for the love of the deep — don't lose yer grip.",
+      stats: [
+        ["LINEAGE", "Dwarf"],
+        ["TRADE",   "Fisherman"],
+        ["AT POST", "Nets and lines, stern rail"],
+      ],
+      activityTitle: "DAY 1 · FISHING",
+      activityDesc: "Cast lines into the freezing brine and haul what surfaces from the deep. The galley will need a catch before nightfall.",
+    },
+    ingrid: {
+      name: "Chef Ingrid Firebrew",
+      role: "Snow-leopard tabaxi · Galley Master",
+      day: 1,
+      dayLabel: "DAY · 01 — COOKING",
+      zone: "Below Deck · Galley",
+      portrait: "assets/ingrid.png",
+      hook: "Hands clean, knife steady. We feed the ship, or the ship eats us.",
+      dialogue: "Mmh — you smell of salt and bad weather, both welcome in my kitchen. Sit if you must, but pick up a blade if you can. There is fish enough for stew, and stew enough for ten, if we work quickly. The hearth is warmer than the sea, friend.",
+      stats: [
+        ["LINEAGE", "Tabaxi (snow leopard)"],
+        ["TRADE",   "Cook · Galley Master"],
+        ["AT POST", "The hearth, always lit"],
+      ],
+      activityTitle: "DAY 1 · COOKING",
+      activityDesc: "Help Ingrid render the day's catch into something warm. The galley is the only place on this ship that smells of home.",
+    },
+    kalt: {
+      name: "Kalt Ironfist",
+      role: "Dwarf woman · First Mate",
+      day: 2,
+      dayLabel: "DAY · 02 — MAINTENANCE",
+      zone: "Rigging / Mid-Deck",
+      portrait: "assets/kalt.jpg",
+      hook: "A rope that frays in calm water will snap in a storm.",
+      dialogue: "Don't just stand there gawking at the canvas. Every line on this ship has a knot, every knot has a name, and every name has a reason. Come — I'll show you which ones the sea is trying to undo today.",
+      stats: [
+        ["LINEAGE", "Dwarf"],
+        ["RANK",    "First Mate"],
+        ["AT POST", "Rigging, shrouds, and ratlines"],
+      ],
+      activityTitle: "DAY 2 · SHIP MAINTENANCE",
+      activityDesc: "Inspect ropes, mend sailcloth, and check the rigging before the next squall. Sloppy work here will cost lives later.",
+    },
+    ursula: {
+      name: "Ursula Elara",
+      role: "Human (werebear) · Navigator & Lookout",
+      day: 3,
+      dayLabel: "DAY · 03 — NAVIGATION",
+      zone: "Crow's Nest",
+      portrait: "assets/ursula.jpg",
+      hook: "From up here, the world is a chart and the chart is a lie. Look closer.",
+      dialogue: "Come up — the wind is cleaner where I sit. The crescent on my throat catches more than moonlight; it answers to true north when the compass forgets. Bring the glass. There is something on the ice today, and I would have a second pair of eyes I trust.",
+      stats: [
+        ["LINEAGE", "Human (lycanthrope · werebear)"],
+        ["TRADE",   "Navigator · Lookout"],
+        ["AT POST", "Crow's nest, by the silver amulet"],
+      ],
+      activityTitle: "DAY 3 · NAVIGATION",
+      activityDesc: "Take the spyglass to the crow's nest and chart what lies on the horizon. The arctic does not show itself twice.",
+    },
+  };
+
+  const DAYS = [
+    { n: 1, label: "Fishing & Cooking",  npcs: ["haldor", "ingrid"] },
+    { n: 2, label: "Ship Maintenance",   npcs: ["kalt"] },
+    { n: 3, label: "Navigation",         npcs: ["ursula"] },
+    { n: 4, label: "Open Sea",           npcs: [] },
+    { n: 5, label: "Ice Floes",          npcs: [] },
+    { n: 6, label: "Open Sea",           npcs: [] },
+    { n: 7, label: "First Sight of Land",npcs: [] },
+    { n: 8, label: "Skirting the Shelf", npcs: [] },
+    { n: 9, label: "Landfall · Eiselcross", npcs: [] },
+  ];
+
+  /* ============== STATE ============== */
+  const state = {
+    currentDay: 1,
+    completed: new Set(),    // npc keys
+    completedDays: new Set() // day numbers fully done
+  };
+
+  // Persist
+  try {
+    const s = JSON.parse(localStorage.getItem("remorhaz") || "{}");
+    if (s.currentDay) state.currentDay = s.currentDay;
+    if (Array.isArray(s.completed)) state.completed = new Set(s.completed);
+    if (Array.isArray(s.completedDays)) state.completedDays = new Set(s.completedDays);
+  } catch (e) { /* ignore */ }
+
+  function save() {
+    localStorage.setItem("remorhaz", JSON.stringify({
+      currentDay: state.currentDay,
+      completed: [...state.completed],
+      completedDays: [...state.completedDays],
+    }));
+  }
+
+  /* ============== SNOW ============== */
+  const snowEl = document.getElementById("snow");
+  const FLAKE_COUNT = 70;
+  for (let i = 0; i < FLAKE_COUNT; i++) {
+    const f = document.createElement("div");
+    f.className = "flake";
+    const size = 1 + Math.random() * 3;
+    f.style.width = size + "px";
+    f.style.height = size + "px";
+    f.style.left = (Math.random() * 100) + "vw";
+    const dur = 8 + Math.random() * 12;
+    f.style.animationDuration = dur + "s";
+    f.style.animationDelay = (-Math.random() * dur) + "s";
+    f.style.opacity = (0.3 + Math.random() * 0.6).toFixed(2);
+    snowEl.appendChild(f);
+  }
+
+  /* ============== TOOLTIP ============== */
+  const tt = document.getElementById("tooltip");
+  const ttName = document.getElementById("tt-name");
+  const ttRole = document.getElementById("tt-role");
+  const ttLine = document.getElementById("tt-line");
+  const ttDay  = document.getElementById("tt-day");
+
+  function showTooltip(zone, x, y) {
+    const npc = NPCS[zone];
+    if (!npc) return;
+    ttName.textContent = npc.name;
+    ttRole.textContent = npc.role;
+    ttLine.textContent = '"' + npc.hook + '"';
+    ttDay.textContent  = npc.dayLabel;
+    tt.style.left = x + "px";
+    tt.style.top  = y + "px";
+    tt.classList.add("visible");
+  }
+  function hideTooltip() { tt.classList.remove("visible"); }
+
+  /* ============== HOTSPOTS ============== */
+  document.querySelectorAll(".hotspot").forEach(el => {
+    const zone = el.dataset.zone;
+    el.addEventListener("mouseenter", (e) => {
+      const rect = el.getBoundingClientRect();
+      showTooltip(zone, rect.left + rect.width/2, rect.top);
+    });
+    el.addEventListener("mousemove", (e) => {
+      const rect = el.getBoundingClientRect();
+      showTooltip(zone, rect.left + rect.width/2, rect.top);
+    });
+    el.addEventListener("mouseleave", hideTooltip);
+    el.addEventListener("click", () => {
+      openPanel(zone);
+    });
+  });
+
+  /* ============== PANEL ============== */
+  const shroud = document.getElementById("shroud");
+  const panel  = document.getElementById("panel");
+  const pEyebrow = document.getElementById("p-eyebrow");
+  const pDay   = document.getElementById("p-day");
+  const pName  = document.getElementById("p-name");
+  const pRole  = document.getElementById("p-role");
+  const pPortrait = document.getElementById("p-portrait");
+  const pStats = document.getElementById("p-stats");
+  const pDialogue = document.getElementById("p-dialogue");
+  const pActTitle = document.getElementById("p-act-title");
+  const pActDesc  = document.getElementById("p-act-desc");
+  const pBegin = document.getElementById("p-begin");
+  const pLater = document.getElementById("p-later");
+  const pStatus = document.getElementById("p-status");
+  const closeBtn = document.getElementById("panelClose");
+
+  let activeZone = null;
+
+  function openPanel(zone) {
+    const npc = NPCS[zone];
+    if (!npc) return;
+    activeZone = zone;
+    hideTooltip();
+
+    pDay.textContent = npc.dayLabel;
+    pName.textContent = npc.name;
+    pRole.textContent = npc.role;
+    pPortrait.style.backgroundImage = `url('${npc.portrait}')`;
+    pDialogue.textContent = '"' + npc.dialogue + '"';
+    pActTitle.textContent = npc.activityTitle;
+    pActDesc.textContent = npc.activityDesc;
+
+    pStats.innerHTML = "";
+    npc.stats.forEach(([k, v]) => {
+      const r = document.createElement("div");
+      r.className = "stat";
+      r.innerHTML = `<span>${k}</span><span>${v}</span>`;
+      pStats.appendChild(r);
+    });
+
+    // Status / button
+    if (npc.special) {
+      pBegin.textContent = "ORDERS OF THE DAY";
+      pStatus.textContent = "";
+    } else if (state.completed.has(zone)) {
+      pBegin.textContent = "RE-VISIT";
+      pStatus.textContent = `Completed on Day ${npc.day}.`;
+    } else if (state.currentDay >= npc.day) {
+      pBegin.textContent = "BEGIN ACTIVITY";
+      pStatus.textContent = `Available now — Day ${state.currentDay} of nine.`;
+    } else {
+      pBegin.textContent = "NOT YET";
+      pStatus.textContent = `Held in reserve until Day ${npc.day}.`;
+    }
+
+    // Highlight the active hotspot
+    document.querySelectorAll(".hotspot").forEach(h => {
+      h.classList.toggle("is-active", h.dataset.zone === zone);
+    });
+
+    shroud.classList.add("open");
+    panel.classList.add("open");
+    panel.setAttribute("aria-hidden", "false");
+  }
+
+  function closePanel() {
+    shroud.classList.remove("open");
+    panel.classList.remove("open");
+    panel.setAttribute("aria-hidden", "true");
+    activeZone = null;
+    document.querySelectorAll(".hotspot").forEach(h => h.classList.remove("is-active"));
+  }
+
+  closeBtn.addEventListener("click", closePanel);
+  pLater.addEventListener("click", closePanel);
+  shroud.addEventListener("click", closePanel);
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closePanel();
+  });
+
+  pBegin.addEventListener("click", () => {
+    if (!activeZone) return;
+    const npc = NPCS[activeZone];
+
+    if (npc.special) {
+      pStatus.textContent = "The captain holds the deck. No day spent.";
+      return;
+    }
+    if (state.currentDay < npc.day) {
+      pStatus.textContent = `That work is held in reserve until Day ${npc.day}.`;
+      return;
+    }
+
+    // Route to mini-game pages
+    const routes = {
+      haldor: "fishing.html",
+      ingrid:  "cooking.html",
+      kalt:    "maintenance.html",
+      ursula:  "navigation.html",
+    };
+    if (routes[activeZone]) {
+      save();
+      window.location.href = routes[activeZone];
+      return;
+    }
+
+    // Fallback: mark complete in place (for zones without a page yet)
+    state.completed.add(activeZone);
+    const dayEntry = DAYS.find(d => d.n === state.currentDay);
+    if (dayEntry && dayEntry.npcs.every(k => state.completed.has(k))) {
+      state.completedDays.add(state.currentDay);
+      if (state.currentDay < 9) state.currentDay++;
+    }
+    save();
+    renderKnots();
+    pStatus.textContent = "Logged. The day turns.";
+    pBegin.textContent = "RE-VISIT";
+  });
+
+  /* ============== ROPE / KNOTS ============== */
+  const knotsEl = document.getElementById("knots");
+  function renderKnots() {
+    knotsEl.innerHTML = "";
+    DAYS.forEach(d => {
+      const btn = document.createElement("button");
+      btn.className = "knot";
+      if (state.completedDays.has(d.n)) btn.classList.add("is-done");
+      if (d.n === state.currentDay && !state.completedDays.has(d.n)) btn.classList.add("is-current");
+      btn.innerHTML = `<span class="num">${String(d.n).padStart(2, "0")}</span>
+                       <span class="bead"></span>
+                       <span class="lbl">Day ${d.n} · ${d.label}</span>`;
+      btn.addEventListener("click", () => {
+        // Jump current day (DM convenience)
+        if (d.n <= 9) {
+          state.currentDay = d.n;
+          save();
+          renderKnots();
+        }
+      });
+      knotsEl.appendChild(btn);
+    });
+  }
+  renderKnots();
+
+  /* ============== INITIAL EFFECTS ============== */
+  // Subtle parallax on mouse move for ship
+  const stage = document.getElementById("stage");
+  const rockGroup = document.querySelector(".ship-rock");
+  let mx = 0, my = 0;
+  stage.addEventListener("mousemove", (e) => {
+    mx = (e.clientX / window.innerWidth) - 0.5;
+    my = (e.clientY / window.innerHeight) - 0.5;
+    if (rockGroup) {
+      rockGroup.style.setProperty("--px", (mx * 14).toFixed(1) + "px");
+      rockGroup.style.setProperty("--py", (my * 8).toFixed(1) + "px");
+    }
+    // Move snow horizontally a touch via CSS var on stage
+    stage.style.setProperty("--mx", (mx * 20).toFixed(1) + "px");
+  });
+
+})();
+</script>
+</body>
+</html>

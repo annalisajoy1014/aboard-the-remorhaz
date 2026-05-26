@@ -1,0 +1,2115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Day 1 · Fishing — Aboard the Remorhaz</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+/* ── CORNER BRACKETS (enhanced) ── */
+.corner {
+  position: fixed; width: 64px; height: 64px;
+  border: 1px solid var(--paper-dim); opacity: 0.55;
+  pointer-events: none; z-index: 10;
+}
+.corner.tl { top:14px;    left:14px;  border-right:none;  border-bottom:none; }
+.corner.tr { top:14px;    right:14px; border-left:none;   border-bottom:none; }
+.corner.bl { bottom:14px; left:14px;  border-right:none;  border-top:none;    }
+.corner.br { bottom:14px; right:14px; border-left:none;   border-top:none;    }
+
+/* small ornamental tick on each bracket */
+.corner::after {
+  content: ""; position: absolute; width: 5px; height: 5px;
+  border: 1px solid var(--paper-dim); transform: rotate(45deg);
+}
+.corner.tl::after { right: -3px; bottom: -3px; }
+.corner.tr::after { left:  -3px; bottom: -3px; }
+.corner.bl::after { right: -3px; top:    -3px; }
+.corner.br::after { left:  -3px; top:    -3px; }
+
+/* ── HEADER (page-specific overrides) ── */
+.page-header {
+  position: fixed; top: 28px; left: 50%; transform: translateX(-50%);
+  text-align: center; z-index: 10; pointer-events: none;
+}
+.page-header .eyebrow {
+  font-family: "Caveat", cursive; font-size: 16px;
+  color: var(--paper-deep); letter-spacing: 0.04em;
+}
+.page-header .title {
+  font-family: "IM Fell English SC", serif; font-size: 30px;
+  letter-spacing: 0.18em; color: var(--paper);
+  text-shadow: 0 2px 12px rgba(0,0,0,0.7);
+}
+.page-header .rule {
+  width: 220px; height: 18px;
+  margin: 4px auto 0;
+  background:
+    linear-gradient(to right, transparent, var(--paper-deep) 22%, var(--paper-deep) 78%, transparent) center/100% 1px no-repeat;
+  position: relative;
+}
+.page-header .rule::before, .page-header .rule::after {
+  content: ""; position: absolute; top: 50%; width: 5px; height: 5px;
+  border: 1px solid var(--paper-deep); transform: translateY(-50%) rotate(45deg);
+  background: var(--sea-deep);
+}
+.page-header .rule::before { left: 14px; }
+.page-header .rule::after  { right: 14px; }
+
+/* ── STAGE ── */
+.stage {
+  position: fixed; inset: 0; z-index: 1;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* ── GAME AREA ── */
+.game-area {
+  display: flex; align-items: stretch;
+  width: min(92vw, 1200px); height: min(76vh, 680px);
+  box-shadow: 0 30px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,0,0,0.4);
+  position: relative;
+}
+/* outer wood frame impression */
+.game-area::before {
+  content: ""; position: absolute; inset: -8px;
+  border: 1px solid color-mix(in oklch, var(--paper-deep) 18%, transparent);
+  pointer-events: none;
+}
+
+/* ── OCEAN PANEL (left) ── */
+.ocean-panel {
+  flex: 1; position: relative; overflow: hidden;
+  border: 1px solid color-mix(in oklch, var(--paper-deep) 25%, transparent);
+  border-right: none;
+  cursor: crosshair;
+  background: #050a14;
+}
+canvas#oceanCanvas {
+  display: block; position: absolute; inset: 0;
+  width: 100%; height: 100%;
+}
+
+/* haul hint pulse */
+.haul-hint {
+  position: absolute; bottom: 38px; left: 50%; transform: translateX(-50%);
+  font-family: "IM Fell English SC", serif; font-size: 13px;
+  letter-spacing: 0.26em; color: var(--lamp);
+  pointer-events: none; z-index: 4;
+  opacity: 0; transition: opacity 0.6s;
+  white-space: nowrap;
+  text-shadow: 0 0 18px color-mix(in oklch, var(--lamp) 60%, transparent),
+               0 0 4px rgba(0,0,0,0.6);
+  padding: 0 22px;
+}
+.haul-hint::before, .haul-hint::after {
+  content: ""; position: absolute; top: 50%;
+  width: 12px; height: 1px; background: var(--lamp);
+  opacity: .55;
+}
+.haul-hint::before { left: 0;  transform: translateY(-50%); }
+.haul-hint::after  { right: 0; transform: translateY(-50%); }
+.haul-hint.visible { opacity: 1; animation: hint-pulse 1.8s ease-in-out infinite; }
+@keyframes hint-pulse { 0%,100%{opacity:.45} 50%{opacity:1} }
+
+/* act label */
+.act-label {
+  position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%);
+  font-family: "IM Fell English SC", serif; font-size: 10px;
+  letter-spacing: 0.24em; color: var(--paper-deep);
+  pointer-events: none; z-index: 4; white-space: nowrap;
+  opacity: 0.85;
+}
+
+/* ── ACT 2: ROPE PULL ── */
+.rope-scene {
+  position: absolute; inset: 0; z-index: 5;
+  display: none; flex-direction: column;
+  align-items: center; justify-content: center; gap: 26px;
+  background:
+    radial-gradient(ellipse at 50% 0%, color-mix(in oklch, var(--lamp) 5%, transparent), transparent 60%),
+    linear-gradient(to bottom,
+      color-mix(in oklch, var(--sea-deep) 88%, transparent),
+      color-mix(in oklch, var(--sea-mid)  92%, transparent));
+  cursor: pointer; user-select: none;
+}
+.rope-scene.active { display: flex; }
+
+.rope-title {
+  font-family: "IM Fell English SC", serif; font-size: 12px;
+  letter-spacing: 0.32em; color: var(--paper-deep);
+  display: flex; align-items: center; gap: 14px;
+}
+.rope-title::before, .rope-title::after {
+  content: ""; width: 38px; height: 1px; background: var(--paper-deep); opacity: .55;
+}
+
+.tension-labels {
+  display: flex; justify-content: space-between; width: 82%;
+  font-family: "IM Fell English SC", serif; font-size: 11px;
+  letter-spacing: 0.18em; color: var(--paper-deep);
+}
+.tension-labels span { display: flex; align-items: center; gap: 10px; }
+.tension-labels .glyph {
+  display: inline-block; width: 18px; height: 18px;
+  position: relative;
+}
+/* hand glyph for YOU PULL */
+.tension-labels .glyph--hand::before {
+  content: ""; position: absolute; inset: 3px 4px 3px 4px;
+  border: 1px solid var(--paper-deep); border-radius: 2px 5px 5px 2px;
+  background: linear-gradient(to right, transparent 0 30%, color-mix(in oklch, var(--paper-deep) 25%, transparent) 30%);
+}
+/* net glyph for NET PULLS */
+.tension-labels .glyph--net {
+  background:
+    repeating-linear-gradient(45deg,  transparent 0 3px, color-mix(in oklch, var(--paper-deep) 75%, transparent) 3px 4px),
+    repeating-linear-gradient(-45deg, transparent 0 3px, color-mix(in oklch, var(--paper-deep) 75%, transparent) 3px 4px);
+}
+
+.rope-container {
+  width: 82%; position: relative; height: 84px;
+  display: flex; align-items: center; justify-content: center;
+  margin-top: 14px;
+}
+.rope-frame {
+  position: absolute; inset: 8px -22px;
+  border: 1px solid color-mix(in oklch, var(--rope-dark) 45%, transparent);
+  background:
+    linear-gradient(180deg,
+      color-mix(in oklch, var(--hull-dark) 90%, transparent),
+      color-mix(in oklch, var(--hull-darkest) 95%, transparent));
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklch, var(--hull-light) 25%, transparent),
+    inset 0 -1px 0 rgba(0,0,0,0.6),
+    0 6px 14px rgba(0,0,0,0.5);
+  pointer-events: none;
+}
+.rope-frame::before, .rope-frame::after {
+  /* cleats / iron studs at each end */
+  content: ""; position: absolute; top: 50%; width: 14px; height: 14px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #4f3f2e, #1a120a);
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.6), inset -1px -2px 3px rgba(0,0,0,0.6);
+  transform: translateY(-50%);
+}
+.rope-frame::before { left: -7px; }
+.rope-frame::after  { right: -7px; }
+
+.rope-track-wrap { position: relative; width: 100%; }
+.rope-track {
+  width: 100%; height: 16px; background: var(--hull-darkest);
+  border: 1px solid var(--rope-dark);
+  position: relative; overflow: hidden;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.7);
+}
+.rope-fill {
+  height: 100%; width: 50%;
+  background:
+    /* twisted strand highlight */
+    repeating-linear-gradient(60deg,
+      color-mix(in oklch, var(--rope) 90%, white) 0 2px,
+      var(--rope) 2px 7px,
+      var(--rope-dark) 7px 12px,
+      var(--rope) 12px 14px) ;
+  box-shadow: inset 0 -2px 3px rgba(0,0,0,0.45), inset 0 1px 1px rgba(255,255,255,0.08);
+  transition: width 0.08s ease, background 0.3s;
+}
+.rope-center-mark {
+  position: absolute; top: -12px; left: 50%;
+  transform: translateX(-50%);
+  width: 1px; height: calc(100% + 24px);
+  background: color-mix(in oklch, var(--paper-deep) 55%, transparent);
+  pointer-events: none;
+}
+.rope-center-mark::before, .rope-center-mark::after {
+  content: ""; position: absolute; left: 50%; width: 7px; height: 1px;
+  background: var(--paper-deep); transform: translateX(-50%);
+}
+.rope-center-mark::before { top: 0; }
+.rope-center-mark::after  { bottom: 0; }
+
+.rope-knot {
+  position: absolute; top: 50%; transform: translate(-50%, -50%);
+  width: 34px; height: 34px;
+  background:
+    radial-gradient(circle at 38% 32%, color-mix(in oklch, var(--rope) 90%, white) 0%, var(--rope) 35%, var(--rope-dark) 78%, #2a1d11 100%);
+  border-radius: 50%;
+  box-shadow:
+    inset -4px -5px 8px rgba(0,0,0,0.55),
+    inset 2px 3px 5px color-mix(in oklch, var(--rope) 60%, transparent),
+    0 4px 8px rgba(0,0,0,0.55);
+  z-index: 3; transition: left 0.08s ease;
+}
+.rope-knot::before {
+  /* knot wrap detail */
+  content: ""; position: absolute; inset: 7px;
+  border: 1.5px solid color-mix(in oklch, var(--rope-dark) 90%, black);
+  border-radius: 50%;
+  border-top-color: color-mix(in oklch, var(--rope) 50%, transparent);
+  transform: rotate(-25deg);
+  opacity: .7;
+}
+.rope-knot.strain { animation: rope-strain 0.15s ease-in-out; }
+@keyframes rope-strain {
+  0%,100% { transform: translate(-50%,-50%) scale(1); }
+  50%      { transform: translate(-50%,-50%) scale(1.15); }
+}
+
+.pull-prompt {
+  font-family: "Caveat", cursive; font-size: 22px; color: var(--lamp);
+  animation: pull-pulse 1s ease-in-out infinite; text-align: center;
+  text-shadow: 0 0 14px color-mix(in oklch, var(--lamp) 40%, transparent);
+}
+@keyframes pull-pulse { 0%,100%{opacity:.6;transform:scale(1)} 50%{opacity:1;transform:scale(1.03)} }
+
+@keyframes track-strain {
+  0%,100% { transform: translateX(0); }
+  25%      { transform: translateX(-3px); }
+  75%      { transform: translateX(3px); }
+}
+
+/* ── ACT 3: REVEAL ── */
+.reveal-scene {
+  position: absolute; inset: 0; z-index: 6;
+  display: none; flex-direction: column;
+  align-items: center; justify-content: center; gap: 22px;
+  padding: 36px;
+  background:
+    radial-gradient(ellipse at 50% 40%, color-mix(in oklch, var(--lamp) 6%, transparent), transparent 55%),
+    radial-gradient(ellipse at 50% 50%,
+      color-mix(in oklch, var(--sea-mid) 80%, transparent),
+      color-mix(in oklch, var(--sea-deep) 95%, transparent));
+}
+.reveal-scene.active { display: flex; }
+
+/* ── HALDOR SIDEBAR (right) ── */
+.haldor-sidebar {
+  width: 300px; flex-shrink: 0; position: relative;
+  overflow: hidden;
+  background:
+    /* faint paper grain via multiple radial spots */
+    radial-gradient(2px 2px at 24% 12%, rgba(192,172,143,0.05), transparent 60%),
+    radial-gradient(2px 2px at 78% 33%, rgba(192,172,143,0.04), transparent 60%),
+    radial-gradient(2px 2px at 18% 64%, rgba(192,172,143,0.05), transparent 60%),
+    radial-gradient(2px 2px at 82% 82%, rgba(192,172,143,0.04), transparent 60%),
+    linear-gradient(160deg,
+      color-mix(in oklch, var(--paper) 11%, var(--ink)) 0%,
+      color-mix(in oklch, var(--paper)  7%, var(--sea-deep)) 100%);
+  border: 1px solid color-mix(in oklch, var(--paper-deep) 28%, transparent);
+  padding: 32px 28px 26px;
+  display: flex; flex-direction: column; gap: 16px;
+}
+/* subtle inner frame */
+.haldor-sidebar::before {
+  content: ""; position: absolute; inset: 10px;
+  border: 1px solid color-mix(in oklch, var(--paper-deep) 14%, transparent);
+  pointer-events: none;
+}
+
+.haldor-portrait-wrap {
+  position: relative; width: 116px; height: 116px; margin: 4px auto 0;
+}
+.haldor-portrait {
+  width: 100px; height: 100px; border-radius: 50%; margin: 8px;
+  border: 2px solid var(--paper-deep);
+  outline: 5px solid color-mix(in oklch, var(--paper-deep) 28%, transparent);
+  background: var(--hull-darkest) center/cover no-repeat;
+  box-shadow: 0 6px 14px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.04);
+}
+/* ornament dots flanking portrait */
+.haldor-portrait-wrap::before, .haldor-portrait-wrap::after {
+  content: ""; position: absolute; top: 50%; width: 4px; height: 4px;
+  background: var(--paper-deep); transform: translateY(-50%) rotate(45deg);
+  opacity: .7;
+}
+.haldor-portrait-wrap::before { left: -8px; }
+.haldor-portrait-wrap::after  { right: -8px; }
+
+.haldor-name {
+  font-family: "IM Fell English SC", serif; font-size: 20px;
+  letter-spacing: 0.08em; color: var(--paper); text-align: center;
+}
+.haldor-role {
+  font-family: "Caveat", cursive; font-size: 15px;
+  color: var(--paper-deep); text-align: center; margin-top: -8px;
+}
+.sidebar-rule {
+  width: 100%; height: 11px;
+  background:
+    linear-gradient(to right, transparent, var(--paper-deep), transparent) center/100% 1px no-repeat;
+  flex-shrink: 0; position: relative;
+}
+.sidebar-rule::before {
+  content: ""; position: absolute; left: 50%; top: 50%;
+  width: 5px; height: 5px; transform: translate(-50%, -50%) rotate(45deg);
+  background: color-mix(in oklch, var(--paper) 14%, var(--ink));
+  border: 1px solid var(--paper-deep);
+}
+.haldor-dialogue {
+  font-family: "IM Fell English", serif; font-style: italic;
+  font-size: 15px; line-height: 1.5; color: var(--paper);
+  flex: 1; min-height: 0; transition: opacity 0.35s;
+  position: relative; padding-left: 8px;
+  overflow: hidden;
+}
+.haldor-dialogue::before {
+  content: ""; position: absolute; left: 0; top: 6px; bottom: 6px;
+  width: 1px;
+  background: linear-gradient(to bottom, transparent, color-mix(in oklch, var(--paper-deep) 50%, transparent) 20%, color-mix(in oklch, var(--paper-deep) 50%, transparent) 80%, transparent);
+}
+.phase-label {
+  font-family: "IM Fell English SC", serif; font-size: 11px;
+  letter-spacing: 0.2em; color: var(--blood); text-align: center;
+}
+.instruction-label {
+  font-family: "Caveat", cursive; font-size: 14px;
+  color: var(--paper-deep); text-align: center; margin-top: -10px;
+}
+.catch-tally {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 12px 4px 6px;
+  border-top: 1px solid color-mix(in oklch, var(--paper-deep) 30%, transparent);
+  border-bottom: 1px solid color-mix(in oklch, var(--paper-deep) 30%, transparent);
+}
+.tally-row {
+  display: flex; justify-content: space-between; align-items: baseline;
+  border-bottom: 1px dotted color-mix(in oklch, var(--paper-deep) 35%, transparent);
+  padding-bottom: 4px;
+  font-family: "IM Fell English SC", serif; font-size: 12px;
+  letter-spacing: 0.1em; color: var(--paper-deep);
+}
+.tally-row:last-child { border-bottom: none; }
+.tally-val { font-family: "IM Fell English", serif; font-style: italic; color: var(--paper); }
+
+/* ── CATCH CARD ── */
+.catch-card {
+  background:
+    /* faint stain rings */
+    radial-gradient(80px 60px at 18% 22%, rgba(134,109,77,0.10), transparent 70%),
+    radial-gradient(120px 80px at 84% 78%, rgba(134,109,77,0.08), transparent 70%),
+    linear-gradient(135deg, var(--paper) 0%, var(--paper-dim) 100%);
+  color: var(--ink); padding: 36px 48px 32px; max-width: 480px; width: 90%;
+  text-align: center;
+  box-shadow:
+    0 20px 60px rgba(0,0,0,0.65),
+    inset 0 0 0 1px rgba(255,255,255,0.35),
+    inset 0 0 0 2px color-mix(in oklch, var(--paper-deep) 18%, transparent),
+    inset 0 0 60px rgba(134,109,77,0.10);
+  animation: card-rise 0.55s cubic-bezier(0.2,0.8,0.3,1) both;
+  position: relative; overflow: hidden;
+  border: 1px solid color-mix(in oklch, var(--paper-deep) 50%, transparent);
+}
+.catch-card::before {
+  content: "";
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse at 80% 110%, color-mix(in oklch, var(--lamp) 10%, transparent), transparent 60%);
+  pointer-events: none;
+}
+/* deckle / corner clip decoration */
+.catch-card::after {
+  content: ""; position: absolute; inset: 6px;
+  border: 1px solid color-mix(in oklch, var(--paper-deep) 35%, transparent);
+  pointer-events: none;
+}
+@keyframes card-rise {
+  from { transform: translateY(36px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+.catch-result-tag {
+  font-family: "IM Fell English SC", serif; font-size: 10px;
+  letter-spacing: 0.28em; color: var(--blood); margin-bottom: 6px;
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+}
+.catch-result-tag::before, .catch-result-tag::after {
+  content: ""; width: 26px; height: 1px; background: var(--blood); opacity: .55;
+}
+.catch-name-big {
+  font-family: "IM Fell English SC", serif; font-size: 30px;
+  letter-spacing: 0.06em; color: var(--ink); margin-bottom: 2px;
+  text-shadow: 0 1px 0 rgba(255,255,255,0.4);
+}
+.catch-icon-big {
+  font-size: 56px; margin: 8px 0 6px; display: inline-block;
+  filter: drop-shadow(0 4px 6px rgba(0,0,0,0.25));
+}
+.catch-icon-rule {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  margin: 2px 0 12px;
+}
+.catch-icon-rule::before, .catch-icon-rule::after {
+  content: ""; width: 40px; height: 1px;
+  background: linear-gradient(to right, transparent, var(--paper-deep), transparent);
+}
+.catch-icon-rule .pip {
+  width: 4px; height: 4px; background: var(--paper-deep);
+  transform: rotate(45deg);
+}
+.catch-desc-text {
+  font-family: "IM Fell English", serif; font-style: italic;
+  font-size: 15.5px; line-height: 1.6; color: var(--ink); margin-bottom: 14px;
+}
+.catch-haldor-quote {
+  font-family: "Caveat", cursive; font-size: 18px; color: var(--hull-dark);
+  border-top: 1px solid color-mix(in oklch, var(--paper-deep) 70%, transparent);
+  padding-top: 12px; margin-top: 4px; line-height: 1.45;
+  position: relative;
+}
+.catch-haldor-quote::before {
+  content: "—"; display: inline-block; margin-right: 6px; color: var(--paper-deep);
+}
+
+/* wax seal */
+.wax-seal {
+  position: absolute; top: -12px; right: -12px;
+  width: 64px; height: 64px; border-radius: 50%;
+  background:
+    radial-gradient(circle at 40% 35%,
+      color-mix(in oklch, var(--blood) 130%, white) 0%,
+      var(--blood) 38%,
+      oklch(0.30 0.14 30) 100%);
+  box-shadow:
+    0 6px 14px rgba(0,0,0,0.55),
+    inset -4px -6px 12px rgba(0,0,0,0.45),
+    inset 3px 4px 8px rgba(255,255,255,0.10);
+  display: flex; align-items: center; justify-content: center;
+  font-family: "IM Fell English SC", serif; font-size: 18px;
+  color: color-mix(in oklch, var(--paper) 60%, var(--blood));
+  letter-spacing: 0.05em;
+  transform: rotate(-12deg);
+  border: 1px solid rgba(0,0,0,0.4);
+}
+.wax-seal::before {
+  /* ridged rim */
+  content: ""; position: absolute; inset: 4px; border-radius: 50%;
+  border: 1px dashed color-mix(in oklch, var(--paper) 25%, transparent);
+  opacity: .55;
+}
+
+/* failure variant */
+.catch-card.is-fail {
+  background:
+    radial-gradient(100px 80px at 18% 22%, rgba(60,75,98,0.18), transparent 70%),
+    radial-gradient(140px 90px at 84% 78%, rgba(60,75,98,0.14), transparent 70%),
+    linear-gradient(135deg, oklch(0.22 0.045 245) 0%, oklch(0.14 0.035 245) 100%);
+  border-color: color-mix(in oklch, var(--paper-deep) 22%, transparent);
+}
+.catch-card.is-fail .catch-name-big { color: var(--paper-dim); text-shadow: none; }
+.catch-card.is-fail .catch-desc-text { color: var(--paper-dim); }
+.catch-card.is-fail .catch-haldor-quote {
+  color: var(--paper-deep);
+  border-top-color: color-mix(in oklch, var(--paper-deep) 35%, transparent);
+}
+.catch-card.is-fail .catch-haldor-quote::before { color: var(--paper-deep); }
+.catch-card.is-fail::after { border-color: color-mix(in oklch, var(--paper-deep) 20%, transparent); }
+.catch-card.is-fail .wax-seal {
+  background:
+    radial-gradient(circle at 40% 35%,
+      oklch(0.34 0.04 240) 0%,
+      oklch(0.20 0.04 240) 60%,
+      oklch(0.10 0.03 240) 100%);
+}
+
+.catch-actions {
+  display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;
+}
+.btn-primary {
+  font-family: "IM Fell English SC", serif; font-size: 12px;
+  letter-spacing: 0.2em; color: var(--paper); background: var(--ink);
+  border: 1px solid var(--ink); padding: 11px 24px; cursor: pointer;
+  border-radius: 1px; transition: background 0.2s, border-color 0.2s, transform 0.1s;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.45);
+}
+.btn-primary:hover { background: var(--blood); border-color: var(--blood); }
+.btn-primary:active { transform: translateY(1px); }
+.btn-secondary {
+  font-family: "IM Fell English SC", serif; font-size: 12px;
+  letter-spacing: 0.2em; color: var(--paper); background: transparent;
+  border: 1px solid var(--paper-deep); padding: 11px 24px; cursor: pointer;
+  border-radius: 1px; transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+.btn-secondary:hover { color: var(--paper); background: rgba(255,255,255,0.05); border-color: var(--paper-dim); }
+/* success card sits on parchment — secondary needs ink text */
+.catch-card:not(.is-fail) ~ .catch-actions .btn-secondary { color: var(--ink); }
+.catch-card:not(.is-fail) ~ .catch-actions .btn-secondary:hover { background: color-mix(in oklch, var(--ink) 10%, transparent); }
+
+/* Hide the page-level header chrome while the splash is up so it doesn't compete with the splash title */
+body.splash-active .page-header,
+body.splash-active .back-btn { visibility: hidden; opacity: 0; }
+.page-header, .back-btn { transition: opacity 0.4s; }
+
+/* ── PHASE BANNER (always-on instruction bar at top of ocean panel) ── */
+.phase-banner {
+  position: absolute; top: 0; left: 0; right: 0; z-index: 7;
+  display: flex; align-items: center; justify-content: center; gap: 14px;
+  padding: 10px 18px;
+  font-family: "IM Fell English SC", serif; font-size: 11px;
+  letter-spacing: 0.22em; color: var(--paper-dim);
+  background: linear-gradient(to bottom,
+    rgba(8,12,20,0.85), rgba(8,12,20,0.55) 70%, transparent);
+  pointer-events: none;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.7);
+}
+.phase-banner .pb-key {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 22px; height: 20px; padding: 0 6px;
+  border: 1px solid color-mix(in oklch, var(--paper-deep) 80%, transparent);
+  border-radius: 2px;
+  background: rgba(0,0,0,0.35);
+  font-family: "IM Fell English SC", serif; font-size: 10px;
+  letter-spacing: 0.1em; color: var(--paper);
+  box-shadow: 0 1px 0 rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06);
+}
+.phase-banner .pb-sep {
+  width: 5px; height: 5px; transform: rotate(45deg);
+  background: var(--paper-deep); opacity: .6;
+}
+.phase-banner.urgent { color: var(--lamp); }
+.phase-banner.urgent .pb-key { border-color: var(--lamp); color: var(--lamp); }
+
+/* ── START SPLASH ── */
+.start-splash {
+  position: absolute; inset: 0; z-index: 20;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 14px; padding: 26px 30px;
+  overflow-y: auto;
+  background:
+    radial-gradient(ellipse at 50% 45%, color-mix(in oklch, var(--lamp) 8%, transparent), transparent 55%),
+    linear-gradient(to bottom, rgba(4,8,15,0.92), rgba(4,8,15,0.96));
+  cursor: default;
+  transition: opacity 0.5s, visibility 0.5s;
+}
+.start-splash.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+.splash-eyebrow {
+  font-family: "Caveat", cursive; font-size: 16px; color: var(--paper-deep);
+  letter-spacing: 0.04em;
+}
+.splash-title {
+  font-family: "IM Fell English SC", serif; font-size: 26px;
+  letter-spacing: 0.22em; color: var(--paper);
+  text-shadow: 0 2px 14px rgba(0,0,0,0.8);
+  text-align: center;
+}
+.splash-rule {
+  width: 220px; height: 14px;
+  background: linear-gradient(to right, transparent, var(--paper-deep), transparent) center/100% 1px no-repeat;
+  position: relative;
+}
+.splash-rule::before, .splash-rule::after {
+  content: ""; position: absolute; top: 50%; transform: translateY(-50%) rotate(45deg);
+  width: 5px; height: 5px; background: var(--sea-deep);
+  border: 1px solid var(--paper-deep);
+}
+.splash-rule::before { left: 16px; }
+.splash-rule::after  { right: 16px; }
+
+.splash-flavor {
+  max-width: 440px; text-align: center;
+  font-family: "IM Fell English", serif; font-style: italic;
+  font-size: 15.5px; line-height: 1.6; color: var(--paper);
+  text-wrap: pretty;
+}
+
+.controls-card {
+  width: min(420px, 90%);
+  background:
+    radial-gradient(80px 60px at 18% 22%, rgba(134,109,77,0.10), transparent 70%),
+    radial-gradient(120px 80px at 84% 78%, rgba(134,109,77,0.08), transparent 70%),
+    linear-gradient(135deg, color-mix(in oklch, var(--paper) 92%, var(--paper-dim)) 0%, var(--paper-dim) 100%);
+  border: 1px solid color-mix(in oklch, var(--paper-deep) 50%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in oklch, var(--paper-deep) 18%, transparent) inset,
+              0 16px 40px rgba(0,0,0,0.55);
+  color: var(--ink);
+  padding: 14px 20px 16px;
+  position: relative;
+}
+.controls-card::after {
+  content: ""; position: absolute; inset: 4px;
+  border: 1px solid color-mix(in oklch, var(--paper-deep) 30%, transparent);
+  pointer-events: none;
+}
+.controls-title {
+  font-family: "IM Fell English SC", serif; font-size: 11px;
+  letter-spacing: 0.28em; color: var(--blood); text-align: center;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  margin-bottom: 10px;
+}
+.controls-title::before, .controls-title::after {
+  content: ""; width: 28px; height: 1px; background: var(--blood); opacity: .55;
+}
+.controls-list {
+  list-style: none; display: flex; flex-direction: column; gap: 6px;
+}
+.controls-list li {
+  display: flex; align-items: baseline; gap: 12px;
+  font-family: "IM Fell English", serif; font-size: 14px; color: var(--ink);
+  line-height: 1.35;
+}
+.controls-list .cl-num {
+  font-family: "IM Fell English SC", serif; font-size: 10px;
+  letter-spacing: 0.2em; color: var(--blood);
+  min-width: 38px;
+}
+.controls-list .cl-keys {
+  display: inline-flex; gap: 4px; margin: 0 2px;
+  transform: translateY(1px);
+}
+.kbd {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 22px; height: 20px; padding: 0 6px;
+  border: 1px solid color-mix(in oklch, var(--paper-deep) 70%, transparent);
+  border-bottom-width: 2px;
+  border-radius: 3px;
+  background: color-mix(in oklch, var(--paper) 80%, var(--paper-dim));
+  font-family: "IM Fell English SC", serif; font-size: 10.5px;
+  letter-spacing: 0.06em; color: var(--ink);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.5);
+}
+
+.btn-begin {
+  font-family: "IM Fell English SC", serif; font-size: 13px;
+  letter-spacing: 0.26em; color: var(--paper); background: var(--ink);
+  border: 1px solid var(--ink); padding: 13px 32px; cursor: pointer;
+  border-radius: 1px; transition: background 0.2s, border-color 0.2s, transform 0.1s;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.55);
+  position: relative;
+}
+.btn-begin:hover { background: var(--blood); border-color: var(--blood); }
+.btn-begin:active { transform: translateY(1px); }
+.btn-begin::before, .btn-begin::after {
+  content: ""; position: absolute; top: 50%; width: 14px; height: 1px;
+  background: var(--paper-deep); transform: translateY(-50%);
+}
+.btn-begin::before { left: -22px; }
+.btn-begin::after  { right: -22px; }
+
+/* ── ACT INTRO TOAST (brief instruction overlay between acts) ── */
+.act-toast {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 8;
+  padding: 18px 30px;
+  background: linear-gradient(135deg, rgba(8,12,20,0.92), rgba(4,8,15,0.96));
+  border: 1px solid color-mix(in oklch, var(--lamp) 35%, transparent);
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.4), 0 14px 30px rgba(0,0,0,0.6),
+              0 0 32px color-mix(in oklch, var(--lamp) 12%, transparent);
+  text-align: center;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.35s;
+}
+.act-toast.show { opacity: 1; }
+.act-toast-title {
+  font-family: "IM Fell English SC", serif; font-size: 13px;
+  letter-spacing: 0.3em; color: var(--lamp); margin-bottom: 8px;
+}
+.act-toast-body {
+  font-family: "IM Fell English", serif; font-size: 14.5px; font-style: italic;
+  color: var(--paper); line-height: 1.4;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  flex-wrap: wrap;
+}
+.act-toast-body .kbd {
+  background: rgba(0,0,0,0.4);
+  color: var(--paper); border-color: color-mix(in oklch, var(--paper-deep) 70%, transparent);
+  font-style: normal;
+}
+
+/* ── CLICK RIPPLE ── */
+.ripple {
+  position: absolute; pointer-events: none; z-index: 5;
+  width: 12px; height: 12px; border-radius: 50%;
+  border: 1.5px solid var(--lamp);
+  transform: translate(-50%, -50%) scale(0.4);
+  opacity: 0.9;
+  animation: ripple-out 0.65s ease-out forwards;
+  box-shadow: 0 0 12px color-mix(in oklch, var(--lamp) 50%, transparent);
+}
+.ripple.cold {
+  border-color: rgba(180,215,245,0.95);
+  box-shadow: 0 0 8px rgba(180,215,245,0.4);
+}
+@keyframes ripple-out {
+  from { transform: translate(-50%, -50%) scale(0.4); opacity: 0.9; }
+  to   { transform: translate(-50%, -50%) scale(6.5);   opacity: 0; }
+}
+
+/* ── ROPE: holding state ── */
+.rope-scene.holding .rope-knot {
+  box-shadow:
+    inset -4px -5px 8px rgba(0,0,0,0.55),
+    inset 2px 3px 5px color-mix(in oklch, var(--lamp) 70%, transparent),
+    0 4px 8px rgba(0,0,0,0.55),
+    0 0 14px color-mix(in oklch, var(--lamp) 50%, transparent);
+}
+.rope-scene.holding .pull-prompt {
+  color: var(--lamp);
+  animation: holding-pulse 0.55s ease-in-out infinite;
+}
+@keyframes holding-pulse {
+  0%,100% { transform: scale(1.02); opacity: 0.95; text-shadow: 0 0 14px color-mix(in oklch, var(--lamp) 50%, transparent); }
+  50%      { transform: scale(1.05); opacity: 1;    text-shadow: 0 0 22px color-mix(in oklch, var(--lamp) 70%, transparent); }
+}
+
+/* HUD strip below rope showing tension % and pull count */
+.rope-readout {
+  display: flex; gap: 28px; align-items: center; justify-content: center;
+  font-family: "IM Fell English SC", serif; font-size: 11px;
+  letter-spacing: 0.18em; color: var(--paper-dim);
+}
+.readout-item { display: flex; align-items: baseline; gap: 8px; }
+.readout-label { color: var(--paper-deep); }
+.readout-val {
+  font-family: "IM Fell English", serif; font-style: italic;
+  font-size: 16px; color: var(--paper); letter-spacing: 0.04em;
+  min-width: 38px; text-align: left;
+}
+.readout-val.warn { color: var(--blood); }
+.readout-val.good { color: var(--lamp); }
+
+/* keyboard hint floating under the rope prompt */
+.rope-kbd-hint {
+  font-family: "IM Fell English SC", serif; font-size: 10px;
+  letter-spacing: 0.24em; color: var(--paper-deep);
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  margin-top: -10px;
+  text-align: center;
+}
+.rope-kbd-hint .kbd {
+  background: rgba(0,0,0,0.45); color: var(--paper-dim);
+  border-color: color-mix(in oklch, var(--paper-deep) 70%, transparent);
+}
+
+/* ── STAT ARROWS ── */
+.stat-arrow { font-style: normal; font-size: 11px; margin-right: 3px; }
+.stat-arrow.up { color: var(--lamp); }
+.stat-arrow.dn { color: var(--blood); }
+
+/* Press-feedback pop on the watch panel */
+.pulse-eye {
+  position: absolute; left: 50%; bottom: 64px;
+  transform: translateX(-50%);
+  z-index: 3; pointer-events: none;
+  font-family: "Caveat", cursive; font-size: 16px;
+  color: var(--paper-deep);
+  opacity: 0; transition: opacity 0.6s;
+}
+.pulse-eye.visible { opacity: 0.85; }
+
+/* ── Rope event banner (surge / slip) ── */
+.rope-event-banner {
+  position: absolute; left: 50%; top: -34px;
+  transform: translate(-50%, -8px);
+  font-family: "IM Fell English SC", serif; font-size: 11px;
+  letter-spacing: 0.28em;
+  padding: 4px 14px;
+  background: rgba(8,12,20,0.85);
+  border: 1px solid color-mix(in oklch, var(--paper-deep) 60%, transparent);
+  opacity: 0;
+  transition: opacity 0.18s, transform 0.18s;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.rope-event-banner.show {
+  opacity: 1; transform: translate(-50%, 0);
+}
+.rope-event-banner.surge {
+  color: var(--lamp);
+  border-color: color-mix(in oklch, var(--lamp) 55%, transparent);
+  box-shadow: 0 0 18px color-mix(in oklch, var(--lamp) 35%, transparent);
+  animation: surge-flash 0.85s ease-in-out;
+}
+.rope-event-banner.slip {
+  color: var(--blood);
+  border-color: color-mix(in oklch, var(--blood) 65%, transparent);
+  box-shadow: 0 0 18px color-mix(in oklch, var(--blood) 40%, transparent);
+  animation: slip-flash 0.9s ease-in-out;
+}
+@keyframes surge-flash {
+  0%   { transform: translate(-50%, -4px) scale(0.95); }
+  20%  { transform: translate(-50%, 0)    scale(1.06); }
+  100% { transform: translate(-50%, 0)    scale(1); }
+}
+@keyframes slip-flash {
+  0%, 100% { transform: translate(-50%, 0); }
+  20%      { transform: translate(-52%, 0); }
+  40%      { transform: translate(-48%, 0); }
+  60%      { transform: translate(-51%, 0); }
+}
+
+/* Knot bounces on slip */
+.rope-knot.slip-shake { animation: slip-knot 0.32s ease-in-out; }
+@keyframes slip-knot {
+  0%, 100% { transform: translate(-50%, -50%) scale(1); }
+  30%      { transform: translate(-58%, -45%) scale(0.92); }
+  70%      { transform: translate(-54%, -52%) scale(1.04); }
+}
+
+/* Net force indicator color */
+.readout-val.hot {
+  color: var(--lamp);
+  text-shadow: 0 0 10px color-mix(in oklch, var(--lamp) 50%, transparent);
+  animation: force-hot 0.5s ease-in-out infinite alternate;
+}
+@keyframes force-hot {
+  from { opacity: 0.8; }
+  to   { opacity: 1; }
+}
+</style>
+</head>
+<body>
+
+<div class="backdrop"></div>
+<div class="snow" id="snow"></div>
+
+<span class="corner tl"></span>
+<span class="corner tr"></span>
+<span class="corner bl"></span>
+<span class="corner br"></span>
+
+<div class="page-header">
+  <div class="eyebrow">— Glassblade Trading Co., Charter Vessel —</div>
+  <div class="title">Day 1 · Fishing</div>
+  <div class="rule"></div>
+</div>
+
+<button class="back-btn" id="backBtn">← Return to Deck</button>
+
+<div class="stage">
+  <div class="game-area">
+
+    <!-- LEFT: ocean scene container -->
+    <div class="ocean-panel" id="oceanPanel">
+      <canvas id="oceanCanvas"></canvas>
+
+      <!-- Persistent phase banner across all acts -->
+      <div class="phase-banner" id="phaseBanner">
+        <span>WATCH THE WATER</span>
+        <span class="pb-sep"></span>
+        <span>WAIT FOR FISH TO GATHER</span>
+        <span class="pb-sep"></span>
+        <span>THEN <span class="pb-key">CLICK</span> OR <span class="pb-key">SPACE</span> TO HAUL</span>
+      </div>
+
+      <!-- Act 1 overlays -->
+      <div class="haul-hint" id="haulHint">CLICK TO HAUL</div>
+      <div class="pulse-eye" id="pulseEye">— the water moves —</div>
+      <div class="act-label" id="actLabel">— WATCH THE WATER · WAIT FOR THE SIGN —</div>
+
+      <!-- Start splash with controls -->
+      <div class="start-splash" id="startSplash">
+        <div class="splash-title">The Deep Watch</div>
+        <div class="splash-rule"></div>
+        <div class="controls-card">
+          <div class="controls-title">— HOW TO FISH —</div>
+          <ul class="controls-list">
+            <li>
+              <span class="cl-num">ACT I</span>
+              <span>Watch for fish to swarm the net, then <span class="cl-keys"><span class="kbd">Click</span> <span class="kbd">Space</span></span> to haul. Strike too early or wait too long and the catch is lost.</span>
+            </li>
+            <li>
+              <span class="cl-num">ACT II</span>
+              <span><span class="cl-keys"><span class="kbd">Click</span></span> rapidly for sharp tugs, or <span class="cl-keys"><span class="kbd">Hold</span></span> the mouse / <span class="cl-keys"><span class="kbd">Space</span></span> for a steady haul.</span>
+            </li>
+            <li>
+              <span class="cl-num">ACT III</span>
+              <span>See what the sea gave you, and choose where to go next.</span>
+            </li>
+          </ul>
+        </div>
+        <button class="btn-begin" id="btnBegin">Begin Watching →</button>
+      </div>
+
+      <!-- Brief inter-act toast -->
+      <div class="act-toast" id="actToast">
+        <div class="act-toast-title" id="actToastTitle">Act II · The Haul</div>
+        <div class="act-toast-body" id="actToastBody"></div>
+      </div>
+
+      <!-- Act 2: rope pull -->
+      <div class="rope-scene" id="ropeScene">
+        <div class="rope-title">THE HAUL</div>
+        <div class="tension-labels">
+          <span><span class="glyph glyph--hand"></span>YOU PULL</span>
+          <span>NET PULLS<span class="glyph glyph--net"></span></span>
+        </div>
+        <div class="rope-container">
+          <div class="rope-frame"></div>
+          <div class="rope-track-wrap">
+            <div class="rope-track" id="ropeTrack">
+              <div class="rope-fill" id="ropeFill"></div>
+              <div class="rope-center-mark"></div>
+            </div>
+            <div class="rope-knot" id="ropeKnot"></div>
+          </div>
+          <div class="rope-event-banner" id="ropeEventBanner">— NET SURGES —</div>
+        </div>
+        <div class="rope-readout">
+          <div class="readout-item">
+            <span class="readout-label">TENSION</span>
+            <span class="readout-val" id="readoutTension">50%</span>
+          </div>
+          <div class="readout-item">
+            <span class="readout-label">NET</span>
+            <span class="readout-val" id="netForceIndicator">steady</span>
+          </div>
+          <div class="readout-item">
+            <span class="readout-label">PULLS</span>
+            <span class="readout-val" id="readoutPulls">0</span>
+          </div>
+        </div>
+        <div class="pull-prompt" id="pullPrompt">Click rapidly — or hold — to haul</div>
+        <div class="rope-kbd-hint">
+          <span class="kbd">Click</span>
+          <span>or</span>
+          <span class="kbd">Hold</span>
+          <span>or</span>
+          <span class="kbd">Space</span>
+        </div>
+      </div>
+
+      <!-- Act 3: catch reveal -->
+      <div class="reveal-scene" id="revealScene"></div>
+    </div>
+
+    <!-- RIGHT: Haldor sidebar -->
+    <div class="haldor-sidebar">
+      <div class="haldor-portrait-wrap">
+        <div class="haldor-portrait" id="haldorPortrait"></div>
+      </div>
+      <div class="haldor-name">Haldor Stormchaser</div>
+      <div class="haldor-role">Fisherman · Day 1</div>
+      <div class="sidebar-rule"></div>
+      <div class="haldor-dialogue" id="haldorDialogue">
+        "Aye, ye've a strong back — good. The lines are out an' the nets are heavy. If ye want supper on this voyage, ye'll be earnin' it. Watch the water. Pull when it tells ye to."
+      </div>
+      <div class="sidebar-rule"></div>
+      <div class="phase-label" id="phaseLabel">Act I — The Deep Watch</div>
+      <div class="instruction-label" id="instructionLabel">Survival DC 11 · Read the sea</div>
+      <div class="catch-tally" id="catchTally" style="display:none">
+        <div class="tally-row"><span>Catch</span><span class="tally-val" id="tallyName">—</span></div>
+        <div class="tally-row"><span>Quality</span><span class="tally-val" id="tallyQuality">—</span></div>
+        <div class="tally-row"><span>Feeds</span><span class="tally-val" id="tallyFeeds">—</span></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+(function () {
+
+/* ──────────────────────────────────────────────
+   SNOW
+─────────────────────────────────────────────── */
+const snowEl = document.getElementById("snow");
+for (let i = 0; i < 55; i++) {
+  const f = document.createElement("div");
+  f.className = "flake";
+  const sz = 1 + Math.random() * 2.5;
+  Object.assign(f.style, {
+    width: sz + "px", height: sz + "px",
+    left: Math.random() * 100 + "%",
+    top:  Math.random() * 100 + "%",
+    animationDuration: (8 + Math.random() * 12) + "s",
+    animationDelay:   (-Math.random() * 15) + "s",
+  });
+  snowEl.appendChild(f);
+}
+
+/* ──────────────────────────────────────────────
+   CHARACTER STATS
+─────────────────────────────────────────────── */
+(function () {
+  try {
+    const s = JSON.parse(localStorage.getItem("remorhaz") || "{}");
+    window._charStats = s.selectedCharacter?.stats || {};
+  } catch { window._charStats = {}; }
+})();
+function _stat(k) { return (window._charStats[k] || 0); }
+function _diffFactor(k) {
+  const m = _stat(k);
+  return m === 2 ? 1.35 : m === 1 ? 1.17 : m === -1 ? 0.82 : m === -2 ? 0.65 : 1.0;
+}
+function _arrow(k) {
+  const m = _stat(k);
+  if (m >= 1)  return '<span class="stat-arrow up">▲</span> ';
+  if (m <= -1) return '<span class="stat-arrow dn">▼</span> ';
+  return '';
+}
+
+/* ──────────────────────────────────────────────
+   CANVAS
+─────────────────────────────────────────────── */
+const canvas = document.getElementById("oceanCanvas");
+const ctx    = canvas.getContext("2d");
+const panel  = document.getElementById("oceanPanel");
+
+let DPR = Math.min(window.devicePixelRatio || 1, 2);
+
+function resizeCanvas() {
+  const r = panel.getBoundingClientRect();
+  canvas.width  = Math.floor(r.width  * DPR);
+  canvas.height = Math.floor(r.height * DPR);
+  canvas.style.width  = r.width  + "px";
+  canvas.style.height = r.height + "px";
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+resizeCanvas();
+window.addEventListener("resize", resizeCanvas);
+
+function W() { return canvas.width / DPR; }
+function H() { return canvas.height / DPR; }
+
+/* ──────────────────────────────────────────────
+   STATE
+─────────────────────────────────────────────── */
+const PHASE = { WATCH: "watch", PULL: "pull", REVEAL: "reveal" };
+let phase = PHASE.WATCH;
+
+// Act 1
+let watchMs       = 0;
+let lastTs        = null;
+let windowStart   = 4500 + Math.random() * 5000;   // 4.5–9.5 s
+let windowLen     = (2400 + Math.random() * 1200) * _diffFactor('intelligence');   // modified by INT
+let act1Clicked   = false;
+let animId        = null;
+
+// Act 2
+let tension       = 0.5;   // 0 = net wins, 1 = player wins
+const NET_RATE    = 0.0014; // base net pull per 16ms tick (modulated by surges)
+const PULL_RATE   = 0.018;  // baseline per-click pull (varied at use site)
+const HOLD_RATE   = 0.006;  // per hold tick (60fps)
+let holdInterval  = null;
+let netInterval   = null;   // legacy alias
+let ropeTicker    = null;
+let pullDone      = false;
+let pullCount     = 0;
+let keyHolding    = false;
+let keyHoldInterval = null;
+let mouseHolding  = false;
+let baseNetRate   = NET_RATE;
+let currentSurgeMul = 1;
+
+/* ──────────────────────────────────────────────
+   FISH
+─────────────────────────────────────────────── */
+const FISH = Array.from({ length: 22 }, () => ({
+  x:    Math.random(),
+  y:    0.38 + Math.random() * 0.52,
+  spd:  0.00012 + Math.random() * 0.00025,
+  sz:   5 + Math.random() * 11,
+  dir:  Math.random() < 0.5 ? 1 : -1,
+  op:   0.10 + Math.random() * 0.14,
+  wob:  Math.random() * Math.PI * 2,
+  wobS: 0.018 + Math.random() * 0.028,
+  hue:  Math.random() < 0.18 ? "silver" : "shadow", // a few brighter ones
+}));
+
+/* ──────────────────────────────────────────────
+   AMBIENT PARTICLES (suspended silt / plankton)
+─────────────────────────────────────────────── */
+const MOTES = Array.from({ length: 60 }, () => ({
+  x: Math.random(),
+  y: 0.32 + Math.random() * 0.66,
+  r: 0.4 + Math.random() * 1.1,
+  vy: -(0.00005 + Math.random() * 0.00012),
+  vx: (Math.random() - 0.5) * 0.00008,
+  op: 0.12 + Math.random() * 0.18,
+  ph: Math.random() * Math.PI * 2,
+}));
+
+/* ──────────────────────────────────────────────
+   BUBBLES
+─────────────────────────────────────────────── */
+let bubbles = [];
+function spawnBubble(netCx, netCy, w, h) {
+  bubbles.push({
+    x:  (netCx / w) + (Math.random() - 0.5) * 0.18,
+    y:  (netCy / h) + Math.random() * 0.12,
+    vy: -(0.0008 + Math.random() * 0.0018),
+    r:  1.2 + Math.random() * 2.8,
+    life: 1,
+    wob: Math.random() * Math.PI * 2,
+  });
+}
+
+/* ──────────────────────────────────────────────
+   DRAWING HELPERS
+─────────────────────────────────────────────── */
+function drawWoodRail(ts, w, railH) {
+  // base dark wood
+  const baseG = ctx.createLinearGradient(0, 0, 0, railH);
+  baseG.addColorStop(0,   "#241a11");
+  baseG.addColorStop(0.5, "#2e2316");
+  baseG.addColorStop(1,   "#1a120a");
+  ctx.fillStyle = baseG; ctx.fillRect(0, 0, w, railH);
+
+  // long horizontal grain striations
+  ctx.save();
+  ctx.globalAlpha = 0.5;
+  for (let i = 0; i < 22; i++) {
+    const gy = (i / 22) * railH + (Math.sin(i * 1.7) * 0.6);
+    ctx.strokeStyle = i % 3 === 0 ? "rgba(70,52,32,0.28)" : "rgba(38,26,16,0.45)";
+    ctx.lineWidth = i % 5 === 0 ? 0.8 : 0.5;
+    ctx.beginPath();
+    let y = gy;
+    ctx.moveTo(0, y);
+    for (let x = 0; x <= w; x += 8) {
+      y = gy + Math.sin(x * 0.012 + i * 0.7) * 0.7;
+      ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // vertical plank seams
+  ctx.strokeStyle = "rgba(8,5,2,0.85)"; ctx.lineWidth = 1.2;
+  const plankW = 110;
+  for (let px = plankW; px < w; px += plankW) {
+    ctx.beginPath(); ctx.moveTo(px + 0.5, 0); ctx.lineTo(px + 0.5, railH); ctx.stroke();
+    // tiny highlight on right edge of seam
+    ctx.strokeStyle = "rgba(120,90,60,0.18)";
+    ctx.beginPath(); ctx.moveTo(px + 1.5, 0); ctx.lineTo(px + 1.5, railH - 6); ctx.stroke();
+    ctx.strokeStyle = "rgba(8,5,2,0.85)";
+  }
+
+  // knots
+  for (let k = 0; k < 3; k++) {
+    const kx = ((k * 0.31 + 0.18) * w) % w;
+    const ky = railH * (0.35 + (k % 2) * 0.3);
+    const kr = 4 + (k % 2) * 2;
+    const kg = ctx.createRadialGradient(kx, ky, 0, kx, ky, kr * 2.2);
+    kg.addColorStop(0, "rgba(20,12,6,0.85)");
+    kg.addColorStop(0.6, "rgba(50,35,20,0.4)");
+    kg.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = kg;
+    ctx.beginPath(); ctx.arc(kx, ky, kr * 2, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // rail cap (top edge molding)
+  const capG = ctx.createLinearGradient(0, railH - 14, 0, railH + 2);
+  capG.addColorStop(0,   "#8a6c4a");
+  capG.addColorStop(0.4, "#6f583f");
+  capG.addColorStop(1,   "#3a2c1d");
+  ctx.fillStyle = capG; ctx.fillRect(0, railH - 12, w, 14);
+  // cap highlight
+  ctx.fillStyle = "rgba(255,220,170,0.18)"; ctx.fillRect(0, railH - 12, w, 1.5);
+  // cap shadow drop into water
+  ctx.fillStyle = "rgba(0,0,0,0.55)"; ctx.fillRect(0, railH + 2, w, 4);
+  const dropG = ctx.createLinearGradient(0, railH + 2, 0, railH + 22);
+  dropG.addColorStop(0, "rgba(0,0,0,0.5)");
+  dropG.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = dropG; ctx.fillRect(0, railH + 2, w, 22);
+
+  // tiny ember from a hanging lamp at upper-right (lamp light pooling on rail)
+  const lx = w * 0.84, ly = railH - 2;
+  const lg = ctx.createRadialGradient(lx, ly, 0, lx, ly, w * 0.22);
+  lg.addColorStop(0, "rgba(243,195,118,0.18)");
+  lg.addColorStop(0.4, "rgba(243,195,118,0.06)");
+  lg.addColorStop(1, "rgba(243,195,118,0)");
+  ctx.fillStyle = lg; ctx.fillRect(0, 0, w, railH + 30);
+}
+
+function drawWater(ts, w, h, railH) {
+  // water gradient
+  const waterG = ctx.createLinearGradient(0, railH, 0, h);
+  waterG.addColorStop(0,    "#1c2c44");
+  waterG.addColorStop(0.18, "#152338");
+  waterG.addColorStop(0.55, "#0c1626");
+  waterG.addColorStop(1,    "#04080f");
+  ctx.fillStyle = waterG; ctx.fillRect(0, railH, w, h - railH);
+
+  // god-rays (subtle volumetric beams)
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+  for (let i = 0; i < 4; i++) {
+    const cx = w * (0.18 + i * 0.22) + Math.sin(ts * 0.0002 + i) * 18;
+    const grad = ctx.createLinearGradient(cx, railH, cx + w * 0.08, h);
+    grad.addColorStop(0,   "rgba(170,200,230,0.07)");
+    grad.addColorStop(0.6, "rgba(170,200,230,0.025)");
+    grad.addColorStop(1,   "rgba(170,200,230,0)");
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.moveTo(cx, railH);
+    ctx.lineTo(cx + 14, railH);
+    ctx.lineTo(cx + w * 0.10, h);
+    ctx.lineTo(cx + w * 0.06, h);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
+
+  // surface chop lines just below rail
+  for (let i = 0; i < 6; i++) {
+    const wy  = railH + 2 + i * 3;
+    const amp = 1.8 - i * 0.25;
+    const spd = ts * 0.00038 + i * 0.65;
+    ctx.beginPath(); ctx.moveTo(0, wy);
+    for (let x = 0; x <= w; x += 6)
+      ctx.lineTo(x, wy + Math.sin(x * 0.013 + spd) * amp);
+    ctx.strokeStyle = `rgba(180,200,225,${0.10 - i * 0.012})`;
+    ctx.lineWidth = 1; ctx.stroke();
+  }
+
+  // floating ice fragments at surface
+  ctx.save();
+  for (let i = 0; i < 4; i++) {
+    const ix = ((i * 0.27 + (ts * 0.000015)) % 1) * w;
+    const iy = railH + 6 + (i % 2) * 4;
+    const iw = 28 + (i * 11) % 22;
+    ctx.fillStyle = "rgba(198,205,210,0.22)";
+    ctx.beginPath();
+    ctx.moveTo(ix, iy);
+    ctx.lineTo(ix + iw, iy - 1);
+    ctx.lineTo(ix + iw - 4, iy + 3);
+    ctx.lineTo(ix + 3, iy + 3);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,0.18)";
+    ctx.fillRect(ix + 2, iy - 0.5, iw - 8, 0.8);
+  }
+  ctx.restore();
+}
+
+function drawRope(ts, w, railH, netTopY) {
+  const ropeCx = w * 0.5;
+  // shadow strand
+  ctx.strokeStyle = "rgba(0,0,0,0.5)";
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.moveTo(ropeCx + 1, railH + 2);
+  ctx.lineTo(ropeCx + 1, netTopY);
+  ctx.stroke();
+  // braided rope: two intertwined sine strands
+  for (let strand = 0; strand < 2; strand++) {
+    ctx.beginPath();
+    const offset = strand === 0 ? -1.5 : 1.5;
+    ctx.strokeStyle = strand === 0 ? "rgba(167,138,94,0.85)" : "rgba(98,74,47,0.85)";
+    ctx.lineWidth = 2.2;
+    for (let y = railH + 2; y <= netTopY; y += 2) {
+      const t = (y - railH) / 24;
+      const x = ropeCx + Math.sin(t * Math.PI + strand * Math.PI) * 2.2 + offset;
+      if (y === railH + 2) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+  // highlight thread
+  ctx.strokeStyle = "rgba(220,195,150,0.35)"; ctx.lineWidth = 0.6;
+  ctx.beginPath();
+  for (let y = railH + 2; y <= netTopY; y += 2) {
+    const t = (y - railH) / 24;
+    const x = ropeCx + Math.sin(t * Math.PI) * 2.2 - 0.7;
+    if (y === railH + 2) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+
+  // small cleat / lash where rope meets rail
+  const cy = railH - 6;
+  ctx.fillStyle = "#3a2c1d";
+  ctx.fillRect(ropeCx - 9, cy, 18, 5);
+  ctx.fillStyle = "rgba(255,220,170,0.18)";
+  ctx.fillRect(ropeCx - 9, cy, 18, 1);
+}
+
+function drawNet(ts, w, h, netX, netY, netW, netH, sway, bulge, opacity) {
+  const NX = 12, NY = 10;
+  ctx.save();
+  ctx.globalAlpha = opacity;
+  ctx.lineCap = "round";
+
+  // Compute grid points with bulge + sway
+  const pts = [];
+  for (let j = 0; j <= NY; j++) {
+    const row = [];
+    const ty = j / NY;
+    for (let i = 0; i <= NX; i++) {
+      const tx = i / NX;
+      // bulge radial outward from net center
+      const dx = tx - 0.5, dy = ty - 0.5;
+      const r = Math.sqrt(dx * dx + dy * dy);
+      const bulgeFactor = Math.max(0, 1 - r * 1.8);
+      const bx = netX + tx * netW + sway * ty + dx * bulge * bulgeFactor * 0.6;
+      // belly sag: parabolic, deepest at center, plus bulge
+      const sag = Math.sin(tx * Math.PI) * 8 + bulge * bulgeFactor * 0.9;
+      const by = netY + ty * netH + sag * (ty * 0.6 + 0.4);
+      row.push([bx, by]);
+    }
+    pts.push(row);
+  }
+
+  // vertical strands (curved through points)
+  ctx.strokeStyle = "rgba(167,138,94,0.95)";
+  ctx.lineWidth   = 0.9;
+  for (let i = 0; i <= NX; i++) {
+    ctx.beginPath();
+    ctx.moveTo(pts[0][i][0], pts[0][i][1]);
+    for (let j = 1; j <= NY; j++) {
+      const [px, py] = pts[j][i];
+      const [pxm, pym] = pts[j - 1][i];
+      const cx = (px + pxm) / 2;
+      const cy = (py + pym) / 2;
+      ctx.quadraticCurveTo(pxm + (cx - pxm) * 0.6, pym + (cy - pym) * 0.6, px, py);
+    }
+    ctx.stroke();
+  }
+  // horizontal strands
+  for (let j = 0; j <= NY; j++) {
+    ctx.beginPath();
+    ctx.moveTo(pts[j][0][0], pts[j][0][1]);
+    for (let i = 1; i <= NX; i++) {
+      const [px, py] = pts[j][i];
+      const [pxm, pym] = pts[j][i - 1];
+      ctx.quadraticCurveTo((pxm + px) / 2, (pym + py) / 2 + 1, px, py);
+    }
+    ctx.stroke();
+  }
+
+  // knot dots at intersections (skip outer perimeter for cleanliness)
+  ctx.fillStyle = "rgba(98,74,47,0.95)";
+  for (let j = 1; j < NY; j++) {
+    for (let i = 1; i < NX; i++) {
+      const [px, py] = pts[j][i];
+      ctx.beginPath();
+      ctx.arc(px, py, 0.9, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // bottom weight beads (sinkers)
+  for (let i = 0; i <= NX; i += 2) {
+    const [px, py] = pts[NY][i];
+    const beadG = ctx.createRadialGradient(px, py + 1, 0, px, py + 1, 4);
+    beadG.addColorStop(0, "rgba(80,60,40,1)");
+    beadG.addColorStop(1, "rgba(20,12,6,0.9)");
+    ctx.fillStyle = beadG;
+    ctx.beginPath(); ctx.arc(px, py + 2, 2.2, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // top suspension rope curve
+  ctx.strokeStyle = "rgba(98,74,47,0.95)";
+  ctx.lineWidth   = 1.6;
+  ctx.beginPath();
+  ctx.moveTo(pts[0][0][0], pts[0][0][1]);
+  for (let i = 1; i <= NX; i++) {
+    const [px, py] = pts[0][i];
+    ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+function drawFishShape(f, fx, fy, alpha) {
+  ctx.save();
+  ctx.globalAlpha = Math.min(alpha, 0.42);
+  ctx.translate(fx, fy);
+  if (f.dir < 0) ctx.scale(-1, 1);
+
+  const baseFill = f.hue === "silver" ? "rgba(190,210,230,1)" : "rgba(150,178,205,1)";
+  ctx.fillStyle = baseFill;
+
+  // body
+  ctx.beginPath();
+  ctx.ellipse(0, 0, f.sz, f.sz * 0.36, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // tail
+  ctx.beginPath();
+  ctx.moveTo(-f.sz * 0.88, 0);
+  ctx.lineTo(-f.sz * 1.45, -f.sz * 0.34);
+  ctx.lineTo(-f.sz * 1.28,  0);
+  ctx.lineTo(-f.sz * 1.45,  f.sz * 0.34);
+  ctx.closePath();
+  ctx.fill();
+
+  // dorsal fin
+  ctx.beginPath();
+  ctx.moveTo(-f.sz * 0.15, -f.sz * 0.30);
+  ctx.lineTo( f.sz * 0.10, -f.sz * 0.55);
+  ctx.lineTo( f.sz * 0.32, -f.sz * 0.30);
+  ctx.closePath();
+  ctx.fill();
+
+  // belly highlight
+  ctx.fillStyle = "rgba(255,255,255,0.18)";
+  ctx.beginPath();
+  ctx.ellipse(0, f.sz * 0.10, f.sz * 0.75, f.sz * 0.14, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // eye glint
+  ctx.fillStyle = "rgba(0,0,0,0.55)";
+  ctx.beginPath();
+  ctx.arc(f.sz * 0.62, -f.sz * 0.06, f.sz * 0.07, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+/* ──────────────────────────────────────────────
+   DRAW LOOP (ACT 1)
+─────────────────────────────────────────────── */
+function drawFrame(ts) {
+  if (phase !== PHASE.WATCH) return;
+  if (lastTs === null) lastTs = ts;
+  const dt = ts - lastTs;
+  lastTs   = ts;
+  watchMs += dt;
+
+  const w = W(), h = H();
+  ctx.clearRect(0, 0, w, h);
+
+  const inWindow = watchMs >= windowStart && watchMs <= windowStart + windowLen;
+  const netPulse = inWindow
+    ? Math.sin(((watchMs - windowStart) / windowLen) * Math.PI)
+    : 0;
+
+  // Window expiry → auto fail
+  if (!act1Clicked && watchMs > windowStart + windowLen + 400) {
+    handleAct1(false, "missed"); return;
+  }
+
+  const railH = Math.max(60, h * 0.10);
+
+  // ── WATER ──
+  drawWater(ts, w, h, railH);
+
+  // ── AMBIENT MOTES (in water) ──
+  ctx.save();
+  MOTES.forEach(m => {
+    m.x += m.vx;
+    m.y += m.vy;
+    m.ph += 0.015;
+    if (m.y < railH / h) { m.y = 0.98; m.x = Math.random(); }
+    if (m.x > 1.02) m.x = -0.02;
+    if (m.x < -0.02) m.x = 1.02;
+    ctx.globalAlpha = m.op * (0.7 + Math.sin(m.ph) * 0.3);
+    ctx.fillStyle = "#a8c4dc";
+    ctx.beginPath();
+    ctx.arc(m.x * w, m.y * h, m.r, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  ctx.restore();
+
+  // ── ROPE & NET ──
+  const netX = w * 0.26, netY = h * 0.42;
+  const netW = w * 0.48, netH = h * 0.30;
+  const sway    = Math.sin(ts * 0.0004) * 6;
+  const bulge   = netPulse * 28;
+
+  drawRope(ts, w, railH, netY);
+
+  // net glow when fish gather (drawn BEHIND net for halo effect)
+  if (netPulse > 0.08) {
+    const netCx = netX + netW * 0.5 + sway;
+    const netCy = netY + netH * 0.55;
+    const gG = ctx.createRadialGradient(netCx, netCy, 0, netCx, netCy, netW * 0.7);
+    gG.addColorStop(0,   `rgba(243,195,118,${netPulse * 0.16})`);
+    gG.addColorStop(0.5, `rgba(243,195,118,${netPulse * 0.05})`);
+    gG.addColorStop(1,   "transparent");
+    ctx.fillStyle = gG; ctx.fillRect(0, 0, w, h);
+
+    if (Math.random() < 0.06) spawnBubble(netCx, netCy, w, h);
+    if (Math.random() < 0.06) spawnBubble(netCx, netCy, w, h);
+  }
+
+  drawNet(ts, w, h, netX, netY, netW, netH, sway, bulge, 0.20 + netPulse * 0.22);
+
+  // ── SHIP RAIL (drawn on top so it sits over water) ──
+  drawWoodRail(ts, w, railH);
+
+  // ── FISH ──
+  FISH.forEach(f => {
+    f.x   += f.spd * f.dir;
+    f.wob += f.wobS;
+    if (f.x > 1.08) { f.x = -0.08; }
+    if (f.x < -0.08) { f.x = 1.08; }
+
+    if (netPulse > 0.25) {
+      const tx = (netX + netW * 0.5) / w;
+      const ty = (netY + netH * 0.5) / h;
+      f.x += (tx - f.x) * 0.0020 * netPulse;
+      f.y += (ty - f.y) * 0.0020 * netPulse;
+    }
+
+    const fx = f.x * w;
+    const fy = f.y * h + Math.sin(f.wob) * 2.5;
+    if (fy < railH + 8) return; // don't draw above water
+    const alpha = f.op + netPulse * 0.09;
+    drawFishShape(f, fx, fy, alpha);
+  });
+
+  // ── BUBBLES ──
+  bubbles = bubbles.filter(b => b.life > 0);
+  bubbles.forEach(b => {
+    b.y    += b.vy;
+    b.life -= 0.007;
+    b.wob  += 0.04;
+    const bx = b.x * w + Math.sin(b.wob) * 1.2;
+    const by = b.y * h;
+    ctx.save();
+    ctx.globalAlpha = b.life * 0.55;
+    ctx.strokeStyle = "rgba(180,215,245,0.95)";
+    ctx.lineWidth   = 0.7;
+    ctx.beginPath();
+    ctx.arc(bx, by, b.r, 0, Math.PI * 2);
+    ctx.stroke();
+    // glint
+    ctx.fillStyle = "rgba(255,255,255,0.5)";
+    ctx.beginPath();
+    ctx.arc(bx - b.r * 0.3, by - b.r * 0.3, 0.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  });
+
+  // ── HAUL HINT ──
+  const hint = document.getElementById("haulHint");
+  const pulseEye = document.getElementById("pulseEye");
+  if (!act1Clicked) {
+    if (inWindow) {
+      hint.classList.add("visible");
+      pulseEye.classList.add("visible");
+      setBannerAct1Urgent();
+      if (netPulse > 0.5) setDialogue("Now — feel that? The net's speakin'. Pull, lad, PULL!");
+    } else {
+      if (!inWindow && watchMs > windowStart) {
+        hint.classList.remove("visible");
+        pulseEye.classList.remove("visible");
+      }
+    }
+  }
+
+  // ── VIGNETTE ──
+  const vig = ctx.createRadialGradient(w * 0.5, h * 0.55, w * 0.22, w * 0.5, h * 0.5, w * 0.78);
+  vig.addColorStop(0, "transparent");
+  vig.addColorStop(1, "rgba(0,0,0,0.55)");
+  ctx.fillStyle = vig; ctx.fillRect(0, 0, w, h);
+
+  animId = requestAnimationFrame(drawFrame);
+}
+
+/* ──────────────────────────────────────────────
+   ACT 1 LOGIC
+─────────────────────────────────────────────── */
+let gameStartedAt = 0;
+
+panel.addEventListener("click", (e) => {
+  // ignore clicks while splash is up
+  if (!document.getElementById("startSplash").classList.contains("hidden")) return;
+  // grace window right after beginGame to absorb any in-flight events
+  if (performance.now() - gameStartedAt < 350) return;
+  // ripple feedback wherever the player clicks on the ocean
+  spawnRipple(e, phase === PHASE.WATCH);
+  tryHaul();
+});
+
+function tryHaul() {
+  if (phase !== PHASE.WATCH || act1Clicked) return;
+  const inWindow = watchMs >= windowStart && watchMs <= windowStart + windowLen;
+  handleAct1(inWindow, inWindow ? "hit" : "toosoon");
+}
+
+function handleAct1(success, reason) {
+  if (act1Clicked) return;
+  act1Clicked = true;
+  cancelAnimationFrame(animId);
+  document.getElementById("haulHint").classList.remove("visible");
+  document.getElementById("actLabel").textContent = "";
+  document.getElementById("pulseEye").classList.remove("visible");
+
+  if (success) {
+    setDialogue("Ha! THAT'S how ye read the sea. Now hold tight — she won't come up easy.");
+    setPhase("Act II — The Rope Pull", _arrow('strength') + "Strength Check · Haul the net");
+    setBannerAct2();
+    showActToast();
+    setTimeout(startRopePull, 800);
+  } else if (reason === "missed") {
+    setDialogue("Ach... the moment passed. The nets drifted up empty. Some days the sea keeps her secrets.");
+    setTimeout(() => showReveal(false, "missed"), 700);
+  } else {
+    setDialogue("Too soon, too eager. Nothin' was gathered yet. The sea will not be rushed.");
+    setTimeout(() => showReveal(false, "toosoon"), 700);
+  }
+}
+
+/* ──────────────────────────────────────────────
+   ACT 2: ROPE PULL
+─────────────────────────────────────────────── */
+function startRopePull() {
+  phase = PHASE.PULL;
+  const ropeScene = document.getElementById("ropeScene");
+  ropeScene.classList.add("active");
+  pullCount = 0;
+  tension = 0.5;
+  pullDone = false;
+  mouseHolding = false;
+
+  // Randomized difficulty: base net pull varies per game, modified by STR
+  baseNetRate = (0.0010 + Math.random() * 0.0014) / _diffFactor('strength');
+  currentSurgeMul = 1;
+  let surgeUntil = 0;
+  let nextSurge  = performance.now() + 1200 + Math.random() * 1800;
+  let nextSlip   = performance.now() + 1800 + Math.random() * 3000;
+
+  updateReadout();
+  updateNetForceIndicator(1);
+  renderRope();
+
+  // ── Single ticker drives net pull, surges, slips, and steady haul ──
+  if (ropeTicker) clearInterval(ropeTicker);
+  ropeTicker = setInterval(() => {
+    if (pullDone) { clearInterval(ropeTicker); return; }
+    const now = performance.now();
+
+    // random surge: net briefly pulls 2-3.5x harder
+    if (now > nextSurge) {
+      currentSurgeMul = 2 + Math.random() * 1.5;
+      surgeUntil = now + 450 + Math.random() * 650;
+      nextSurge  = now + 1400 + Math.random() * 2600;
+      showSurge();
+      updateNetForceIndicator(currentSurgeMul);
+    }
+    if (now > surgeUntil && currentSurgeMul !== 1) {
+      currentSurgeMul = 1;
+      updateNetForceIndicator(1);
+    }
+
+    // random slip: chunky tension drop (only if not already near loss)
+    if (now > nextSlip && tension > 0.15) {
+      const drop = 0.06 + Math.random() * 0.09;
+      tension -= drop;
+      nextSlip  = now + 2200 + Math.random() * 3800;
+      showSlip(drop);
+    }
+
+    // net pull
+    tension -= baseNetRate * currentSurgeMul;
+
+    // steady haul if holding mouse OR space (with tiny variance for feel)
+    if (mouseHolding || keyHolding) {
+      tension += HOLD_RATE * (0.85 + Math.random() * 0.30);
+    }
+
+    if (tension > 1) tension = 1;
+    if (tension < 0) tension = 0;
+    renderRope();
+    updateReadout();
+    checkRopeEnd();
+  }, 16);
+
+  // ── Pointer events: mouse + pen + touch all in one path ──
+  const onDown = (e) => {
+    if (pullDone) return;
+    mouseHolding = true;
+    ropeScene.classList.add("holding");
+    document.getElementById("pullPrompt").textContent = "HOLDING — keep pulling!";
+    doPull();
+    try { if (e.pointerId !== undefined) ropeScene.setPointerCapture(e.pointerId); } catch (_) {}
+  };
+  const onUp = () => {
+    if (!mouseHolding) return;
+    mouseHolding = false;
+    ropeScene.classList.remove("holding");
+    if (!pullDone && !keyHolding) {
+      document.getElementById("pullPrompt").textContent = "Click rapidly — or hold — to haul";
+    }
+  };
+  ropeScene.addEventListener("pointerdown", onDown);
+  ropeScene.addEventListener("pointerup", onUp);
+  ropeScene.addEventListener("pointercancel", onUp);
+  ropeScene.addEventListener("pointerleave", onUp);
+  document.addEventListener("pointerup", onUp);
+  document.addEventListener("mouseup", onUp);
+  window.addEventListener("blur", onUp);
+}
+
+function doPull() {
+  if (pullDone) return;
+  pullCount++;
+  // each tap adds variable pull (0.010–0.022) so chance matters
+  const amt = 0.010 + Math.random() * 0.012;
+  tension += amt;
+  if (tension > 1) tension = 1;
+  const knot = document.getElementById("ropeKnot");
+  knot.classList.remove("strain");
+  void knot.offsetWidth;
+  knot.classList.add("strain");
+  renderRope();
+  updateReadout();
+  checkRopeEnd();
+}
+
+function renderRope() {
+  const fill  = document.getElementById("ropeFill");
+  const knot  = document.getElementById("ropeKnot");
+  const track = document.getElementById("ropeTrack");
+  if (!fill || !knot || !track) return;
+
+  const pct = Math.max(0, Math.min(1, tension));
+  fill.style.width = (pct * 100) + "%";
+
+  if (pct > 0.72) {
+    fill.style.background = "repeating-linear-gradient(60deg, color-mix(in oklch, oklch(0.86 0.17 72) 80%, white) 0 2px, oklch(0.72 0.18 60) 2px 7px, oklch(0.52 0.16 45) 7px 12px, oklch(0.72 0.18 60) 12px 14px)";
+  } else {
+    fill.style.background = "";
+  }
+
+  knot.style.left = (pct * track.offsetWidth) + "px";
+
+  if (pct < 0.25) {
+    track.style.animation = "track-strain 0.12s ease-in-out infinite";
+  } else {
+    track.style.animation = "";
+  }
+}
+
+function checkRopeEnd() {
+  if (pullDone) return;
+  if (tension >= 0.93) {
+    pullDone = true;
+    document.getElementById("ropeScene").classList.remove("holding");
+    cleanupRopeIntervals();
+    setDialogue("HEAVE! There she is — comin' UP! Don't ye dare let go now!");
+    document.getElementById("pullPrompt").textContent = "She's coming up!";
+    setTimeout(() => showReveal(true, ""), 700);
+  } else if (tension <= 0.04) {
+    pullDone = true;
+    document.getElementById("ropeScene").classList.remove("holding");
+    cleanupRopeIntervals();
+    setDialogue("Gah — the net took her! Lost the catch. The sea wins this round, friend.");
+    setTimeout(() => showReveal(false, "lostpull"), 700);
+  }
+}
+
+function cleanupRopeIntervals() {
+  clearInterval(ropeTicker);
+  clearInterval(netInterval);
+  clearInterval(holdInterval);
+  clearInterval(keyHoldInterval);
+}
+
+/* Visual feedback for random Act II events */
+function showSurge() {
+  const banner = document.getElementById("ropeEventBanner");
+  if (!banner) return;
+  banner.textContent = "— NET SURGES —";
+  banner.classList.remove("slip");
+  banner.classList.add("show", "surge");
+  clearTimeout(banner._t);
+  banner._t = setTimeout(() => banner.classList.remove("show", "surge"), 850);
+}
+function showSlip(amount) {
+  const banner = document.getElementById("ropeEventBanner");
+  if (!banner) return;
+  banner.textContent = "— ROPE SLIPS —";
+  banner.classList.remove("surge");
+  banner.classList.add("show", "slip");
+  clearTimeout(banner._t);
+  banner._t = setTimeout(() => banner.classList.remove("show", "slip"), 900);
+  const knot = document.getElementById("ropeKnot");
+  if (knot) {
+    knot.classList.add("slip-shake");
+    setTimeout(() => knot.classList.remove("slip-shake"), 320);
+  }
+}
+function updateNetForceIndicator(mul) {
+  const el = document.getElementById("netForceIndicator");
+  if (!el) return;
+  if (mul > 1.2) {
+    el.textContent = "SURGING";
+    el.classList.add("hot");
+  } else {
+    el.textContent = "steady";
+    el.classList.remove("hot");
+  }
+}
+
+/* ──────────────────────────────────────────────
+   ACT 3: REVEAL
+─────────────────────────────────────────────── */
+const CATCHES = [
+  {
+    roll: 1, name: "Silver Fish", icon: "🐟",
+    quality: "Meagre Haul", feeds: "One dinner (barely)",
+    desc: "A net full of tiny silver fish — glittering, but small. It may stretch to one dinner, but it will be a great deal of work to make it so.",
+    haldor: "Hmm. Barely worth the rope. Get 'em to Ingrid — she'll make somethin' of it. Maybe.",
+  },
+  {
+    roll: 2, name: "Giant Sea Eel", icon: "🐍",
+    quality: "Dangerous Catch", feeds: "All hands (if ye dare)",
+    desc: "The net erupts — something long and furious thrashes inside. A sea eel, enormous and enraged. Ingrid insists you cook it immediately.",
+    haldor: "By the DEEP GODS — she's a beast. Don't let her bite ye. Galley, NOW, before she takes someone's hand.",
+  },
+  {
+    roll: 3, name: "Arctic Halibut", icon: "🐠",
+    quality: "Fine Catch", feeds: "Full crew, one meal",
+    desc: "Fat and clean halibut fill the net — good eating for a cold night at sea. The whole crew will sup well.",
+    haldor: "Aye. That'll do. Everyone eats tonight, including ye. Decent work for a landlubber.",
+  },
+  {
+    roll: 4, name: "Arctic Char", icon: "🐡",
+    quality: "Exceptional Haul", feeds: "Full crew, several days",
+    desc: "The net is near bursting with Arctic Char — high-quality, delicious, and enough to last several days. Even Haldor looks pleased.",
+    haldor: "HA! NOW that is a catch. The sea likes ye today, friend. Ingrid'll be very pleased — char keeps well in this cold.",
+  },
+];
+
+function showReveal(success, reason) {
+  phase = PHASE.REVEAL;
+  document.getElementById("ropeScene").classList.remove("active");
+  const scene = document.getElementById("revealScene");
+  scene.classList.add("active");
+  document.getElementById("actLabel").textContent = "";
+  setBannerAct3();
+
+  let html;
+  if (!success) {
+    const msgs = {
+      missed:   ["THE MOMENT PASSED",        "The moment passed unnoticed. The nets drifted up empty, the fish long scattered."],
+      toosoon:  ["TOO EAGER AT THE ROPE",    "Nothing had gathered yet. The sea rewards patience, not haste."],
+      lostpull: ["THE NET TORE FREE",        "The catch is gone, slipped back into the dark before you could land it."],
+    };
+    const [head, body] = msgs[reason] || msgs.missed;
+    setPhase("— No Catch —", "");
+    html = `
+      <div class="catch-card is-fail">
+        <div class="wax-seal">∅</div>
+        <div class="catch-result-tag">— NETS EMPTY —</div>
+        <div class="catch-name-big">${head}</div>
+        <span class="catch-icon-big">🌊</span>
+        <div class="catch-icon-rule"><span class="pip"></span></div>
+        <div class="catch-desc-text">${body}</div>
+        <div class="catch-haldor-quote">Read the water, not the clock. Try again.</div>
+      </div>
+      <div class="catch-actions">
+        <button class="btn-primary" onclick="location.reload()">Try Again</button>
+        <button class="btn-secondary" id="revealBack">Return to Deck</button>
+      </div>`;
+  } else {
+    const roll = Math.ceil(Math.random() * 4);
+    const c = CATCHES[roll - 1];
+    setPhase("Act III — The Catch", `Roll ${roll} · ${c.quality}`);
+    showTally(c);
+    html = `
+      <div class="catch-card">
+        <div class="wax-seal">${roll}</div>
+        <div class="catch-result-tag">— ROLL ${roll} · ${c.quality.toUpperCase()} —</div>
+        <div class="catch-name-big">${c.name}</div>
+        <span class="catch-icon-big">${c.icon}</span>
+        <div class="catch-icon-rule"><span class="pip"></span></div>
+        <div class="catch-desc-text">${c.desc}</div>
+        <div class="catch-haldor-quote">${c.haldor}</div>
+      </div>
+      <div class="catch-actions">
+        <button class="btn-primary" id="goGalley">Head to the Galley →</button>
+        <button class="btn-secondary" id="revealBack">Return to Deck</button>
+      </div>`;
+    setDialogue(c.haldor);
+  }
+
+  scene.innerHTML = html;
+  document.getElementById("revealBack")?.addEventListener("click", () => {
+    window.location.href = "index.html";
+  });
+  document.getElementById("goGalley")?.addEventListener("click", () => {
+    const state = loadState();
+    state.lastCatch = CATCHES.find(c => c.roll === parseInt(scene.querySelector(".catch-result-tag").textContent.match(/\d/)?.[0])) || null;
+    state.completed.push("haldor");
+    saveState(state);
+    window.location.href = "cooking.html";
+  });
+}
+
+function showTally(c) {
+  const tally = document.getElementById("catchTally");
+  document.getElementById("tallyName").textContent    = c.name;
+  document.getElementById("tallyQuality").textContent = c.quality;
+  document.getElementById("tallyFeeds").textContent   = c.feeds;
+  tally.style.display = "flex";
+}
+
+/* ──────────────────────────────────────────────
+   STATE (mirrors hub's localStorage key)
+─────────────────────────────────────────────── */
+function loadState() {
+  try {
+    const raw = localStorage.getItem("remorhaz");
+    if (!raw) return { currentDay: 1, completed: [], completedDays: [] };
+    const s = JSON.parse(raw);
+    return {
+      currentDay:    s.currentDay    || 1,
+      completed:     Array.from(s.completed    || []),
+      completedDays: Array.from(s.completedDays || []),
+      lastCatch:     s.lastCatch || null,
+    };
+  } catch { return { currentDay: 1, completed: [], completedDays: [] }; }
+}
+function saveState(s) {
+  localStorage.setItem("remorhaz", JSON.stringify(s));
+}
+
+/* ──────────────────────────────────────────────
+   HELPERS
+─────────────────────────────────────────────── */
+function setDialogue(text) {
+  const el = document.getElementById("haldorDialogue");
+  if (el.dataset.lastText === text) return;
+  el.dataset.lastText = text;
+  el.style.opacity = "0";
+  setTimeout(() => { el.textContent = '"' + text + '"'; el.style.opacity = "1"; }, 220);
+}
+function setPhase(p, instHtml) {
+  document.getElementById("phaseLabel").textContent    = p;
+  document.getElementById("instructionLabel").innerHTML = instHtml;
+}
+
+/* Update the phase banner at top of ocean panel */
+function setBannerAct1() {
+  const b = document.getElementById("phaseBanner");
+  b.classList.remove("urgent");
+  b.innerHTML = `
+    <span>WATCH THE WATER</span>
+    <span class="pb-sep"></span>
+    <span>WAIT FOR FISH TO GATHER</span>
+    <span class="pb-sep"></span>
+    <span>THEN <span class="pb-key">CLICK</span> OR <span class="pb-key">SPACE</span> TO HAUL</span>`;
+}
+function setBannerAct1Urgent() {
+  const b = document.getElementById("phaseBanner");
+  b.classList.add("urgent");
+  b.innerHTML = `
+    <span>THE NET IS FULL</span>
+    <span class="pb-sep"></span>
+    <span><span class="pb-key">CLICK</span> OR <span class="pb-key">SPACE</span> — HAUL NOW</span>`;
+}
+function setBannerAct2() {
+  const b = document.getElementById("phaseBanner");
+  b.classList.remove("urgent");
+  b.innerHTML = `
+    <span>ACT II · THE HAUL</span>
+    <span class="pb-sep"></span>
+    <span><span class="pb-key">CLICK</span> RAPIDLY</span>
+    <span>— OR —</span>
+    <span><span class="pb-key">HOLD</span> / <span class="pb-key">SPACE</span> TO PULL STEADY</span>`;
+}
+function setBannerAct3() {
+  const b = document.getElementById("phaseBanner");
+  b.classList.remove("urgent");
+  b.innerHTML = `
+    <span>ACT III · THE CATCH</span>
+    <span class="pb-sep"></span>
+    <span>CHOOSE WHERE TO GO NEXT</span>`;
+}
+
+/* Show a brief tutorial toast between acts */
+function showActToast() {
+  const toast = document.getElementById("actToast");
+  document.getElementById("actToastTitle").textContent = "Act II · The Haul";
+  document.getElementById("actToastBody").innerHTML =
+    `Pull the rope back from the net. <span class="kbd">Click</span> rapidly, <span class="kbd">Hold</span> the mouse, or press <span class="kbd">Space</span> — don't let it slip.`;
+  toast.classList.add("show");
+  setTimeout(() => toast.classList.remove("show"), 2400);
+}
+
+/* Update tension % and pull counter */
+function updateReadout() {
+  const t = Math.max(0, Math.min(1, tension));
+  const tEl = document.getElementById("readoutTension");
+  const pEl = document.getElementById("readoutPulls");
+  if (!tEl || !pEl) return;
+  tEl.textContent = Math.round(t * 100) + "%";
+  tEl.classList.toggle("warn", t < 0.30);
+  tEl.classList.toggle("good", t > 0.70);
+  pEl.textContent = String(pullCount);
+}
+
+/* Click ripple on the ocean panel */
+function spawnRipple(e, urgent) {
+  const r = panel.getBoundingClientRect();
+  const x = e.clientX - r.left;
+  const y = e.clientY - r.top;
+  const el = document.createElement("div");
+  el.className = "ripple" + (urgent ? "" : " cold");
+  el.style.left = x + "px";
+  el.style.top  = y + "px";
+  panel.appendChild(el);
+  setTimeout(() => el.remove(), 700);
+}
+
+/* Keyboard — Space mirrors mouse for both acts */
+document.addEventListener("keydown", (e) => {
+  if (e.code !== "Space") return;
+  if (!document.getElementById("startSplash").classList.contains("hidden")) {
+    e.preventDefault();
+    beginGame();
+    return;
+  }
+  if (phase === PHASE.WATCH) {
+    if (act1Clicked) return;
+    e.preventDefault();
+    tryHaul();
+  } else if (phase === PHASE.PULL) {
+    if (pullDone) return;
+    e.preventDefault();
+    if (e.repeat) return; // ignore keyboard auto-repeat
+    if (keyHolding) return;
+    keyHolding = true;
+    const ropeScene = document.getElementById("ropeScene");
+    ropeScene.classList.add("holding");
+    document.getElementById("pullPrompt").textContent = "HOLDING — keep pulling!";
+    doPull(); // discrete tap on press
+    // steady haul is applied by the main ticker while keyHolding is true
+  }
+});
+document.addEventListener("keyup", (e) => {
+  if (e.code !== "Space") return;
+  if (phase === PHASE.PULL) {
+    keyHolding = false;
+    const ropeScene = document.getElementById("ropeScene");
+    if (!mouseHolding) ropeScene.classList.remove("holding");
+    if (!pullDone && !mouseHolding) document.getElementById("pullPrompt").textContent = "Click rapidly — or hold — to haul";
+  }
+});
+
+/* ──────────────────────────────────────────────
+   ASSETS & BACK BUTTON
+─────────────────────────────────────────────── */
+document.getElementById("haldorPortrait").style.backgroundImage = "url('assets/haldor.jpg')";
+document.getElementById("backBtn").addEventListener("click", () => {
+  window.location.href = "index.html";
+});
+
+/* ──────────────────────────────────────────────
+   SPLASH → START
+─────────────────────────────────────────────── */
+function beginGame() {
+  const splash = document.getElementById("startSplash");
+  if (splash.classList.contains("hidden")) return;
+  splash.classList.add("hidden");
+  document.body.classList.remove("splash-active");
+  setBannerAct1();
+  // begin the watch timer cleanly
+  lastTs = null;
+  gameStartedAt = performance.now();
+  // small delay so any in-flight click event doesn't immediately register on the panel
+  setTimeout(() => { animId = requestAnimationFrame(drawFrame); }, 80);
+}
+document.getElementById("btnBegin").addEventListener("click", (e) => {
+  e.stopPropagation();
+  e.preventDefault();
+  beginGame();
+});
+document.getElementById("btnBegin").addEventListener("mousedown", (e) => e.stopPropagation());
+document.getElementById("btnBegin").addEventListener("mouseup",   (e) => e.stopPropagation());
+// also catch any click on the splash background so it can't reach the panel
+document.getElementById("startSplash").addEventListener("click", (e) => e.stopPropagation());
+document.getElementById("startSplash").addEventListener("mousedown", (e) => e.stopPropagation());
+
+/* Initial banner state */
+setBannerAct1();
+document.body.classList.add("splash-active");
+/* Show INT arrow for Act 1 */
+setPhase("Act I — The Deep Watch", _arrow('intelligence') + "Intelligence Check · Read the sea");
+
+})();
+</script>
+</body>
+</html>

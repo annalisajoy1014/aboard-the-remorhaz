@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Choose Your Character — Aboard the Remorhaz</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+
+.stage {
+  position: fixed; inset: 0; z-index: 1;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 32px; padding: 80px 24px 40px;
+}
+
+/* ── HEADER ── */
+.cs-eyebrow {
+  font-family: "Caveat", cursive; font-size: 17px;
+  color: var(--paper-deep); letter-spacing: 0.04em; text-align: center;
+}
+.cs-title {
+  font-family: "IM Fell English SC", serif; font-size: 34px;
+  letter-spacing: 0.18em; color: var(--paper); text-align: center;
+  text-shadow: 0 2px 14px rgba(0,0,0,0.7);
+}
+.cs-rule {
+  width: 280px; height: 14px; flex-shrink: 0;
+  background: linear-gradient(to right, transparent, var(--paper-deep), transparent) center/100% 1px no-repeat;
+  position: relative;
+}
+.cs-rule::before, .cs-rule::after {
+  content: ""; position: absolute; top: 50%; transform: translateY(-50%) rotate(45deg);
+  width: 5px; height: 5px; background: var(--sea-deep); border: 1px solid var(--paper-deep);
+}
+.cs-rule::before { left: 18px; }
+.cs-rule::after  { right: 18px; }
+.cs-sub {
+  font-family: "IM Fell English", serif; font-style: italic;
+  font-size: 15px; color: var(--paper-dim); text-align: center; max-width: 480px;
+}
+
+/* ── CHARACTER CARDS ── */
+.cards {
+  display: flex; gap: 28px; align-items: stretch; flex-wrap: wrap;
+  justify-content: center;
+}
+
+.char-card {
+  width: 260px; flex-shrink: 0;
+  background:
+    radial-gradient(80px 60px at 22% 18%, rgba(134,109,77,0.09), transparent 70%),
+    linear-gradient(160deg, color-mix(in oklch, var(--paper) 9%, var(--ink)) 0%, color-mix(in oklch, var(--paper) 5%, var(--sea-deep)) 100%);
+  border: 1px solid color-mix(in oklch, var(--paper-deep) 28%, transparent);
+  padding: 32px 24px 28px;
+  display: flex; flex-direction: column; align-items: center; gap: 14px;
+  cursor: pointer; position: relative;
+  transition: border-color 0.25s, box-shadow 0.25s, transform 0.2s;
+  user-select: none;
+}
+.char-card::before {
+  content: ""; position: absolute; inset: 8px;
+  border: 1px solid color-mix(in oklch, var(--paper-deep) 12%, transparent);
+  pointer-events: none;
+  transition: border-color 0.25s;
+}
+.char-card:hover {
+  border-color: color-mix(in oklch, var(--paper-deep) 60%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--paper-deep) 18%, transparent),
+              0 20px 40px rgba(0,0,0,0.4);
+  transform: translateY(-3px);
+}
+.char-card.selected {
+  border-color: var(--lamp);
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--lamp) 40%, transparent),
+              0 0 32px color-mix(in oklch, var(--lamp) 22%, transparent),
+              0 20px 40px rgba(0,0,0,0.5);
+}
+.char-card.selected::before {
+  border-color: color-mix(in oklch, var(--lamp) 22%, transparent);
+}
+
+/* Avatar circle */
+.char-avatar {
+  width: 88px; height: 88px; border-radius: 50%;
+  background: radial-gradient(circle at 38% 32%, var(--hull-mid), var(--hull-darkest));
+  border: 2px solid color-mix(in oklch, var(--paper-deep) 45%, transparent);
+  outline: 5px solid color-mix(in oklch, var(--paper-deep) 16%, transparent);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 36px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.5);
+  transition: border-color 0.25s, box-shadow 0.25s;
+  flex-shrink: 0;
+}
+.char-card.selected .char-avatar {
+  border-color: var(--lamp);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--lamp) 28%, transparent),
+              0 6px 18px rgba(0,0,0,0.5);
+}
+
+.char-name {
+  font-family: "IM Fell English SC", serif; font-size: 18px;
+  letter-spacing: 0.08em; color: var(--paper); text-align: center;
+}
+.char-class {
+  font-family: "Caveat", cursive; font-size: 15px;
+  color: var(--paper-deep); text-align: center; margin-top: -8px;
+}
+
+.sidebar-rule {
+  width: 100%; height: 1px;
+  background: linear-gradient(to right, transparent, var(--paper-deep), transparent);
+  flex-shrink: 0;
+}
+
+.char-desc {
+  font-family: "IM Fell English", serif; font-style: italic;
+  font-size: 14.5px; line-height: 1.55; color: var(--paper-dim);
+  text-align: center; flex: 1;
+}
+
+/* Stat bars */
+.char-stats {
+  width: 100%; display: flex; flex-direction: column; gap: 5px; margin-top: 4px;
+}
+.stat-row {
+  display: flex; align-items: center; gap: 8px;
+  font-family: "IM Fell English SC", serif; font-size: 10px;
+  letter-spacing: 0.14em; color: var(--paper-deep);
+}
+.stat-name { width: 26px; flex-shrink: 0; }
+.stat-pip-track {
+  flex: 1; display: flex; gap: 3px; align-items: center;
+}
+.pip {
+  width: 8px; height: 8px; border-radius: 1px;
+  background: var(--hull-dark); flex-shrink: 0;
+  transition: background 0.2s;
+}
+.pip.filled-pos { background: var(--lamp); }
+.pip.filled-neg { background: var(--blood); }
+.stat-num {
+  font-family: "IM Fell English", serif; font-style: italic;
+  font-size: 12px; color: var(--paper); min-width: 22px; text-align: right;
+}
+
+/* Selected checkmark */
+.check-badge {
+  position: absolute; top: 10px; right: 10px;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--lamp); display: none;
+  align-items: center; justify-content: center;
+  font-family: "IM Fell English SC", serif; font-size: 12px;
+  color: var(--ink); box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+}
+.char-card.selected .check-badge { display: flex; }
+
+/* ── CONFIRM BUTTON ── */
+.btn-begin {
+  font-family: "IM Fell English SC", serif; font-size: 14px;
+  letter-spacing: 0.26em; color: var(--paper); background: var(--ink);
+  border: 1px solid var(--ink); padding: 14px 40px; cursor: pointer;
+  border-radius: 1px; transition: background 0.2s, border-color 0.2s, opacity 0.2s, transform 0.1s;
+  box-shadow: 0 8px 22px rgba(0,0,0,0.5); position: relative;
+}
+.btn-begin:hover:not(:disabled) { background: var(--blood); border-color: var(--blood); }
+.btn-begin:active:not(:disabled) { transform: translateY(1px); }
+.btn-begin:disabled { opacity: 0.35; cursor: default; }
+.btn-begin::before, .btn-begin::after {
+  content: ""; position: absolute; top: 50%; width: 16px; height: 1px;
+  background: var(--paper-deep); transform: translateY(-50%);
+}
+.btn-begin::before { left: -24px; }
+.btn-begin::after  { right: -24px; }
+
+</style>
+</head>
+<body>
+
+<div class="backdrop"></div>
+<div class="snow" id="snow"></div>
+<span class="corner tl"></span>
+<span class="corner tr"></span>
+<span class="corner bl"></span>
+<span class="corner br"></span>
+
+<div class="stage">
+
+  <div>
+    <div class="cs-eyebrow">— Glassblade Trading Co., Charter Vessel —</div>
+    <div class="cs-title">Choose Your Character</div>
+  </div>
+  <div class="cs-rule"></div>
+  <div class="cs-sub">Each traveller carries different gifts. Your strengths and weaknesses will shape how the voyage unfolds.</div>
+
+  <div class="cards" id="cards"></div>
+
+  <button class="btn-begin" id="beginBtn" disabled>Begin the Voyage →</button>
+
+</div>
+
+<script>
+(() => {
+
+/* ── SNOW ── */
+const snowEl = document.getElementById("snow");
+for (let i = 0; i < 55; i++) {
+  const f = document.createElement("div");
+  f.className = "flake";
+  const sz = 1 + Math.random() * 2.5;
+  Object.assign(f.style, {
+    width: sz + "px", height: sz + "px",
+    left: Math.random() * 100 + "%",
+    top:  Math.random() * 100 + "%",
+    animationDuration: (8 + Math.random() * 12) + "s",
+    animationDelay:   (-Math.random() * 15) + "s",
+  });
+  snowEl.appendChild(f);
+}
+
+/* ── CHARACTER DATA ── */
+const CHARACTERS = [
+  {
+    id: "relyt",
+    name: "Relyt Murcielago",
+    classLabel: "Wizard of the Highest Caliber",
+    avatar: "✦",
+    desc: "A wizard of the highest caliber. Her mind is her greatest weapon — and her body, her greatest liability.",
+    stats: { strength: -2, dexterity: 0, intelligence: 2, wisdom: 2, charisma: 1, constitution: -1 },
+  },
+  {
+    id: "lucy",
+    name: "Lucy Lei",
+    classLabel: "Incredibly Talented Acrobat",
+    avatar: "◈",
+    desc: "Fast, graceful, and impossible to ignore. She moves through the world like it was built for her alone.",
+    stats: { strength: -1, dexterity: 2, intelligence: 1, wisdom: 0, charisma: 2, constitution: -2 },
+  },
+  {
+    id: "irene",
+    name: "Irene \"Eye\" Ladell",
+    classLabel: "A Hurricane in a Person",
+    avatar: "⚔",
+    desc: "Unmovable as stone, twice as dangerous. What she lacks in subtlety she more than makes up for in sheer force.",
+    stats: { strength: 2, dexterity: 0, intelligence: -1, wisdom: -2, charisma: 1, constitution: 2 },
+  },
+];
+
+const STAT_LABELS = { strength: "STR", dexterity: "DEX", intelligence: "INT", wisdom: "WIS", charisma: "CHA", constitution: "CON" };
+const STAT_ORDER  = ["strength", "dexterity", "intelligence", "wisdom", "charisma", "constitution"];
+
+function buildStatPips(stats) {
+  return STAT_ORDER.map(k => {
+    const m = stats[k];
+    const label = STAT_LABELS[k];
+    const sign  = m > 0 ? "+" : "";
+    // 5 pips: centre = 0, filled right = positive, filled left = negative
+    let pipsHtml = "";
+    for (let i = -2; i <= 2; i++) {
+      let cls = "pip";
+      if (m > 0 && i > 0 && i <= m)  cls += " filled-pos";
+      if (m < 0 && i < 0 && i >= m)  cls += " filled-neg";
+      pipsHtml += `<div class="${cls}"></div>`;
+    }
+    return `
+      <div class="stat-row">
+        <span class="stat-name">${label}</span>
+        <div class="stat-pip-track">${pipsHtml}</div>
+        <span class="stat-num">${sign}${m}</span>
+      </div>`;
+  }).join("");
+}
+
+/* ── RENDER CARDS ── */
+let selectedId = null;
+const container = document.getElementById("cards");
+
+CHARACTERS.forEach(ch => {
+  const card = document.createElement("div");
+  card.className = "char-card";
+  card.dataset.id = ch.id;
+  card.innerHTML = `
+    <div class="check-badge">✓</div>
+    <div class="char-avatar">${ch.avatar}</div>
+    <div class="char-name">${ch.name}</div>
+    <div class="char-class">${ch.classLabel}</div>
+    <div class="sidebar-rule"></div>
+    <div class="char-desc">${ch.desc}</div>
+    <div class="char-stats">${buildStatPips(ch.stats)}</div>
+  `;
+  card.addEventListener("click", () => selectChar(ch.id));
+  container.appendChild(card);
+});
+
+function selectChar(id) {
+  selectedId = id;
+  document.querySelectorAll(".char-card").forEach(c => {
+    c.classList.toggle("selected", c.dataset.id === id);
+  });
+  document.getElementById("beginBtn").disabled = false;
+}
+
+/* ── CONFIRM ── */
+document.getElementById("beginBtn").addEventListener("click", () => {
+  if (!selectedId) return;
+  const ch = CHARACTERS.find(c => c.id === selectedId);
+  if (!ch) return;
+
+  // Preserve any existing state, add/overwrite character
+  let state = {};
+  try { state = JSON.parse(localStorage.getItem("remorhaz") || "{}"); } catch {}
+  state.selectedCharacter = { id: ch.id, name: ch.name, stats: ch.stats };
+  localStorage.setItem("remorhaz", JSON.stringify(state));
+
+  window.location.href = "index.html";
+});
+
+})();
+</script>
+</body>
+</html>
