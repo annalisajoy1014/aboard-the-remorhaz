@@ -165,9 +165,112 @@
 .btn-begin::before { left: -24px; }
 .btn-begin::after  { right: -24px; }
 
+/* ── OPENING CINEMATIC OVERLAY ── */
+.cin-open {
+  position: fixed; inset: 0; z-index: 999;
+  overflow: hidden; opacity: 1;
+  transition: opacity 1.5s ease;
+}
+.cin-open.cin-out { opacity: 0; pointer-events: none; }
+
+.cin-open-bg {
+  position: absolute; inset: 0;
+  background: url('assets/remorhaz.jpg') center center / cover no-repeat;
+  filter: brightness(0.62) saturate(0.82);
+  animation: cinZoom 22s ease-out alternate infinite;
+}
+@keyframes cinZoom {
+  from { transform: scale(1.0); }
+  to   { transform: scale(1.07); }
+}
+
+.cin-open-vignette {
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse 80% 68% at 50% 50%, transparent 28%, rgba(0,0,0,0.8) 100%);
+}
+
+.cin-open-bar {
+  position: absolute; left: 0; right: 0; height: 9vh;
+  background: #000; z-index: 2;
+}
+.cin-open-bar-top { top: 0; }
+.cin-open-bar-bot { bottom: 0; }
+
+.cin-open-body {
+  position: absolute; inset: 0; z-index: 3;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  text-align: center; padding: 10vh 14% 10vh; gap: 16px;
+  opacity: 0;
+  animation: cinBodyIn 2.4s ease 1s forwards;
+}
+@keyframes cinBodyIn {
+  from { opacity: 0; transform: translateY(26px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.cin-open-eyebrow {
+  font-family: "Caveat", cursive; font-size: 17px;
+  color: rgba(218,198,158,0.72); letter-spacing: 0.09em;
+}
+.cin-open-title {
+  font-family: "IM Fell English SC", serif;
+  font-size: clamp(40px, 6.5vw, 96px);
+  color: #ede2ca; letter-spacing: 0.2em; line-height: 1.06;
+  text-shadow: 0 4px 32px rgba(0,0,0,0.9), 0 0 80px rgba(0,0,0,0.5);
+  margin: 0;
+}
+.cin-open-sep {
+  width: 310px; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(218,190,132,0.55), transparent);
+  margin: 4px 0;
+}
+.cin-open-sub {
+  font-family: "IM Fell English", serif; font-style: italic;
+  font-size: 18px; color: rgba(220,200,162,0.9); margin: 0;
+}
+.cin-open-passage {
+  font-family: "IM Fell English", serif; font-style: italic;
+  font-size: 14px; color: rgba(200,182,146,0.78);
+  line-height: 1.82; max-width: 560px; margin: 4px 0;
+}
+.cin-open-btn {
+  margin-top: 22px;
+  font-family: "IM Fell English SC", serif; font-size: 14px;
+  letter-spacing: 0.32em; color: rgba(230,210,168,0.9);
+  background: transparent;
+  border: 1px solid rgba(218,186,122,0.42);
+  padding: 14px 54px; cursor: pointer;
+  transition: all 0.38s ease; border-radius: 1px;
+  box-shadow: 0 0 28px rgba(0,0,0,0.5);
+}
+.cin-open-btn:hover {
+  color: #ede2ca;
+  border-color: rgba(218,186,122,0.88);
+  background: rgba(218,186,122,0.1);
+  box-shadow: 0 0 36px rgba(172,136,52,0.3);
+  letter-spacing: 0.42em;
+}
+
 </style>
 </head>
 <body>
+
+<!-- ══ OPENING CINEMATIC ══ -->
+<div id="cin-open" class="cin-open">
+  <div class="cin-open-bg"></div>
+  <div class="cin-open-vignette"></div>
+  <div class="cin-open-bar cin-open-bar-top"></div>
+  <div class="cin-open-bar cin-open-bar-bot"></div>
+  <div class="cin-open-body">
+    <div class="cin-open-eyebrow">— Glassblade Trading Co., Charter Vessel —</div>
+    <h1 class="cin-open-title">Aboard<br>the Remorhaz</h1>
+    <div class="cin-open-sep"></div>
+    <p class="cin-open-sub">A nine-day voyage across the frozen seas of Eiselcross</p>
+    <p class="cin-open-passage">You have secured passage on a merchant vessel bound for the uncharted shores beyond the northern ice. The crew is small, seasoned, and wary of strangers. Nine days stand between you and the edge of the known world — if the sea allows it.</p>
+    <button class="cin-open-btn" id="cinSetSail">— Set Sail —</button>
+  </div>
+</div>
 
 <div class="backdrop"></div>
 <div class="snow" id="snow"></div>
@@ -193,6 +296,27 @@
 
 <script>
 (() => {
+
+/* ── OPENING CINEMATIC ── */
+{
+  let _done = false;
+  function _dismissOpening() {
+    if (_done) return;
+    _done = true;
+    const el = document.getElementById("cin-open");
+    el.classList.add("cin-out");
+    setTimeout(() => { el.style.display = "none"; }, 1500);
+  }
+  document.getElementById("cinSetSail").addEventListener("click", function(e) {
+    e.stopPropagation();
+    _dismissOpening();
+  });
+  // Allow click-anywhere-to-skip after 3 seconds
+  setTimeout(() => {
+    const el = document.getElementById("cin-open");
+    if (el) el.addEventListener("click", _dismissOpening);
+  }, 3000);
+}
 
 /* ── SNOW ── */
 const snowEl = document.getElementById("snow");

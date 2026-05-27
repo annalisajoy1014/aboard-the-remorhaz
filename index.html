@@ -643,6 +643,139 @@
 
   /* Hide tooltip when shroud is open */
   .modal-shroud.open ~ .tooltip { opacity: 0 !important; }
+
+  /* ── NPC / CHARACTER CINEMATIC OVERLAY ── */
+  .cin-npc {
+    position: fixed; inset: 0; z-index: 50;
+    pointer-events: none; opacity: 0;
+    transition: opacity 0.7s ease;
+  }
+  .cin-npc.active { opacity: 1; pointer-events: auto; }
+
+  .cin-npc-bg {
+    position: absolute; inset: 0;
+    background-size: cover; background-position: center top;
+    filter: brightness(0.58) saturate(0.82);
+    transform: scale(1.04);
+  }
+  .cin-npc.active .cin-npc-bg {
+    animation: cinNpcZoom 18s ease-out infinite alternate;
+  }
+  @keyframes cinNpcZoom {
+    from { transform: scale(1.02); }
+    to   { transform: scale(1.07); }
+  }
+
+  .cin-npc-gradient {
+    position: absolute; inset: 0;
+    background: linear-gradient(
+      108deg,
+      rgba(0,0,0,0.93) 0%,
+      rgba(0,0,0,0.7)  36%,
+      rgba(0,0,0,0.18) 62%,
+      rgba(0,0,0,0.46) 100%
+    );
+  }
+
+  .cin-npc-content {
+    position: absolute; top: 0; left: 0; bottom: 0;
+    width: 50%; max-width: 580px;
+    display: flex; flex-direction: column;
+    justify-content: center;
+    padding: 0 5% 0 7%; gap: 12px;
+    opacity: 0; transform: translateX(-22px);
+    transition: opacity 0.75s ease 0.4s, transform 0.75s ease 0.4s;
+  }
+  .cin-npc.active .cin-npc-content { opacity: 1; transform: translateX(0); }
+
+  .cin-npc-eyebrow {
+    font-family: "Caveat", cursive; font-size: 17px;
+    color: rgba(210,190,152,0.72); letter-spacing: 0.08em;
+  }
+  .cin-npc-name {
+    font-family: "IM Fell English SC", serif;
+    font-size: clamp(28px, 3.8vw, 62px);
+    color: #e4d8c2; letter-spacing: 0.1em; line-height: 1.05;
+    text-shadow: 0 2px 22px rgba(0,0,0,0.85); margin: 0;
+  }
+  .cin-npc-role {
+    font-family: "Caveat", cursive; font-size: 20px;
+    color: rgba(204,180,140,0.9);
+  }
+  .cin-npc-rule {
+    width: 200px; height: 1px;
+    background: linear-gradient(90deg, rgba(210,172,102,0.55), transparent);
+    margin: 2px 0;
+  }
+  .cin-npc-quote {
+    font-family: "IM Fell English", serif; font-style: italic;
+    font-size: 15px; color: rgba(208,192,165,0.82);
+    line-height: 1.68; max-width: 420px; margin: 0;
+  }
+  .cin-npc-btn {
+    margin-top: 14px;
+    font-family: "IM Fell English SC", serif; font-size: 13px;
+    letter-spacing: 0.22em; color: rgba(224,204,162,0.9);
+    background: transparent; border: 1px solid rgba(200,168,102,0.4);
+    padding: 12px 30px; cursor: pointer;
+    transition: all 0.28s ease; border-radius: 1px; width: fit-content;
+  }
+  .cin-npc-btn:hover {
+    border-color: rgba(200,168,102,0.9);
+    background: rgba(200,168,102,0.12);
+    color: #e4d8c2;
+  }
+
+  /* ── DAY TRANSITION CINEMATIC ── */
+  .cin-day {
+    position: fixed; inset: 0; z-index: 60;
+    background: #010306;
+    display: flex; align-items: center; justify-content: center;
+    pointer-events: none; opacity: 0;
+    transition: opacity 1.3s ease;
+  }
+  .cin-day.active { opacity: 1; pointer-events: auto; cursor: pointer; }
+
+  .cin-day-stars-canvas {
+    position: absolute; inset: 0; pointer-events: none;
+  }
+
+  .cin-day-body {
+    position: relative; z-index: 1;
+    display: flex; flex-direction: column;
+    align-items: center; text-align: center; gap: 14px;
+    opacity: 0; transform: translateY(20px);
+    transition: opacity 1.1s ease 0.9s, transform 1.1s ease 0.9s;
+  }
+  .cin-day.active .cin-day-body { opacity: 1; transform: translateY(0); }
+
+  .cin-day-prev-lbl {
+    font-family: "Caveat", cursive; font-size: 17px;
+    color: rgba(180,162,128,0.58); letter-spacing: 0.14em;
+  }
+  .cin-day-number {
+    font-family: "IM Fell English SC", serif;
+    font-size: clamp(52px, 9vw, 126px);
+    color: rgba(228,214,180,0.9); letter-spacing: 0.15em; line-height: 1;
+    text-shadow: 0 0 80px rgba(200,168,98,0.3), 0 2px 22px rgba(0,0,0,0.9);
+  }
+  .cin-day-rule {
+    width: 220px; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(200,168,100,0.45), transparent);
+  }
+  .cin-day-event-lbl {
+    font-family: "IM Fell English", serif; font-style: italic;
+    font-size: 21px; color: rgba(204,186,152,0.85); letter-spacing: 0.04em;
+  }
+  .cin-day-hint {
+    margin-top: 18px; font-family: "Caveat", cursive; font-size: 15px;
+    color: rgba(158,144,114,0.5); letter-spacing: 0.1em;
+    animation: cinHintBlink 2.8s ease infinite 2s;
+  }
+  @keyframes cinHintBlink {
+    0%, 55%, 100% { opacity: 0.5; }
+    28% { opacity: 1; }
+  }
 </style>
 </head>
 <body>
@@ -1254,6 +1387,32 @@
     <div class="voyage-foot">to Eiselcross</div>
   </aside>
 
+  <!-- ══ NPC / CHARACTER CINEMATIC ══ -->
+  <div id="cin-npc" class="cin-npc" aria-hidden="true">
+    <div class="cin-npc-bg" id="cin-npc-bg"></div>
+    <div class="cin-npc-gradient"></div>
+    <div class="cin-npc-content">
+      <div class="cin-npc-eyebrow">— Aboard the Remorhaz —</div>
+      <h2 class="cin-npc-name" id="cin-npc-name"></h2>
+      <div class="cin-npc-role" id="cin-npc-role"></div>
+      <div class="cin-npc-rule"></div>
+      <p class="cin-npc-quote" id="cin-npc-quote"></p>
+      <button class="cin-npc-btn" id="cin-npc-enter">Speak With Them →</button>
+    </div>
+  </div>
+
+  <!-- ══ DAY TRANSITION CINEMATIC ══ -->
+  <div id="cin-day" class="cin-day" aria-hidden="true">
+    <canvas id="cin-day-stars" class="cin-day-stars-canvas"></canvas>
+    <div class="cin-day-body">
+      <div class="cin-day-prev-lbl" id="cin-day-prev-lbl"></div>
+      <div class="cin-day-number" id="cin-day-number">DAY · 01</div>
+      <div class="cin-day-rule"></div>
+      <div class="cin-day-event-lbl" id="cin-day-event-lbl"></div>
+      <div class="cin-day-hint">— click anywhere to continue —</div>
+    </div>
+  </div>
+
   <!-- Modal shroud + side panel -->
   <div class="modal-shroud" id="shroud"></div>
   <aside class="panel" id="panel" role="dialog" aria-modal="true" aria-hidden="true">
@@ -1304,6 +1463,7 @@
       dayLabel: "ANY HOUR",
       zone: "Helm / Captain's Post",
       portrait: "assets/thorgrim.png",
+      cinPortrait: "assets/thorgrim-cin.png",
       hook: "We sail at his word. Nothing on this deck moves until it does.",
       dialogue: "Eyes on the horizon, traveller. The sea this far north does not forgive a slow watch — nor a slow tongue. State your business or stand aside; the wheel does not turn itself.",
       stats: [
@@ -1322,6 +1482,7 @@
       dayLabel: "DAY · 01 — FISHING",
       zone: "Main Deck · Stern",
       portrait: "assets/haldor.jpg",
+      cinPortrait: "assets/haldor-cin.jpg",
       hook: "The sea doesn't care about your magic. Pull!",
       dialogue: "Aye, ye've a strong back — good. The lines are out an' the nets are heavy. If ye want supper on this voyage, ye'll be earnin' it. Grab a pole, mind yer footing, an' for the love of the deep — don't lose yer grip.",
       stats: [
@@ -1345,6 +1506,7 @@
       dayLabel: "DAY · 01 — COOKING",
       zone: "Below Deck · Galley",
       portrait: "assets/ingrid.png",
+      cinPortrait: "assets/ingrid.png",
       hook: "Hands clean, knife steady. We feed the ship, or the ship eats us.",
       dialogue: "Mmh — you smell of salt and bad weather, both welcome in my kitchen. Sit if you must, but pick up a blade if you can. There is fish enough for stew, and stew enough for ten, if we work quickly. The hearth is warmer than the sea, friend.",
       stats: [
@@ -1362,6 +1524,7 @@
       dayLabel: "DAY · 02 — MAINTENANCE",
       zone: "Rigging / Mid-Deck",
       portrait: "assets/kalt.jpg",
+      cinPortrait: "assets/kalt-cin.png",
       hook: "A rope that frays in calm water will snap in a storm.",
       dialogue: "Don't just stand there gawking at the canvas. Every line on this ship has a knot, every knot has a name, and every name has a reason. Come — I'll show you which ones the sea is trying to undo today.",
       stats: [
@@ -1379,6 +1542,7 @@
       dayLabel: "DAY · 03 — NAVIGATION",
       zone: "Crow's Nest",
       portrait: "assets/ursula.jpg",
+      cinPortrait: "assets/ursula-cin.jpg",
       hook: "From up here, the world is a chart and the chart is a lie. Look closer.",
       dialogue: "Come up — the wind is cleaner where I sit. The crescent on my throat catches more than moonlight; it answers to true north when the compass forgets. Bring the glass. There is something on the ice today, and I would have a second pair of eyes I trust.",
       stats: [
@@ -1486,7 +1650,7 @@
     });
     el.addEventListener("mouseleave", hideTooltip);
     el.addEventListener("click", () => {
-      openPanel(zone);
+      showNpcCinematic(zone);
     });
   });
 
@@ -1572,7 +1736,15 @@
   pLater.addEventListener("click", closePanel);
   shroud.addEventListener("click", closePanel);
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") closePanel();
+    if (e.key !== "Escape") return;
+    // Check NPC cinematic first (declared later in IIFE, safe at event time)
+    if (document.getElementById("cin-npc")?.classList.contains("active")) {
+      document.getElementById("cin-npc").classList.remove("active");
+      document.getElementById("cin-npc").setAttribute("aria-hidden", "true");
+      _pendingZone = null;
+    } else {
+      closePanel();
+    }
   });
 
   pBegin.addEventListener("click", () => {
@@ -1638,6 +1810,110 @@
     });
   }
   renderKnots();
+
+  /* ============== NPC CINEMATIC ============== */
+  const cinNpc      = document.getElementById("cin-npc");
+  const cinNpcBg    = document.getElementById("cin-npc-bg");
+  const cinNpcName  = document.getElementById("cin-npc-name");
+  const cinNpcRole  = document.getElementById("cin-npc-role");
+  const cinNpcQuote = document.getElementById("cin-npc-quote");
+  const cinNpcEnter = document.getElementById("cin-npc-enter");
+
+  let _pendingZone = null;
+
+  function showNpcCinematic(zone) {
+    const npc = NPCS[zone];
+    if (!npc) { openPanel(zone); return; }
+    _pendingZone = zone;
+
+    const dayOverride = npc["day" + state.currentDay] || {};
+    const eff = { ...npc, ...dayOverride };
+
+    cinNpcBg.style.backgroundImage = `url('${npc.cinPortrait || npc.portrait}')`;
+    cinNpcName.textContent  = eff.name;
+    cinNpcRole.textContent  = eff.role;
+    cinNpcQuote.textContent = "“" + npc.hook + "”";
+    cinNpcEnter.textContent = npc.special ? "Take the Captain’s Orders →" : "Speak With Them →";
+
+    cinNpc.classList.add("active");
+    cinNpc.setAttribute("aria-hidden", "false");
+  }
+
+  function dismissNpcCinematic() {
+    cinNpc.classList.remove("active");
+    cinNpc.setAttribute("aria-hidden", "true");
+    if (_pendingZone) {
+      const z = _pendingZone;
+      _pendingZone = null;
+      setTimeout(() => openPanel(z), 340);
+    }
+  }
+
+  cinNpcEnter.addEventListener("click", dismissNpcCinematic);
+
+  /* ============== DAY TRANSITION CINEMATIC ============== */
+  const cinDay         = document.getElementById("cin-day");
+  const cinDayPrevLbl  = document.getElementById("cin-day-prev-lbl");
+  const cinDayNumber   = document.getElementById("cin-day-number");
+  const cinDayEventLbl = document.getElementById("cin-day-event-lbl");
+
+  // Animated starfield
+  (function initStars() {
+    const canvas = document.getElementById("cin-day-stars");
+    const ctx = canvas.getContext("2d");
+    function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+    resize();
+    window.addEventListener("resize", resize);
+    const stars = Array.from({ length: 200 }, () => ({
+      x: Math.random(), y: Math.random(),
+      r: 0.4 + Math.random() * 1.3,
+      a: 0.15 + Math.random() * 0.55,
+      sp: 0.0015 + Math.random() * 0.005,
+      ph: Math.random() * Math.PI * 2,
+    }));
+    function draw(t) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      stars.forEach(s => {
+        const alpha = s.a * (0.55 + 0.45 * Math.sin(t * 0.001 * s.sp * 1000 + s.ph));
+        ctx.beginPath();
+        ctx.arc(s.x * canvas.width, s.y * canvas.height, s.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(222,212,188,${alpha.toFixed(3)})`;
+        ctx.fill();
+      });
+      requestAnimationFrame(draw);
+    }
+    requestAnimationFrame(draw);
+  })();
+
+  function showDayTransition(prevDay, newDay) {
+    const newDayData = DAYS.find(d => d.n === newDay);
+    cinDayPrevLbl.textContent  = `Day ${prevDay} draws to a close.`;
+    cinDayNumber.textContent   = "DAY · " + String(newDay).padStart(2, "0");
+    cinDayEventLbl.textContent = newDayData ? newDayData.label : "";
+    cinDay.classList.add("active");
+    cinDay.setAttribute("aria-hidden", "false");
+  }
+
+  function dismissDayTransition() {
+    cinDay.classList.remove("active");
+    cinDay.setAttribute("aria-hidden", "true");
+  }
+
+  cinDay.addEventListener("click", dismissDayTransition);
+
+  // Detect day change since last visit
+  {
+    const _s = JSON.parse(localStorage.getItem("remorhaz") || "{}");
+    const lastSeen = _s.lastSeenDay || 0;
+    if (state.currentDay > lastSeen && lastSeen > 0) {
+      showDayTransition(lastSeen, state.currentDay);
+    }
+    // Update lastSeenDay immediately so refresh doesn't re-show
+    try {
+      const _ex = JSON.parse(localStorage.getItem("remorhaz") || "{}");
+      localStorage.setItem("remorhaz", JSON.stringify({ ..._ex, lastSeenDay: state.currentDay }));
+    } catch {}
+  }
 
   /* ============== INITIAL EFFECTS ============== */
   // Subtle parallax on mouse move for ship
