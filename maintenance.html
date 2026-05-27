@@ -272,6 +272,7 @@
 </head>
 <body>
 
+<div id="page-fade" class="page-fade in"></div>
 <div class="backdrop"></div>
 <div class="snow" id="snow"></div>
 
@@ -389,6 +390,15 @@
 </div>
 
 <script>
+/* ── PAGE TRANSITIONS ── */
+const _pf = document.getElementById("page-fade");
+setTimeout(() => { if (_pf) _pf.classList.remove("in"); }, 50);
+function _navigateTo(url) {
+  if (!_pf) { window.location.href = url; return; }
+  _pf.classList.add("in");
+  _pf.addEventListener("transitionend", () => { window.location.href = url; }, { once: true });
+}
+
 (function () {
 
 /* ══════════════════════════════════════════
@@ -753,7 +763,7 @@ document.getElementById("beginBtn").addEventListener("click", () => {
   goToScreen("screen-rope");
   setTimeout(startRopeInspection, 500);
 });
-document.getElementById("backBtn").addEventListener("click", () => { window.location.href = "index.html"; });
+document.getElementById("backBtn").addEventListener("click", () => { _navigateTo("index.html"); });
 
 /* ══════════════════════════════════════════
    CANVAS HELPERS
@@ -1669,8 +1679,8 @@ function showResult() {
   }
   saveState(s);
 
-  document.getElementById("toHubBtn").addEventListener("click", () => { window.location.href = "index.html"; });
-  document.getElementById("retryBtn").addEventListener("click", () => { window.location.reload(); });
+  document.getElementById("toHubBtn").addEventListener("click", () => { _navigateTo("index.html"); });
+  document.getElementById("retryBtn").addEventListener("click", () => { _navigateTo(window.location.href); });
 }
 
 })();

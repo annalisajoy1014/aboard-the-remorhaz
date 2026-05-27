@@ -440,6 +440,7 @@ canvas#heatCanvas {
 </head>
 <body>
 
+<div id="page-fade" class="page-fade in"></div>
 <div class="backdrop"></div>
 <div class="snow" id="snow"></div>
 
@@ -575,6 +576,15 @@ canvas#heatCanvas {
 </div>
 
 <script>
+/* ── PAGE TRANSITIONS ── */
+const _pf = document.getElementById("page-fade");
+setTimeout(() => { if (_pf) _pf.classList.remove("in"); }, 50);
+function _navigateTo(url) {
+  if (!_pf) { window.location.href = url; return; }
+  _pf.classList.add("in");
+  _pf.addEventListener("transitionend", () => { window.location.href = url; }, { once: true });
+}
+
 (function () {
 
 /* ══════════════════════════════════════════
@@ -812,7 +822,7 @@ document.getElementById("beginBtn").addEventListener("click", () => {
   }
 });
 document.getElementById("backBtn").addEventListener("click", () => {
-  window.location.href = "index.html";
+  _navigateTo("index.html");
 });
 
 /* ══════════════════════════════════════════
@@ -1542,10 +1552,10 @@ function showResult() {
   saveState(s);
 
   document.getElementById("toHubBtn").addEventListener("click", () => {
-    window.location.href = "index.html";
+    _navigateTo("index.html");
   });
   document.getElementById("retryBtn").addEventListener("click", () => {
-    window.location.reload();
+    _navigateTo(window.location.href);
   });
 }
 
