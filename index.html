@@ -1331,6 +1331,12 @@
       ],
       activityTitle: "DAY 1 · FISHING",
       activityDesc: "Cast lines into the freezing brine and haul what surfaces from the deep. The galley will need a catch before nightfall.",
+      day4: {
+        dayLabel: "DAY · 04 — COMBAT TRAINING",
+        dialogue: "Fishing poles are put away. Captain wants ye ready to fight if it comes to it — an' out here, it always comes to it. Harpoons, axes, nets. Ye'll drill until yer arms ache, then we'll see how ye hold up against me. Fair warning: I don't go easy.",
+        activityTitle: "DAY 4 · MARITIME COMBAT",
+        activityDesc: "Captain Isskegg has assigned you to Haldor for basic combat training. Weapon drills first — then a live boarding simulation. Come ready to move.",
+      },
     },
     ingrid: {
       name: "Chef Ingrid Firebrew",
@@ -1389,7 +1395,7 @@
     { n: 1, label: "Fishing & Cooking",  npcs: ["haldor", "ingrid"] },
     { n: 2, label: "Ship Maintenance",   npcs: ["kalt"] },
     { n: 3, label: "Navigation",         npcs: ["ursula"] },
-    { n: 4, label: "Open Sea",           npcs: [] },
+    { n: 4, label: "Maritime Combat",     npcs: ["haldor"] },
     { n: 5, label: "Ice Floes",          npcs: [] },
     { n: 6, label: "Open Sea",           npcs: [] },
     { n: 7, label: "First Sight of Land",npcs: [] },
@@ -1509,13 +1515,17 @@
     activeZone = zone;
     hideTooltip();
 
-    pDay.textContent = npc.dayLabel;
-    pName.textContent = npc.name;
-    pRole.textContent = npc.role;
-    pPortrait.style.backgroundImage = `url('${npc.portrait}')`;
-    pDialogue.textContent = '"' + npc.dialogue + '"';
-    pActTitle.textContent = npc.activityTitle;
-    pActDesc.textContent = npc.activityDesc;
+    // Apply day-specific overrides (e.g. Haldor on Day 4 becomes combat trainer)
+    const dayOverride = npc["day" + state.currentDay] || {};
+    const eff = { ...npc, ...dayOverride };
+
+    pDay.textContent = eff.dayLabel;
+    pName.textContent = eff.name;
+    pRole.textContent = eff.role;
+    pPortrait.style.backgroundImage = `url('${eff.portrait}')`;
+    pDialogue.textContent = '"' + eff.dialogue + '"';
+    pActTitle.textContent = eff.activityTitle;
+    pActDesc.textContent = eff.activityDesc;
 
     pStats.innerHTML = "";
     npc.stats.forEach(([k, v]) => {
@@ -1580,7 +1590,7 @@
 
     // Route to mini-game pages
     const routes = {
-      haldor: "fishing.html",
+      haldor: state.currentDay >= 4 ? "combat.html" : "fishing.html",
       ingrid:  "cooking.html",
       kalt:    "maintenance.html",
       ursula:  "navigation.html",
