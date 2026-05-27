@@ -2032,7 +2032,8 @@ function loadState() {
   } catch { return { currentDay: 1, completed: [], completedDays: [] }; }
 }
 function saveState(s) {
-  localStorage.setItem("remorhaz", JSON.stringify(s));
+  const existing = JSON.parse(localStorage.getItem("remorhaz") || "{}");
+  localStorage.setItem("remorhaz", JSON.stringify({ ...existing, ...s }));
 }
 
 /* ──────────────────────────────────────────────
