@@ -1413,11 +1413,21 @@
   } catch (e) { /* ignore */ }
 
   function save() {
-    localStorage.setItem("remorhaz", JSON.stringify({
-      currentDay: state.currentDay,
-      completed: [...state.completed],
-      completedDays: [...state.completedDays],
-    }));
+    try {
+      const existing = JSON.parse(localStorage.getItem("remorhaz") || "{}");
+      localStorage.setItem("remorhaz", JSON.stringify({
+        ...existing,
+        currentDay: state.currentDay,
+        completed: [...state.completed],
+        completedDays: [...state.completedDays],
+      }));
+    } catch {
+      localStorage.setItem("remorhaz", JSON.stringify({
+        currentDay: state.currentDay,
+        completed: [...state.completed],
+        completedDays: [...state.completedDays],
+      }));
+    }
   }
 
   /* ============== SNOW ============== */
