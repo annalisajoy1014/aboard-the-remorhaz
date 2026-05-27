@@ -1576,6 +1576,13 @@ function _navigateTo(url) {
       ],
       activityTitle: "DAY 3 · NAVIGATION",
       activityDesc: "Take the spyglass to the crow's nest and chart what lies on the horizon. The arctic does not show itself twice.",
+      day6: {
+        hook: "Something circles beneath us. It's not ice. It's not natural. Get on deck.",
+        dialogue: "I spotted them from the crow's nest — shapes under the water, moving against the current. Water Weirds. Current Revenants. They're going to hit the hull if we don't push them back. I'll be fighting from above. You need to hold the deck.",
+        activityTitle: "DAY 6 · SEA MONSTER ATTACK",
+        activityDesc: "Current Revenants have been spotted circling the Remorhaz. Arm yourself and defend the ship — before they board.",
+        dayLabel: "DAY · 06 — SEA MONSTER ATTACK",
+      },
     },
   };
 
@@ -1585,7 +1592,7 @@ function _navigateTo(url) {
     { n: 3, label: "Navigation",         npcs: ["ursula"] },
     { n: 4, label: "Maritime Combat",     npcs: ["haldor"] },
     { n: 5, label: "Ice Floes",          npcs: [] },
-    { n: 6, label: "Open Sea",           npcs: [] },
+    { n: 6, label: "Sea Monster Attack", npcs: ["ursula"] },
     { n: 7, label: "First Sight of Land",npcs: [] },
     { n: 8, label: "Skirting the Shelf", npcs: [] },
     { n: 9, label: "Landfall · Eiselcross", npcs: [] },
@@ -1789,7 +1796,7 @@ function _navigateTo(url) {
       haldor: state.currentDay >= 4 ? "combat.html" : "fishing.html",
       ingrid:  "cooking.html",
       kalt:    "maintenance.html",
-      ursula:  "navigation.html",
+      ursula:  state.currentDay >= 6 ? "seabattle.html" : "navigation.html",
     };
     if (routes[activeZone]) {
       save();

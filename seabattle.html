@@ -1,0 +1,1185 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Day 6 · Sea Monster Battle — Aboard the Remorhaz</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+/* ── BATTLE STAGE ── */
+.stage {
+  position: fixed; inset: 0; overflow: hidden;
+  background: #000;
+}
+.battle-bg {
+  position: absolute; inset: 0;
+  background: url('assets/combat-map.jpg') center/cover no-repeat;
+  filter: brightness(0.75);
+}
+.battle-vignette {
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse 80% 70% at 50% 40%, transparent 40%, rgba(0,0,0,0.6) 100%);
+  pointer-events: none;
+}
+
+/* ── TOKEN LAYER ── */
+.token-layer {
+  position: absolute; inset: 0;
+  pointer-events: none;
+}
+.token {
+  position: absolute;
+  width: 72px; height: 72px;
+  transform: translate(-50%, -50%);
+  display: flex; flex-direction: column; align-items: center;
+  pointer-events: auto;
+  cursor: pointer;
+  transition: filter 0.3s;
+  user-select: none;
+}
+.token.draggable { cursor: grab; }
+.token.draggable:active { cursor: grabbing; }
+.token.dead { opacity: 0.25; pointer-events: none; filter: grayscale(1); }
+.token.active-turn::after {
+  content: "";
+  position: absolute; top: -6px; left: -6px; right: -6px; bottom: -6px;
+  border: 2px solid var(--lamp);
+  border-radius: 50%;
+  animation: pulse-ring 1s ease-in-out infinite;
+}
+@keyframes pulse-ring {
+  0%,100% { opacity: 0.7; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.08); }
+}
+.token.selected-target::after {
+  content: "";
+  position: absolute; top: -6px; left: -6px; right: -6px; bottom: -6px;
+  border: 2px solid var(--blood);
+  border-radius: 50%;
+}
+.token-img {
+  width: 60px; height: 60px;
+  border-radius: 50%;
+  border: 2px solid var(--paper-deep);
+  object-fit: cover;
+  background: #111;
+  display: block;
+}
+.token-crew .token-img { border-color: color-mix(in oklch, var(--paper-deep) 55%, transparent); }
+.token-enemy .token-img { border-color: var(--blood); }
+.token-hp-bar {
+  width: 60px; height: 5px;
+  background: rgba(0,0,0,0.6);
+  border-radius: 3px; overflow: hidden;
+  margin-top: 3px;
+}
+.token-hp-fill {
+  height: 100%;
+  background: linear-gradient(to right, var(--blood), var(--lamp));
+  transition: width 0.35s ease;
+}
+.token-label {
+  font-family: "IM Fell English SC", serif;
+  font-size: 9px; letter-spacing: 0.12em;
+  color: var(--paper);
+  text-shadow: 0 1px 3px #000, 0 0 6px #000;
+  margin-top: 1px;
+  white-space: nowrap;
+}
+
+/* ── BATTLE UI (bottom HUD) ── */
+.battle-hud {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  height: 210px;
+  background: linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.75) 70%, transparent 100%);
+  display: flex; align-items: flex-end;
+  padding: 0 20px 16px;
+  gap: 20px;
+  z-index: 10;
+}
+
+/* Player HP + name */
+.hud-player {
+  display: flex; flex-direction: column; gap: 6px;
+  min-width: 200px;
+}
+.hud-char-name {
+  font-family: "IM Fell English SC", serif;
+  font-size: 15px; letter-spacing: 0.12em;
+  color: var(--paper);
+}
+.hud-hp-row {
+  display: flex; align-items: center; gap: 8px;
+}
+.hud-hp-label {
+  font-family: "Caveat", cursive;
+  font-size: 13px; color: var(--paper-deep);
+  min-width: 60px;
+}
+.hud-hp-track {
+  flex: 1; height: 8px;
+  background: rgba(255,255,255,0.12);
+  border-radius: 4px; overflow: hidden;
+}
+.hud-hp-fill {
+  height: 100%;
+  background: linear-gradient(to right, var(--blood), var(--lamp));
+  transition: width 0.4s ease;
+}
+
+/* Action buttons */
+.hud-actions {
+  display: flex; flex-direction: column; gap: 6px;
+  flex: 1;
+}
+.hud-phase-label {
+  font-family: "IM Fell English SC", serif;
+  font-size: 10px; letter-spacing: 0.26em;
+  color: var(--blood);
+  margin-bottom: 2px;
+}
+.action-btns {
+  display: flex; gap: 8px; flex-wrap: wrap;
+}
+.action-btn {
+  font-family: "IM Fell English", serif;
+  font-style: italic;
+  font-size: 13px;
+  color: var(--paper);
+  background: rgba(0,0,0,0.55);
+  border: 1px solid color-mix(in oklch, var(--paper-deep) 45%, transparent);
+  padding: 9px 14px;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, transform 0.12s;
+  white-space: nowrap;
+}
+.action-btn:hover:not(:disabled) {
+  background: rgba(0,0,0,0.75);
+  border-color: var(--paper-deep);
+  transform: translateY(-2px);
+}
+.action-btn:disabled {
+  opacity: 0.38; cursor: not-allowed; transform: none;
+}
+.action-btn.btn-used {
+  border-color: var(--lamp);
+  color: var(--lamp);
+}
+.end-turn-btn {
+  font-family: "IM Fell English SC", serif;
+  font-size: 11px; letter-spacing: 0.18em;
+  color: var(--paper-deep);
+  background: transparent;
+  border: 1px solid color-mix(in oklch, var(--paper-deep) 35%, transparent);
+  padding: 7px 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 2px;
+  align-self: flex-start;
+}
+.end-turn-btn:hover:not(:disabled) {
+  border-color: var(--paper-deep);
+  color: var(--paper);
+}
+.end-turn-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.target-hint {
+  font-family: "Caveat", cursive;
+  font-size: 13px; color: var(--paper-deep);
+  margin-top: 2px;
+}
+
+/* Combat log */
+.hud-log {
+  width: 280px; flex-shrink: 0;
+  display: flex; flex-direction: column; gap: 3px;
+  max-height: 170px;
+  overflow: hidden;
+}
+.hud-log-title {
+  font-family: "IM Fell English SC", serif;
+  font-size: 10px; letter-spacing: 0.22em;
+  color: var(--blood);
+  margin-bottom: 2px;
+}
+.log-line {
+  font-family: "IM Fell English", serif;
+  font-style: italic;
+  font-size: 12.5px; line-height: 1.4;
+  color: var(--paper-dim);
+}
+.log-line.log-hit { color: var(--lamp); }
+.log-line.log-miss { color: color-mix(in oklch, var(--paper-deep) 70%, transparent); }
+.log-line.log-crit { color: #e07d3a; }
+.log-line.log-enemy { color: color-mix(in oklch, var(--blood) 85%, var(--paper)); }
+
+/* Round counter */
+.hud-round {
+  position: absolute; top: -36px; right: 20px;
+  font-family: "IM Fell English SC", serif;
+  font-size: 12px; letter-spacing: 0.22em;
+  color: var(--paper-deep);
+}
+
+/* ── INITIATIVE TRACKER ── */
+.initiative-panel {
+  position: absolute; right: 16px; top: 50%;
+  transform: translateY(-50%);
+  background: rgba(0,0,0,0.72);
+  border: 1px solid color-mix(in oklch, var(--paper-deep) 30%, transparent);
+  padding: 12px 14px;
+  min-width: 140px;
+  z-index: 10;
+  display: flex; flex-direction: column; gap: 6px;
+  max-height: 50vh; overflow-y: auto;
+}
+.init-title {
+  font-family: "IM Fell English SC", serif;
+  font-size: 10px; letter-spacing: 0.22em;
+  color: var(--blood);
+  margin-bottom: 4px;
+  text-align: center;
+}
+.init-entry {
+  display: flex; align-items: center; gap: 8px;
+  font-family: "IM Fell English", serif;
+  font-style: italic;
+  font-size: 12px; color: var(--paper-dim);
+  padding: 3px 0;
+  border-bottom: 1px dotted color-mix(in oklch, var(--paper-deep) 22%, transparent);
+  transition: color 0.2s;
+}
+.init-entry.active { color: var(--lamp); }
+.init-entry.dead { opacity: 0.3; text-decoration: line-through; }
+.init-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--paper-deep); flex-shrink: 0;
+}
+.init-entry.active .init-dot { background: var(--lamp); }
+.init-entry.enemy .init-dot { background: var(--blood); }
+
+/* ── INTRO CINEMATICS ── */
+.cin-battle {
+  position: fixed; inset: 0; z-index: 200;
+  display: flex; align-items: stretch;
+  background: #000;
+  opacity: 0;
+  transition: opacity 0.7s ease;
+}
+.cin-battle.visible { opacity: 1; }
+.cin-battle-bg {
+  position: absolute; inset: 0;
+  background-size: cover; background-position: center top;
+  filter: brightness(0.45) saturate(0.7);
+}
+.cin-battle-gradient {
+  position: absolute; inset: 0;
+  background: linear-gradient(90deg, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.4) 55%, transparent 100%);
+}
+.cin-battle-content {
+  position: relative; z-index: 2;
+  width: 480px; flex-shrink: 0;
+  padding: 60px 48px;
+  display: flex; flex-direction: column;
+  justify-content: center; gap: 20px;
+}
+.cin-battle-eyebrow {
+  font-family: "IM Fell English SC", serif;
+  font-size: 11px; letter-spacing: 0.26em;
+  color: var(--blood);
+}
+.cin-battle-name {
+  font-family: "IM Fell English SC", serif;
+  font-size: 32px; letter-spacing: 0.1em;
+  color: var(--paper);
+  text-shadow: 0 2px 12px rgba(0,0,0,0.7);
+  line-height: 1.1;
+}
+.cin-battle-rule {
+  width: 60px; height: 1px;
+  background: var(--paper-deep);
+}
+.cin-battle-quote {
+  font-family: "IM Fell English", serif;
+  font-style: italic;
+  font-size: 16px; line-height: 1.7;
+  color: var(--paper-dim);
+  max-width: 360px;
+}
+.cin-battle-btn {
+  align-self: flex-start;
+  font-family: "IM Fell English SC", serif;
+  font-size: 12px; letter-spacing: 0.2em;
+  color: var(--paper);
+  background: transparent;
+  border: 1px solid var(--paper-deep);
+  padding: 10px 22px;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+  margin-top: 8px;
+}
+.cin-battle-btn:hover {
+  background: rgba(255,255,255,0.08);
+  border-color: var(--paper);
+}
+
+/* ── TUTORIAL OVERLAY ── */
+.tutorial-overlay {
+  position: fixed; inset: 0; z-index: 190;
+  background: rgba(0,0,0,0.82);
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.5s;
+}
+.tutorial-overlay.visible {
+  opacity: 1; pointer-events: auto;
+}
+.tutorial-card {
+  background: linear-gradient(135deg, oklch(0.16 0.03 45) 0%, oklch(0.11 0.02 40) 100%);
+  border: 1px solid color-mix(in oklch, var(--paper-deep) 35%, transparent);
+  padding: 40px 48px;
+  max-width: 560px; width: 92%;
+  display: flex; flex-direction: column; gap: 16px;
+}
+.tutorial-title {
+  font-family: "IM Fell English SC", serif;
+  font-size: 18px; letter-spacing: 0.14em;
+  color: var(--lamp);
+}
+.tutorial-body {
+  font-family: "IM Fell English", serif;
+  font-style: italic;
+  font-size: 14.5px; line-height: 1.72;
+  color: var(--paper-dim);
+}
+.tutorial-body strong {
+  font-style: normal; color: var(--paper);
+}
+.tutorial-close {
+  align-self: center;
+  font-family: "IM Fell English SC", serif;
+  font-size: 11px; letter-spacing: 0.22em;
+  color: var(--paper);
+  background: transparent;
+  border: 1px solid var(--paper-deep);
+  padding: 10px 28px;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 8px;
+}
+.tutorial-close:hover {
+  background: rgba(255,255,255,0.07);
+  border-color: var(--paper);
+}
+
+/* ── END SCREENS ── */
+.end-screen {
+  position: fixed; inset: 0; z-index: 300;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.92);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.8s ease;
+}
+.end-screen.visible {
+  opacity: 1; pointer-events: auto;
+}
+.end-card {
+  background: linear-gradient(135deg, var(--paper) 0%, var(--paper-dim) 100%);
+  color: var(--ink);
+  padding: 48px 56px;
+  max-width: 520px; width: 92%;
+  text-align: center;
+  box-shadow: 0 30px 80px rgba(0,0,0,0.7);
+  animation: card-rise 0.6s cubic-bezier(0.2,0.8,0.3,1) both;
+}
+@keyframes card-rise {
+  from { transform: translateY(40px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+.end-tag {
+  font-family: "IM Fell English SC", serif;
+  font-size: 10px; letter-spacing: 0.3em;
+  color: var(--blood);
+  margin-bottom: 8px;
+}
+.end-title {
+  font-family: "IM Fell English SC", serif;
+  font-size: 38px; letter-spacing: 0.08em;
+  color: var(--ink); line-height: 1.1;
+  margin-bottom: 16px;
+}
+.end-body {
+  font-family: "IM Fell English", serif;
+  font-style: italic;
+  font-size: 15px; line-height: 1.68;
+  color: oklch(0.35 0.04 45);
+  margin-bottom: 28px;
+}
+.end-score {
+  font-family: "IM Fell English SC", serif;
+  font-size: 52px; letter-spacing: 0.04em;
+  color: var(--ink); line-height: 1;
+  margin-bottom: 4px;
+}
+.end-score-sub {
+  font-family: "Caveat", cursive;
+  font-size: 17px;
+  color: oklch(0.5 0.04 45);
+  margin-bottom: 28px;
+}
+.end-btn {
+  font-family: "IM Fell English SC", serif;
+  font-size: 12px; letter-spacing: 0.22em;
+  color: var(--paper);
+  background: var(--ink);
+  border: none; padding: 14px 36px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.end-btn:hover { background: oklch(0.22 0.04 45); }
+</style>
+</head>
+<body>
+<div id="page-fade" class="page-fade in"></div>
+
+<!-- OPENING CINEMATIC: URSULA -->
+<div id="cin-ursula" class="cin-battle">
+  <div class="cin-battle-bg" style="background-image: url('assets/ursula-cin.jpg')"></div>
+  <div class="cin-battle-gradient"></div>
+  <div class="cin-battle-content">
+    <div class="cin-battle-eyebrow">— Day 6 · Open Sea —</div>
+    <h2 class="cin-battle-name">Ursula Elara</h2>
+    <div class="cin-battle-rule"></div>
+    <p class="cin-battle-quote" id="ursula-quote">"DISTURBANCE AHEAD! Something breaks the ice from below — it's not natural! Shapes in the water, circling fast. All hands to battle stations — NOW!"</p>
+    <button class="cin-battle-btn" id="cin-ursula-next">Battle Stations →</button>
+  </div>
+</div>
+
+<!-- OPENING CINEMATIC: HALDOR -->
+<div id="cin-haldor" class="cin-battle">
+  <div class="cin-battle-bg" style="background-image: url('assets/haldor-cin.jpg')"></div>
+  <div class="cin-battle-gradient"></div>
+  <div class="cin-battle-content">
+    <div class="cin-battle-eyebrow">— Haldor Skyrend, Crew Chief —</div>
+    <h2 class="cin-battle-name">Current Revenants</h2>
+    <div class="cin-battle-rule"></div>
+    <p class="cin-battle-quote" id="haldor-quote">"Water Weirds — shaped by old hatred, each one. I count <span id="enemy-count-text">five</span> of them. They'll try to grapple and drag you overboard. Don't let them pin you. Armor up, spread out — and for the gods' sake, keep moving."</p>
+    <button class="cin-battle-btn" id="cin-haldor-next">To the Deck →</button>
+  </div>
+</div>
+
+<!-- TUTORIAL -->
+<div id="tutorial-overlay" class="tutorial-overlay">
+  <div class="tutorial-card">
+    <div class="tutorial-title">Combat · First Turn</div>
+    <p class="tutorial-body" id="tutorial-text">Loading...</p>
+    <button class="tutorial-close" id="tutorial-close">I'm Ready — Fight!</button>
+  </div>
+</div>
+
+<!-- MAIN STAGE -->
+<div class="stage">
+  <div class="battle-bg"></div>
+  <div class="battle-vignette"></div>
+
+  <!-- Tokens -->
+  <div id="token-layer" class="token-layer"></div>
+
+  <!-- Initiative panel -->
+  <div class="initiative-panel" id="initiative-panel">
+    <div class="init-title">INITIATIVE</div>
+    <div id="init-list"></div>
+  </div>
+
+  <!-- HUD -->
+  <div class="battle-hud">
+    <div class="hud-round" id="hud-round">Round 1</div>
+
+    <!-- Player HP -->
+    <div class="hud-player">
+      <div class="hud-char-name" id="hud-char-name">—</div>
+      <div class="hud-hp-row">
+        <div class="hud-hp-label" id="hud-hp-text">HP: —</div>
+        <div class="hud-hp-track">
+          <div class="hud-hp-fill" id="hud-hp-fill" style="width:100%"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="hud-actions">
+      <div class="hud-phase-label" id="hud-phase-label">YOUR TURN</div>
+      <div class="action-btns" id="action-btns"></div>
+      <div class="target-hint" id="target-hint">Click an enemy token to target it, then choose an action.</div>
+      <button class="end-turn-btn" id="end-turn-btn" disabled>End Turn →</button>
+    </div>
+
+    <!-- Log -->
+    <div class="hud-log">
+      <div class="hud-log-title">BATTLE LOG</div>
+      <div id="log-lines"></div>
+    </div>
+  </div>
+</div>
+
+<!-- VICTORY -->
+<div id="screen-victory" class="end-screen">
+  <div class="end-card">
+    <div class="end-tag">VICTORY · DAY 6</div>
+    <div class="end-title">The Sea Runs Clear</div>
+    <p class="end-body" id="victory-body">The last Revenant dissolves into foam and brine. The crew cheers — shaken, salt-soaked, alive.</p>
+    <div class="end-score" id="victory-score">—</div>
+    <div class="end-score-sub">COMBAT SCORE</div>
+    <button class="end-btn" id="victory-btn">Return to the Remorhaz →</button>
+  </div>
+</div>
+
+<!-- DEFEAT -->
+<div id="screen-defeat" class="end-screen">
+  <div class="end-card">
+    <div class="end-tag">FALLEN · DAY 6</div>
+    <div class="end-title">Claimed by the Current</div>
+    <p class="end-body">The cold closes in. The Revenants pull you under — but the crew drags you back, half-drowned. You wake on the deck, gasping.</p>
+    <button class="end-btn" id="defeat-retry-btn">Try Again →</button>
+  </div>
+</div>
+
+<script>
+/* ── PAGE TRANSITION ── */
+const _pf = document.getElementById("page-fade");
+setTimeout(() => { if (_pf) _pf.classList.remove("in"); }, 50);
+function _navigateTo(url) {
+  if (!_pf) { window.location.href = url; return; }
+  _pf.classList.add("in");
+  _pf.addEventListener("transitionend", () => { window.location.href = url; }, { once: true });
+}
+
+(function() {
+  /* ── STATE ── */
+  const raw = JSON.parse(localStorage.getItem("remorhaz") || "{}");
+  const char = raw.selectedCharacter || { name: "Relyt Murcielago", stats: { STR:-2,DEX:0,INT:2,WIS:2,CHA:1,CON:-1 }, portrait:"assets/relyt.jpg" };
+  const charKey = char.name.includes("Lucy") ? "lucy" : char.name.includes("Irene") ? "irene" : "relyt";
+
+  const CHAR_DATA = {
+    relyt: {
+      hp: 38, token: "assets/token-relyt.png", label: "Relyt",
+      tutorialText: `<strong>You are Relyt Murcielago,</strong> a wizard of formidable power. Your spells can devastate enemies at range — but you are fragile. <strong>Click an enemy token</strong> (red ring) to target it, then use <strong>Attack Spell</strong>. Use <strong>Spell Buff Ally</strong> to bolster a crew member's next strike. Use <strong>Healing Spell</strong> if you're badly wounded. You may use <strong>one action</strong> per turn, then click <em>End Turn</em>.`,
+      actions: [
+        { id:"attack", label:"⚡ Attack Spell",     desc:"70% hit · ~26 dmg", needsEnemy: true },
+        { id:"buff",   label:"✨ Buff Ally",         desc:"Empowers a crew ally", needsEnemy: false },
+        { id:"heal",   label:"💊 Healing Spell",     desc:"Restore ~18 HP",   needsEnemy: false },
+      ]
+    },
+    lucy: {
+      hp: 45, token: "assets/token-lucy.png", label: "Lucy",
+      tutorialText: `<strong>You are Lucy Lei,</strong> an acrobat and street-fighter without equal. You hit hard and fast. <strong>Click an enemy token</strong> to target it, then <strong>Attack</strong> to strike. Use <strong>Defend</strong> to halve incoming damage this round — wise against grappling Revenants. <strong>Stun</strong> (75% hit) removes an enemy's next action entirely. One action per turn, then <em>End Turn</em>.`,
+      actions: [
+        { id:"attack",  label:"⚔ Attack",    desc:"50% hit · ~20 dmg", needsEnemy: true },
+        { id:"defend",  label:"🛡 Defend",    desc:"+50% defense this round", needsEnemy: false },
+        { id:"stun",    label:"💥 Stun",      desc:"75% hit · skip target's turn", needsEnemy: true },
+      ]
+    },
+    irene: {
+      hp: 52, token: "assets/token-irene.png", label: "Irene",
+      tutorialText: `<strong>You are Irene "Eye" Ladell,</strong> a hurricane in a person. You lead from the front. <strong>Click an enemy token</strong> to target it, then <strong>Attack</strong>. Use <strong>Battle Cry</strong> to boost all crew allies' hit and damage for one round. Use <strong>Channel the Storm</strong> to charge your next attack for +50% extra damage. One action per turn, then <em>End Turn</em>.`,
+      actions: [
+        { id:"attack",  label:"⚔ Attack",            desc:"50% hit · ~20 dmg",     needsEnemy: true },
+        { id:"cry",     label:"📣 Battle Cry",         desc:"All allies +hit/+dmg",  needsEnemy: false },
+        { id:"channel", label:"⚡ Channel the Storm",  desc:"+50% dmg next attack",  needsEnemy: false },
+      ]
+    }
+  };
+  const CD = CHAR_DATA[charKey];
+
+  const NUM_ENEMIES = 4 + Math.floor(Math.random() * 3); // 4-6
+
+  /* Combat entities */
+  const player = {
+    id: "player", label: CD.label,
+    hp: CD.hp, maxHp: CD.hp,
+    x: 50, y: 74,
+    dead: false, stunned: false,
+    defense: 1.0, dmgMult: 1.0,
+    channelActive: false, battleCryUsed: false
+  };
+
+  const crew = [
+    { id:"crew0", label:"Sailor", hp:26, maxHp:26, x:38, y:68, dead:false, stunned:false, hitBonus:0, dmgBonus:0 },
+    { id:"crew1", label:"Sailor", hp:26, maxHp:26, x:58, y:71, dead:false, stunned:false, hitBonus:0, dmgBonus:0 },
+    { id:"crew2", label:"Sailor", hp:26, maxHp:26, x:46, y:80, dead:false, stunned:false, hitBonus:0, dmgBonus:0 },
+  ];
+
+  const enemies = [];
+  const enemyStartPositions = [
+    [18,22],[35,15],[52,20],[66,14],[80,25],[44,10]
+  ];
+  const countWords = ["four","five","six"];
+  document.getElementById("enemy-count-text").textContent = countWords[NUM_ENEMIES - 4] || NUM_ENEMIES;
+
+  for (let i = 0; i < NUM_ENEMIES; i++) {
+    enemies.push({
+      id: "e" + i, label: "Revenant",
+      hp: 58, maxHp: 58,
+      x: enemyStartPositions[i][0],
+      y: enemyStartPositions[i][1],
+      dead: false, stunned: false
+    });
+  }
+
+  /* Turn order: player, crew0, crew1, crew2, e0, e1, ... */
+  function buildInitOrder() {
+    return [
+      player,
+      ...crew,
+      ...enemies
+    ];
+  }
+
+  let combatStarted = false;
+  let tutorialShown = raw.seaBattleTutorialDone || false;
+  let round = 1;
+  let initOrder = buildInitOrder();
+  let initIndex = 0; // index into initOrder for current turn
+  let selectedTarget = null;
+  let actionUsed = false;
+  let turnInProgress = false;
+  let logLines = [];
+
+  function currentActor() { return initOrder[initIndex]; }
+
+  /* ── TOKEN DOM ── */
+  const tokenLayer = document.getElementById("token-layer");
+  const tokenEls = {};
+
+  function makeToken(entity, isPlayer, isEnemy) {
+    const div = document.createElement("div");
+    div.className = "token" + (isPlayer ? " draggable" : "") + (isEnemy ? " token-enemy" : isPlayer ? " token-player" : " token-crew");
+    div.id = "tok-" + entity.id;
+    div.style.left = entity.x + "%";
+    div.style.top  = entity.y + "%";
+
+    const img = document.createElement("img");
+    img.className = "token-img";
+    img.src = isEnemy ? "assets/water-weird.jpg" : isPlayer ? CD.token : "assets/ursula.jpg";
+    img.alt = entity.label;
+    div.appendChild(img);
+
+    const hpBar = document.createElement("div");
+    hpBar.className = "token-hp-bar";
+    const hpFill = document.createElement("div");
+    hpFill.className = "token-hp-fill";
+    hpFill.style.width = "100%";
+    hpBar.appendChild(hpFill);
+    div.appendChild(hpBar);
+
+    const lbl = document.createElement("div");
+    lbl.className = "token-label";
+    lbl.textContent = entity.label;
+    div.appendChild(lbl);
+
+    if (isEnemy) {
+      div.addEventListener("click", () => selectTarget(entity, div));
+    }
+
+    tokenLayer.appendChild(div);
+    tokenEls[entity.id] = div;
+    return div;
+  }
+
+  /* Build all tokens */
+  makeToken(player, true, false);
+  crew.forEach(c => makeToken(c, false, false));
+  enemies.forEach(e => makeToken(e, false, true));
+
+  /* ── PLAYER TOKEN DRAG ── */
+  let dragging = false;
+  let dragOffX = 0, dragOffY = 0;
+  const playerTok = tokenEls.player;
+
+  playerTok.addEventListener("mousedown", e => {
+    if (!combatStarted) return;
+    dragging = true;
+    const rect = tokenLayer.getBoundingClientRect();
+    dragOffX = (e.clientX - rect.left) / rect.width * 100 - player.x;
+    dragOffY = (e.clientY - rect.top)  / rect.height * 100 - player.y;
+    e.preventDefault();
+  });
+  document.addEventListener("mousemove", e => {
+    if (!dragging) return;
+    const rect = tokenLayer.getBoundingClientRect();
+    player.x = Math.max(2, Math.min(98, (e.clientX - rect.left) / rect.width * 100 - dragOffX));
+    player.y = Math.max(2, Math.min(95, (e.clientY - rect.top)  / rect.height * 100 - dragOffY));
+    playerTok.style.left = player.x + "%";
+    playerTok.style.top  = player.y + "%";
+  });
+  document.addEventListener("mouseup", () => { dragging = false; });
+
+  document.addEventListener("keydown", e => {
+    if (!combatStarted || !isPlayerTurn()) return;
+    const step = 2;
+    if (e.key === "ArrowLeft")  { player.x = Math.max(2,  player.x - step); playerTok.style.left = player.x + "%"; e.preventDefault(); }
+    if (e.key === "ArrowRight") { player.x = Math.min(98, player.x + step); playerTok.style.left = player.x + "%"; e.preventDefault(); }
+    if (e.key === "ArrowUp")    { player.y = Math.max(2,  player.y - step); playerTok.style.top  = player.y + "%"; e.preventDefault(); }
+    if (e.key === "ArrowDown")  { player.y = Math.min(95, player.y + step); playerTok.style.top  = player.y + "%"; e.preventDefault(); }
+  });
+
+  /* ── TARGET SELECTION ── */
+  function selectTarget(entity, el) {
+    if (!combatStarted || !isPlayerTurn() || entity.dead || turnInProgress) return;
+    // Clear old
+    if (selectedTarget) {
+      tokenEls[selectedTarget.id]?.classList.remove("selected-target");
+    }
+    selectedTarget = entity;
+    el.classList.add("selected-target");
+    document.getElementById("target-hint").textContent = "Target: " + entity.label + " · " + entity.hp + "/" + entity.maxHp + " HP";
+    refreshActionBtns();
+  }
+
+  /* ── HUD ── */
+  function refreshHud() {
+    document.getElementById("hud-char-name").textContent = char.name;
+    const pct = Math.max(0, player.hp / player.maxHp * 100);
+    document.getElementById("hud-hp-fill").style.width = pct + "%";
+    document.getElementById("hud-hp-text").textContent = "HP: " + Math.max(0, player.hp) + "/" + player.maxHp;
+    document.getElementById("hud-round").textContent = "Round " + round;
+  }
+
+  function updateTokenHp(entity) {
+    const el = tokenEls[entity.id];
+    if (!el) return;
+    const fill = el.querySelector(".token-hp-fill");
+    if (fill) fill.style.width = Math.max(0, entity.hp / entity.maxHp * 100) + "%";
+    if (entity.hp <= 0 && !entity.dead) {
+      entity.dead = true;
+      el.classList.add("dead");
+      setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, 1200);
+    }
+  }
+
+  function addLog(text, cls) {
+    logLines.unshift({ text, cls: cls || "" });
+    if (logLines.length > 5) logLines.length = 5;
+    const container = document.getElementById("log-lines");
+    container.innerHTML = logLines.map(l =>
+      `<div class="log-line ${l.cls}">${l.text}</div>`
+    ).join("");
+  }
+
+  /* ── INITIATIVE ── */
+  function renderInitiative() {
+    const list = document.getElementById("init-list");
+    const actor = currentActor();
+    list.innerHTML = initOrder.map((e, i) => {
+      const isActive = (e === actor);
+      const isEnemy = enemies.includes(e);
+      return `<div class="init-entry${isActive ? " active" : ""}${e.dead ? " dead" : ""}${isEnemy ? " enemy" : ""}">
+        <div class="init-dot"></div>
+        ${e.label}${e.dead ? " †" : ""}
+      </div>`;
+    }).join("");
+  }
+
+  function isPlayerTurn() {
+    return !player.dead && currentActor() === player;
+  }
+
+  function refreshActionBtns() {
+    const container = document.getElementById("action-btns");
+    const isPlayer = isPlayerTurn();
+    const endBtn = document.getElementById("end-turn-btn");
+
+    if (!isPlayer) {
+      container.innerHTML = "";
+      endBtn.disabled = true;
+      return;
+    }
+
+    endBtn.disabled = actionUsed ? false : true;
+
+    container.innerHTML = CD.actions.map(a => {
+      const disabled = actionUsed || (a.needsEnemy && !selectedTarget);
+      return `<button class="action-btn${actionUsed ? " btn-used" : ""}" data-action="${a.id}" ${disabled ? "disabled" : ""} title="${a.desc}">
+        ${a.label}
+      </button>`;
+    }).join("");
+
+    container.querySelectorAll(".action-btn").forEach(btn => {
+      btn.addEventListener("click", () => doPlayerAction(btn.dataset.action));
+    });
+  }
+
+  /* ── COMBAT ACTIONS ── */
+  function roll(hitChance) { return Math.random() < hitChance; }
+  function randRange(min, max) { return min + Math.floor(Math.random() * (max - min + 1)); }
+
+  function doPlayerAction(actionId) {
+    if (!isPlayerTurn() || actionUsed || turnInProgress) return;
+
+    switch(charKey) {
+      case "relyt": doRelytAction(actionId); break;
+      case "lucy":  doLucyAction(actionId);  break;
+      case "irene": doIreneAction(actionId); break;
+    }
+
+    actionUsed = true;
+    refreshActionBtns();
+    document.getElementById("end-turn-btn").disabled = false;
+    refreshHud();
+    checkVictory();
+  }
+
+  function doRelytAction(id) {
+    if (id === "attack") {
+      if (!selectedTarget || selectedTarget.dead) { addLog("No target selected.", "log-miss"); actionUsed = false; return; }
+      const hit = roll(0.70);
+      if (hit) {
+        const dmg = randRange(20, 32);
+        const final = player.channelActive ? Math.round(dmg * 1.5) : dmg;
+        selectedTarget.hp -= final;
+        updateTokenHp(selectedTarget);
+        addLog(`${CD.label} blasts ${selectedTarget.label} — ${final} dmg!`, "log-hit");
+        player.channelActive = false;
+      } else {
+        addLog(`${CD.label}'s spell arcs wide — miss.`, "log-miss");
+      }
+    } else if (id === "buff") {
+      const alive = crew.filter(c => !c.dead);
+      if (alive.length === 0) { addLog("No crew to buff.", "log-miss"); actionUsed = false; return; }
+      const target = alive[Math.floor(Math.random() * alive.length)];
+      target.dmgBonus = 0.5;
+      addLog(`${CD.label} empowers ${target.label} — next strike hits harder!`, "log-hit");
+    } else if (id === "heal") {
+      const gain = randRange(14, 22);
+      player.hp = Math.min(player.maxHp, player.hp + gain);
+      updateTokenHp(player);
+      addLog(`${CD.label} draws on healing magic — +${gain} HP.`, "log-hit");
+    }
+  }
+
+  function doLucyAction(id) {
+    if (id === "attack") {
+      if (!selectedTarget || selectedTarget.dead) { addLog("No target selected.", "log-miss"); actionUsed = false; return; }
+      const hit = roll(0.50);
+      if (hit) {
+        const dmg = randRange(16, 24);
+        selectedTarget.hp -= dmg;
+        updateTokenHp(selectedTarget);
+        addLog(`${CD.label} strikes ${selectedTarget.label} — ${dmg} dmg!`, "log-hit");
+      } else {
+        addLog(`${CD.label}'s strike deflects off the Revenant — miss.`, "log-miss");
+      }
+    } else if (id === "defend") {
+      player.defense = 0.5;
+      addLog(`${CD.label} braces — incoming damage halved this round.`, "log-hit");
+    } else if (id === "stun") {
+      if (!selectedTarget || selectedTarget.dead) { addLog("No target selected.", "log-miss"); actionUsed = false; return; }
+      const hit = roll(0.75);
+      if (hit) {
+        selectedTarget.stunned = true;
+        addLog(`${CD.label} stuns ${selectedTarget.label} — it loses its next action!`, "log-crit");
+      } else {
+        addLog(`${CD.label}'s stun attempt fails — the Revenant surges forward.`, "log-miss");
+      }
+    }
+  }
+
+  function doIreneAction(id) {
+    if (id === "attack") {
+      if (!selectedTarget || selectedTarget.dead) { addLog("No target selected.", "log-miss"); actionUsed = false; return; }
+      const hit = roll(0.50);
+      if (hit) {
+        let dmg = randRange(16, 24);
+        if (player.channelActive) { dmg = Math.round(dmg * 1.5); player.channelActive = false; }
+        selectedTarget.hp -= dmg;
+        updateTokenHp(selectedTarget);
+        addLog(`${CD.label} hammers ${selectedTarget.label} — ${dmg} dmg!`, "log-hit");
+      } else {
+        addLog(`${CD.label}'s swing crashes through water — miss.`, "log-miss");
+      }
+    } else if (id === "cry") {
+      crew.filter(c => !c.dead).forEach(c => { c.hitBonus = 0.2; c.dmgBonus = 0.2; });
+      addLog(`${CD.label} ROARS — all crew gain +hit and +dmg this round!`, "log-crit");
+    } else if (id === "channel") {
+      player.channelActive = true;
+      addLog(`${CD.label} channels the storm — next attack deals +50% dmg!`, "log-hit");
+    }
+  }
+
+  /* ── CREW AUTO-ATTACK ── */
+  function doCrewTurn(crewMember) {
+    return new Promise(resolve => {
+      setTimeout(() => {
+        if (crewMember.dead || crewMember.stunned) {
+          crewMember.stunned = false;
+          addLog(`${crewMember.label} is stunned — skips turn.`, "log-miss");
+          resolve(); return;
+        }
+        const alive = enemies.filter(e => !e.dead);
+        if (alive.length === 0) { resolve(); return; }
+        const target = alive[Math.floor(Math.random() * alive.length)];
+        const hitChance = 0.50 + (crewMember.hitBonus || 0);
+        const hit = roll(hitChance);
+        if (hit) {
+          let dmg = randRange(8, 16);
+          if (crewMember.dmgBonus) dmg = Math.round(dmg * (1 + crewMember.dmgBonus));
+          target.hp -= dmg;
+          updateTokenHp(target);
+          addLog(`Sailor strikes ${target.label} — ${dmg} dmg.`, "log-hit");
+        } else {
+          addLog(`Sailor swings at ${target.label} — miss.`, "log-miss");
+        }
+        crewMember.hitBonus = 0;
+        crewMember.dmgBonus = 0;
+        resolve();
+      }, 600);
+    });
+  }
+
+  /* ── ENEMY TURN ── */
+  function doEnemyTurn(enemy) {
+    return new Promise(resolve => {
+      setTimeout(() => {
+        if (enemy.dead) { resolve(); return; }
+        if (enemy.stunned) {
+          enemy.stunned = false;
+          addLog(`${enemy.label} is stunned — misses its turn.`, "log-miss");
+          resolve(); return;
+        }
+        if (player.dead) { resolve(); return; }
+        // Enemy moves toward player token (cosmetic)
+        const dx = player.x - enemy.x;
+        const dy = player.y - enemy.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist > 12) {
+          const step = Math.min(6, dist * 0.3);
+          enemy.x += (dx / dist) * step;
+          enemy.y += (dy / dist) * step;
+          const el = tokenEls[enemy.id];
+          if (el) { el.style.left = enemy.x + "%"; el.style.top = enemy.y + "%"; }
+        }
+        // Attack player
+        const baseHit = 0.60;
+        const hit = roll(baseHit * player.defense);
+        if (hit) {
+          const dmg = randRange(8, 19); // 3d6+3 = 6-21
+          player.hp -= dmg;
+          updateTokenHp(player);
+          refreshHud();
+          addLog(`${enemy.label} constricts ${CD.label} — ${dmg} dmg!`, "log-enemy");
+          if (player.hp <= 0) {
+            player.dead = true;
+            tokenEls.player?.classList.add("dead");
+          }
+        } else {
+          addLog(`${enemy.label} lunges at ${CD.label} — deflected!`, "log-miss");
+        }
+        player.defense = 1.0; // reset defend buff
+        resolve();
+      }, 700);
+    });
+  }
+
+  /* ── TURN MACHINE ── */
+  async function advanceTurn() {
+    turnInProgress = true;
+
+    // Move to next living actor
+    let safety = 0;
+    do {
+      initIndex = (initIndex + 1) % initOrder.length;
+      if (initIndex === 0) {
+        round++;
+        document.getElementById("hud-round").textContent = "Round " + round;
+      }
+      safety++;
+    } while (initOrder[initIndex].dead && safety < initOrder.length * 2);
+
+    renderInitiative();
+
+    const actor = currentActor();
+
+    if (enemies.includes(actor) && !actor.dead) {
+      setPhaseLabel("ENEMY TURN");
+      setActionEnabled(false);
+      await doEnemyTurn(actor);
+      checkDefeat();
+      if (!player.dead) {
+        turnInProgress = false;
+        advanceTurn();
+      }
+    } else if (crew.includes(actor) && !actor.dead) {
+      setPhaseLabel("CREW TURN");
+      setActionEnabled(false);
+      await doCrewTurn(actor);
+      checkVictory();
+      if (!checkVictory()) {
+        turnInProgress = false;
+        advanceTurn();
+      }
+    } else if (actor === player && !player.dead) {
+      // Player turn
+      setPhaseLabel("YOUR TURN");
+      actionUsed = false;
+      turnInProgress = false;
+      playerTok.classList.add("active-turn");
+      setActionEnabled(true);
+      document.getElementById("end-turn-btn").disabled = true;
+      document.getElementById("target-hint").textContent = "Click an enemy token to target it, then choose an action.";
+      selectedTarget = null;
+      refreshActionBtns();
+    } else {
+      turnInProgress = false;
+      advanceTurn();
+    }
+  }
+
+  document.getElementById("end-turn-btn").addEventListener("click", () => {
+    if (!isPlayerTurn() || turnInProgress) return;
+    playerTok.classList.remove("active-turn");
+    if (selectedTarget) {
+      tokenEls[selectedTarget.id]?.classList.remove("selected-target");
+      selectedTarget = null;
+    }
+    setActionEnabled(false);
+    document.getElementById("end-turn-btn").disabled = true;
+    advanceTurn();
+  });
+
+  function setActionEnabled(on) {
+    document.getElementById("action-btns").querySelectorAll(".action-btn").forEach(b => b.disabled = !on);
+    document.getElementById("end-turn-btn").disabled = !on || !actionUsed;
+  }
+
+  function setPhaseLabel(text) {
+    document.getElementById("hud-phase-label").textContent = text;
+  }
+
+  /* ── WIN/LOSE ── */
+  function checkVictory() {
+    if (enemies.every(e => e.dead)) {
+      showVictory();
+      return true;
+    }
+    return false;
+  }
+
+  function checkDefeat() {
+    if (player.dead) { showDefeat(); }
+  }
+
+  let roundsToWin = round;
+
+  function showVictory() {
+    roundsToWin = round;
+    const aliveEnemiesKilled = NUM_ENEMIES;
+    const crewAlive = crew.filter(c => !c.dead).length;
+    const hpPct = Math.round((player.hp / player.maxHp) * 100);
+    const score = Math.min(10, Math.round(
+      (aliveEnemiesKilled / NUM_ENEMIES) * 4 +
+      (crewAlive / 3) * 3 +
+      (hpPct / 100) * 3
+    ));
+    const verdicts = ["A hard-won victory.", "The sea is yours — for now.", "A masterful defence of the Remorhaz.", "They shall not take this ship."];
+    document.getElementById("victory-score").textContent = score + " / 10";
+    document.getElementById("victory-body").textContent = verdicts[Math.min(score - 1, verdicts.length - 1)] || verdicts[0];
+
+    // Save
+    try {
+      const ex = JSON.parse(localStorage.getItem("remorhaz") || "{}");
+      localStorage.setItem("remorhaz", JSON.stringify({
+        ...ex,
+        seaBattleScore: score,
+        seaBattleTutorialDone: true,
+        currentDay: Math.max(ex.currentDay || 6, 7),
+        completedDays: [...new Set([...(ex.completedDays || []), 6])],
+        completed: [...new Set([...(ex.completed || []), "ursula"])],
+      }));
+    } catch(e) {}
+
+    setTimeout(() => {
+      document.getElementById("screen-victory").classList.add("visible");
+    }, 600);
+  }
+
+  function showDefeat() {
+    try {
+      const ex = JSON.parse(localStorage.getItem("remorhaz") || "{}");
+      localStorage.setItem("remorhaz", JSON.stringify({ ...ex, seaBattleTutorialDone: true }));
+    } catch(e) {}
+    setTimeout(() => {
+      document.getElementById("screen-defeat").classList.add("visible");
+    }, 800);
+  }
+
+  document.getElementById("victory-btn").addEventListener("click", () => {
+    _navigateTo("index.html");
+  });
+  document.getElementById("defeat-retry-btn").addEventListener("click", () => {
+    _navigateTo(window.location.href);
+  });
+
+  /* ── TUTORIAL ── */
+  function showTutorial() {
+    document.getElementById("tutorial-text").innerHTML = CD.tutorialText;
+    document.getElementById("tutorial-overlay").classList.add("visible");
+  }
+  document.getElementById("tutorial-close").addEventListener("click", () => {
+    document.getElementById("tutorial-overlay").classList.remove("visible");
+    startCombat();
+  });
+
+  /* ── OPENING CINEMATICS ── */
+  function startOpeningCinematic() {
+    const ursula = document.getElementById("cin-ursula");
+    ursula.classList.add("visible");
+
+    document.getElementById("cin-ursula-next").addEventListener("click", () => {
+      ursula.style.transition = "opacity 0.5s ease";
+      ursula.style.opacity = "0";
+      setTimeout(() => {
+        ursula.style.display = "none";
+        const haldor = document.getElementById("cin-haldor");
+        haldor.classList.add("visible");
+        document.getElementById("cin-haldor-next").addEventListener("click", () => {
+          haldor.style.transition = "opacity 0.5s ease";
+          haldor.style.opacity = "0";
+          setTimeout(() => {
+            haldor.style.display = "none";
+            if (!tutorialShown) {
+              showTutorial();
+            } else {
+              startCombat();
+            }
+          }, 550);
+        }, { once: true });
+      }, 550);
+    }, { once: true });
+  }
+
+  function startCombat() {
+    combatStarted = true;
+    initOrder = buildInitOrder();
+    initIndex = -1;
+    renderInitiative();
+    refreshHud();
+    addLog("The Current Revenants surge toward the ship!", "log-enemy");
+
+    // First turn is player
+    initIndex = 0; // player is index 0
+    setPhaseLabel("YOUR TURN");
+    playerTok.classList.add("active-turn");
+    actionUsed = false;
+    document.getElementById("end-turn-btn").disabled = true;
+    refreshActionBtns();
+    renderInitiative();
+  }
+
+  /* Boot */
+  startOpeningCinematic();
+  refreshHud();
+
+})();
+</script>
+</body>
+</html>
