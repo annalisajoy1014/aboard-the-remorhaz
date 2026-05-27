@@ -1583,6 +1583,13 @@ function _navigateTo(url) {
         activityDesc: "Current Revenants have been spotted circling the Remorhaz. Arm yourself and defend the ship — before they board.",
         dayLabel: "DAY · 06 — SEA MONSTER ATTACK",
       },
+      day7: {
+        hook: "The sky is wrong. The sea is wrong. Get everyone up here — we have maybe ten minutes.",
+        dialogue: "I've sailed through bad weather before. This is something else. The barometric pressure dropped so fast my instruments couldn't track it. There's a wall of cloud to the north that moves like it has a purpose. Whatever's coming — we need all hands, all stations, and everyone doing exactly what they're supposed to do.",
+        activityTitle: "DAY 7 · WEATHER THE STORM",
+        activityDesc: "A violent squall descends without warning. Secure the cargo, reef the sails, and hold the helm — or the Remorhaz goes under.",
+        dayLabel: "DAY · 07 — THE TEMPEST",
+      },
     },
   };
 
@@ -1593,7 +1600,7 @@ function _navigateTo(url) {
     { n: 4, label: "Maritime Combat",     npcs: ["haldor"] },
     { n: 5, label: "Ice Floes",          npcs: [] },
     { n: 6, label: "Sea Monster Attack", npcs: ["ursula"] },
-    { n: 7, label: "First Sight of Land",npcs: [] },
+    { n: 7, label: "Weather the Storm",  npcs: ["ursula"] },
     { n: 8, label: "Skirting the Shelf", npcs: [] },
     { n: 9, label: "Landfall · Eiselcross", npcs: [] },
   ];
@@ -1796,7 +1803,7 @@ function _navigateTo(url) {
       haldor: state.currentDay >= 4 ? "combat.html" : "fishing.html",
       ingrid:  "cooking.html",
       kalt:    "maintenance.html",
-      ursula:  state.currentDay >= 6 ? "seabattle.html" : "navigation.html",
+      ursula:  state.currentDay >= 7 ? "weatherstorm.html" : state.currentDay >= 6 ? "seabattle.html" : "navigation.html",
     };
     if (routes[activeZone]) {
       save();

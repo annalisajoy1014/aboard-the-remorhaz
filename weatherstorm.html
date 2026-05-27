@@ -1,0 +1,851 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Day 7 · Weather the Storm — Aboard the Remorhaz</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+
+/* ── STORM BACKGROUND ── */
+.storm-bg {
+  position: fixed; inset: 0; z-index: 0;
+  background: url('assets/remorhaz.jpg') center/cover no-repeat;
+  filter: brightness(0.22) saturate(0.45);
+}
+#rain-canvas {
+  position: fixed; inset: 0; z-index: 1;
+  pointer-events: none;
+}
+
+/* ── LAYOUT ── */
+.stage {
+  position: fixed; inset: 0; z-index: 2;
+  display: flex; align-items: center; justify-content: center;
+}
+.game-area {
+  display: flex; align-items: stretch;
+  width: min(92vw, 1200px); height: min(76vh, 680px);
+  box-shadow: 0 30px 80px rgba(0,0,0,0.7);
+}
+.game-panel {
+  flex: 1; position: relative; overflow: hidden;
+  border: 1px solid color-mix(in oklch, var(--paper-deep) 25%, transparent);
+  border-right: none;
+}
+.screen {
+  position: absolute; inset: 0; display: none;
+  flex-direction: column; align-items: center; justify-content: center;
+  gap: 16px; padding: 28px;
+  background: linear-gradient(to bottom, oklch(0.10 0.03 220), oklch(0.07 0.02 220));
+}
+.screen.active { display: flex; }
+
+/* ── SIDEBAR ── */
+.storm-sidebar {
+  width: 300px; flex-shrink: 0;
+  background: linear-gradient(160deg,
+    color-mix(in oklch, var(--paper) 10%, var(--ink)) 0%,
+    color-mix(in oklch, var(--paper) 6%, var(--sea-deep)) 100%);
+  border: 1px solid color-mix(in oklch, var(--paper-deep) 28%, transparent);
+  padding: 36px 28px 28px;
+  display: flex; flex-direction: column; gap: 16px;
+}
+.storm-portrait {
+  width: 100px; height: 100px; border-radius: 50%; margin: 0 auto;
+  border: 2px solid var(--paper-deep);
+  outline: 5px solid color-mix(in oklch, var(--paper-deep) 28%, transparent);
+  background: center/cover no-repeat;
+}
+.npc-name  { font-family: "IM Fell English SC", serif; font-size: 18px; letter-spacing: 0.08em; color: var(--paper); text-align: center; }
+.npc-role  { font-family: "Caveat", cursive; font-size: 14px; color: var(--paper-deep); text-align: center; margin-top: -8px; }
+.sidebar-rule { width: 100%; height: 1px; flex-shrink: 0; background: linear-gradient(to right, transparent, var(--paper-deep), transparent); }
+.npc-dialogue { font-family: "IM Fell English", serif; font-style: italic; font-size: 14.5px; line-height: 1.6; color: var(--paper); flex: 1; min-height: 80px; transition: opacity 0.35s; }
+.phase-label { font-family: "IM Fell English SC", serif; font-size: 11px; letter-spacing: 0.2em; color: var(--blood); text-align: center; }
+.instruction-label { font-family: "Caveat", cursive; font-size: 13px; color: var(--paper-deep); text-align: center; margin-top: -8px; }
+.score-tally { display: flex; flex-direction: column; gap: 5px; }
+.score-row { display: flex; justify-content: space-between; border-bottom: 1px dotted color-mix(in oklch, var(--paper-deep) 35%, transparent); padding-bottom: 4px; font-family: "IM Fell English SC", serif; font-size: 11px; letter-spacing: 0.1em; color: var(--paper-deep); }
+.score-row span:last-child { font-family: "IM Fell English", serif; font-style: italic; color: var(--paper); }
+.score-total-row { display: flex; justify-content: space-between; padding-top: 4px; margin-top: 2px; font-family: "IM Fell English SC", serif; font-size: 12px; letter-spacing: 0.12em; color: var(--lamp); }
+
+/* ── INTRO SCREEN ── */
+.intro-icon  { font-size: 48px; }
+.intro-title { font-family: "IM Fell English SC", serif; font-size: 22px; letter-spacing: 0.1em; color: var(--lamp); text-align: center; }
+.intro-body  { font-family: "IM Fell English", serif; font-style: italic; font-size: 15.5px; line-height: 1.68; color: var(--paper-dim); text-align: center; max-width: 480px; }
+.mood-tag    { font-family: "IM Fell English SC", serif; font-size: 10px; letter-spacing: 0.26em; color: var(--blood); }
+
+/* ── CHALLENGE SCREENS ── */
+.challenge-wrap {
+  width: 100%; max-width: 520px;
+  display: flex; flex-direction: column; align-items: center; gap: 16px;
+}
+.stage-tag {
+  font-family: "IM Fell English SC", serif;
+  font-size: 10px; letter-spacing: 0.28em;
+  color: var(--blood);
+}
+.challenge-title {
+  font-family: "IM Fell English SC", serif;
+  font-size: 18px; letter-spacing: 0.1em;
+  color: var(--lamp); text-align: center;
+}
+.challenge-desc {
+  font-family: "IM Fell English", serif; font-style: italic;
+  font-size: 14px; line-height: 1.7;
+  color: var(--paper-dim); text-align: center; max-width: 460px;
+}
+.challenge-rule {
+  width: 80px; height: 1px;
+  background: linear-gradient(to right, transparent, var(--paper-deep), transparent);
+}
+
+/* Stat + DC row */
+.roll-meta {
+  display: flex; align-items: center; gap: 22px;
+  font-family: "IM Fell English SC", serif;
+  font-size: 12px; letter-spacing: 0.16em;
+  color: var(--paper-deep);
+}
+.roll-stat-box {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 10px 18px;
+  border: 1px solid color-mix(in oklch, var(--paper-deep) 35%, transparent);
+  background: rgba(0,0,0,0.35);
+}
+.roll-stat-name { font-size: 10px; letter-spacing: 0.22em; color: var(--blood); }
+.roll-stat-mod  { font-size: 22px; letter-spacing: 0; color: var(--lamp); }
+.roll-dc-box {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 10px 18px;
+  border: 1px solid color-mix(in oklch, var(--paper-deep) 35%, transparent);
+  background: rgba(0,0,0,0.35);
+}
+.roll-dc-label { font-size: 10px; letter-spacing: 0.22em; color: var(--paper-deep); }
+.roll-dc-val   { font-size: 22px; letter-spacing: 0; color: var(--paper); }
+
+/* d20 die */
+.die-wrap {
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+}
+.die-face {
+  width: 88px; height: 88px;
+  clip-path: polygon(50% 0%, 97% 28%, 81% 95%, 19% 95%, 3% 28%);
+  background: linear-gradient(135deg, oklch(0.18 0.04 230), oklch(0.12 0.03 230));
+  border: none;
+  display: flex; align-items: center; justify-content: center;
+  font-family: "IM Fell English SC", serif;
+  font-size: 36px; color: var(--paper);
+  transition: color 0.2s;
+  position: relative;
+}
+.die-face::before {
+  content: "";
+  position: absolute; inset: 0;
+  clip-path: inherit;
+  border: 2px solid color-mix(in oklch, var(--paper-deep) 60%, transparent);
+  pointer-events: none;
+}
+.die-face.spinning { animation: die-spin 0.12s linear infinite; }
+@keyframes die-spin {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+.die-face.nat20 { color: var(--lamp); }
+.die-face.nat1  { color: var(--blood); }
+
+.roll-equation {
+  font-family: "IM Fell English SC", serif;
+  font-size: 13px; letter-spacing: 0.18em;
+  color: var(--paper-deep); text-align: center;
+  min-height: 20px;
+  transition: opacity 0.3s;
+}
+
+/* Roll button */
+.roll-btn {
+  font-family: "IM Fell English SC", serif;
+  font-size: 12px; letter-spacing: 0.22em;
+  color: var(--paper); background: transparent;
+  border: 1px solid var(--paper-deep);
+  padding: 11px 30px; cursor: pointer;
+  transition: all 0.2s;
+}
+.roll-btn:hover:not(:disabled) {
+  background: rgba(255,255,255,0.07);
+  border-color: var(--paper);
+}
+.roll-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+/* Result reveal */
+.check-result {
+  font-family: "IM Fell English SC", serif;
+  font-size: 14px; letter-spacing: 0.2em;
+  text-align: center; min-height: 20px;
+  padding: 6px 0;
+}
+.check-result.success { color: var(--lamp); }
+.check-result.failure { color: var(--blood); }
+.check-result.critical-success { color: #e8a43a; }
+.check-result.critical-failure { color: #c0392b; }
+
+.outcome-text {
+  font-family: "IM Fell English", serif; font-style: italic;
+  font-size: 13.5px; line-height: 1.65;
+  color: var(--paper-dim); text-align: center; max-width: 440px;
+  min-height: 40px; transition: opacity 0.4s;
+}
+
+/* Continue / next-stage button */
+.next-btn {
+  font-family: "IM Fell English SC", serif;
+  font-size: 11px; letter-spacing: 0.22em;
+  color: var(--paper); background: transparent;
+  border: 1px solid color-mix(in oklch, var(--paper-deep) 55%, transparent);
+  padding: 10px 28px; cursor: pointer;
+  transition: all 0.2s; opacity: 0;
+  pointer-events: none;
+}
+.next-btn.visible { opacity: 1; pointer-events: auto; }
+.next-btn:hover { border-color: var(--paper); background: rgba(255,255,255,0.06); }
+
+/* ── RESULT SCREEN ── */
+.result-card {
+  background: linear-gradient(135deg, var(--paper) 0%, var(--paper-dim) 100%);
+  color: var(--ink); padding: 32px 44px; max-width: 500px; width: 92%;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.65), inset 0 0 0 1px rgba(255,255,255,0.3);
+  animation: card-rise 0.55s cubic-bezier(0.2,0.8,0.3,1) both;
+  position: relative; overflow: hidden;
+}
+.result-card::before {
+  content: ""; position: absolute; inset: 0;
+  background: radial-gradient(ellipse at 80% 110%, color-mix(in oklch, var(--blood) 7%, transparent), transparent 60%);
+  pointer-events: none;
+}
+@keyframes card-rise { from{transform:translateY(36px);opacity:0} to{transform:translateY(0);opacity:1} }
+.result-tag     { font-family:"IM Fell English SC",serif; font-size:10px; letter-spacing:0.28em; color:var(--blood); margin-bottom:6px; }
+.result-score   { font-family:"IM Fell English SC",serif; font-size:52px; letter-spacing:0.04em; color:var(--ink); line-height:1; }
+.result-max     { font-family:"Caveat",cursive; font-size:18px; color:oklch(0.5 0.04 45); margin-bottom:8px; }
+.result-verdict { font-family:"IM Fell English",serif; font-style:italic; font-size:15px; line-height:1.6; color:oklch(0.35 0.04 45); margin-bottom:16px; }
+.result-btn     { font-family:"IM Fell English SC",serif; font-size:11px; letter-spacing:0.22em; color:var(--paper); background:var(--ink); border:none; padding:12px 30px; cursor:pointer; transition:background 0.2s; margin: 4px; }
+.result-btn:hover { background:oklch(0.22 0.04 45); }
+
+/* ── OPENING CINEMATIC ── */
+.cin-storm {
+  position: fixed; inset: 0; z-index: 200;
+  display: flex; align-items: stretch;
+  background: #000; opacity: 0;
+  transition: opacity 0.7s ease;
+}
+.cin-storm.visible { opacity: 1; }
+.cin-storm-bg {
+  position: absolute; inset: 0;
+  background: url('assets/ursula-cin.jpg') center top/cover no-repeat;
+  filter: brightness(0.35) saturate(0.5);
+}
+.cin-storm-gradient {
+  position: absolute; inset: 0;
+  background: linear-gradient(90deg, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.45) 55%, transparent 100%);
+}
+.cin-storm-content {
+  position: relative; z-index: 2;
+  width: 480px; flex-shrink: 0;
+  padding: 60px 48px;
+  display: flex; flex-direction: column;
+  justify-content: center; gap: 20px;
+}
+.cin-storm-eyebrow {
+  font-family: "IM Fell English SC", serif;
+  font-size: 11px; letter-spacing: 0.26em; color: var(--blood);
+}
+.cin-storm-name {
+  font-family: "IM Fell English SC", serif;
+  font-size: 34px; letter-spacing: 0.1em;
+  color: var(--paper); line-height: 1.1;
+  text-shadow: 0 2px 12px rgba(0,0,0,0.7);
+}
+.cin-storm-rule { width: 60px; height: 1px; background: var(--paper-deep); }
+.cin-storm-quote {
+  font-family: "IM Fell English", serif; font-style: italic;
+  font-size: 16px; line-height: 1.75; color: var(--paper-dim); max-width: 360px;
+}
+.cin-storm-btn {
+  align-self: flex-start;
+  font-family: "IM Fell English SC", serif;
+  font-size: 12px; letter-spacing: 0.2em;
+  color: var(--paper); background: transparent;
+  border: 1px solid var(--paper-deep); padding: 10px 22px;
+  cursor: pointer; transition: all 0.2s; margin-top: 8px;
+}
+.cin-storm-btn:hover { background: rgba(255,255,255,0.08); border-color: var(--paper); }
+
+/* ── LIGHTNING ── */
+.lightning-flash {
+  position: fixed; inset: 0; z-index: 999;
+  background: rgba(210,230,255,0.45);
+  pointer-events: none; opacity: 1;
+  transition: opacity 0.25s ease;
+}
+</style>
+</head>
+<body>
+<div id="page-fade" class="page-fade in"></div>
+
+<!-- Rain canvas -->
+<canvas id="rain-canvas"></canvas>
+<div class="storm-bg"></div>
+
+<!-- Opening cinematic -->
+<div id="cin-storm" class="cin-storm">
+  <div class="cin-storm-bg"></div>
+  <div class="cin-storm-gradient"></div>
+  <div class="cin-storm-content">
+    <div class="cin-storm-eyebrow">— Day 7 · Open Sea —</div>
+    <h2 class="cin-storm-name">The Tempest</h2>
+    <div class="cin-storm-rule"></div>
+    <p class="cin-storm-quote">"ALL HANDS! ALL HANDS ON DECK — the sky has gone black and the sea is standing up! Lash everything down, reef those sails, and someone get to the HELM! Move — NOW!"</p>
+    <button class="cin-storm-btn" id="cin-enter">To the Deck →</button>
+  </div>
+</div>
+
+<!-- Game -->
+<div class="stage">
+  <div class="game-area">
+
+    <!-- Main panel -->
+    <div class="game-panel">
+
+      <!-- Intro -->
+      <div class="screen active" id="screen-intro">
+        <div class="intro-icon">⛈</div>
+        <div class="mood-tag">DAY 7 · THE TEMPEST</div>
+        <div class="intro-title">All Hands on Deck</div>
+        <p class="intro-body">
+          Without warning, the sky turns from pewter to absolute black. The wind shifts in seconds from a steady breeze to a howling gale — and then the first wave strikes the broadside like a siege engine. The world becomes noise and water and cold.<br><br>
+          Three crises demand your attention at once. There is no order to chaos. Choose your battles.
+        </p>
+        <button class="btn-primary" id="begin-btn">Face the Storm →</button>
+      </div>
+
+      <!-- Stage 1: Cargo — STR -->
+      <div class="screen" id="screen-cargo">
+        <div class="challenge-wrap">
+          <div class="stage-tag">STAGE 1 OF 3 · SECURING THE CARGO</div>
+          <div class="challenge-title">The Lower Decks</div>
+          <p class="challenge-desc" id="cargo-desc">Loading...</p>
+          <div class="challenge-rule"></div>
+          <div class="roll-meta">
+            <div class="roll-stat-box">
+              <div class="roll-stat-name">STRENGTH</div>
+              <div class="roll-stat-mod" id="cargo-mod">—</div>
+            </div>
+            <div class="die-wrap">
+              <div class="die-face" id="cargo-die"><span id="cargo-die-num">?</span></div>
+              <div class="roll-equation" id="cargo-eq"></div>
+            </div>
+            <div class="roll-dc-box">
+              <div class="roll-dc-label">DIFFICULTY</div>
+              <div class="roll-dc-val">DC 5</div>
+            </div>
+          </div>
+          <div class="check-result" id="cargo-result"></div>
+          <p class="outcome-text" id="cargo-outcome"></p>
+          <button class="roll-btn" id="cargo-roll-btn">Roll d20 →</button>
+          <button class="next-btn" id="cargo-next">Stage Two: The Rigging →</button>
+        </div>
+      </div>
+
+      <!-- Stage 2: Rigging — DEX -->
+      <div class="screen" id="screen-rigging">
+        <div class="challenge-wrap">
+          <div class="stage-tag">STAGE 2 OF 3 · REEFING THE SAILS</div>
+          <div class="challenge-title">Into the Rigging</div>
+          <p class="challenge-desc" id="rig-desc">Loading...</p>
+          <div class="challenge-rule"></div>
+          <div class="roll-meta">
+            <div class="roll-stat-box">
+              <div class="roll-stat-name">DEXTERITY</div>
+              <div class="roll-stat-mod" id="rig-mod">—</div>
+            </div>
+            <div class="die-wrap">
+              <div class="die-face" id="rig-die"><span id="rig-die-num">?</span></div>
+              <div class="roll-equation" id="rig-eq"></div>
+            </div>
+            <div class="roll-dc-box">
+              <div class="roll-dc-label">DIFFICULTY</div>
+              <div class="roll-dc-val">DC 5</div>
+            </div>
+          </div>
+          <div class="check-result" id="rig-result"></div>
+          <p class="outcome-text" id="rig-outcome"></p>
+          <button class="roll-btn" id="rig-roll-btn">Roll d20 →</button>
+          <button class="next-btn" id="rig-next">Stage Three: The Helm →</button>
+        </div>
+      </div>
+
+      <!-- Stage 3: Helm — WIS -->
+      <div class="screen" id="screen-helm">
+        <div class="challenge-wrap">
+          <div class="stage-tag">STAGE 3 OF 3 · HOLDING THE HELM</div>
+          <div class="challenge-title">The Wheel</div>
+          <p class="challenge-desc" id="helm-desc">Loading...</p>
+          <div class="challenge-rule"></div>
+          <div class="roll-meta">
+            <div class="roll-stat-box">
+              <div class="roll-stat-name">WISDOM</div>
+              <div class="roll-stat-mod" id="helm-mod">—</div>
+            </div>
+            <div class="die-wrap">
+              <div class="die-face" id="helm-die"><span id="helm-die-num">?</span></div>
+              <div class="roll-equation" id="helm-eq"></div>
+            </div>
+            <div class="roll-dc-box">
+              <div class="roll-dc-label">DIFFICULTY</div>
+              <div class="roll-dc-val">DC 5</div>
+            </div>
+          </div>
+          <div class="check-result" id="helm-result"></div>
+          <p class="outcome-text" id="helm-outcome"></p>
+          <button class="roll-btn" id="helm-roll-btn">Roll d20 →</button>
+          <button class="next-btn" id="helm-next">See Your Fate →</button>
+        </div>
+      </div>
+
+      <!-- Result -->
+      <div class="screen" id="screen-result">
+        <div class="result-card" id="result-card">
+          <div class="result-tag">DAY 7 · THE TEMPEST</div>
+          <div class="result-score" id="result-score">—</div>
+          <div class="result-max">/ 10</div>
+          <p class="result-verdict" id="result-verdict">—</p>
+          <button class="result-btn" id="hub-btn">Return to the Remorhaz →</button>
+          <button class="result-btn" id="retry-btn" style="display:none">Try Again</button>
+        </div>
+      </div>
+
+    </div><!-- end game-panel -->
+
+    <!-- Sidebar -->
+    <div class="storm-sidebar">
+      <div class="storm-portrait" id="sidebar-portrait"
+           style="background-image: url('assets/ursula.jpg')"></div>
+      <div class="npc-name">Ursula Elara</div>
+      <div class="npc-role">Navigator &amp; Lookout</div>
+      <div class="sidebar-rule"></div>
+      <div class="npc-dialogue" id="sidebar-dialogue">
+        From the crow's nest she can see everything at once — and what she sees is fury.
+      </div>
+      <div class="phase-label" id="sidebar-phase">DAY 7 · THE TEMPEST</div>
+      <div class="instruction-label" id="sidebar-inst">Three crises. One ship. No margin for error.</div>
+      <div class="sidebar-rule"></div>
+      <div class="score-tally" id="score-tally">
+        <div class="score-row"><span>CARGO</span><span id="tally-cargo">—</span></div>
+        <div class="score-row"><span>RIGGING</span><span id="tally-rig">—</span></div>
+        <div class="score-row"><span>HELM</span><span id="tally-helm">—</span></div>
+        <div class="score-total-row"><span>HELD</span><span id="tally-total">0 / 3</span></div>
+      </div>
+    </div>
+
+  </div><!-- end game-area -->
+</div><!-- end stage -->
+
+<script>
+/* ── PAGE TRANSITION ── */
+const _pf = document.getElementById("page-fade");
+setTimeout(() => { if (_pf) _pf.classList.remove("in"); }, 50);
+function _navigateTo(url) {
+  if (!_pf) { window.location.href = url; return; }
+  _pf.classList.add("in");
+  _pf.addEventListener("transitionend", () => { window.location.href = url; }, { once: true });
+}
+
+/* ── RAIN ── */
+(function initRain() {
+  const canvas = document.getElementById("rain-canvas");
+  const ctx = canvas.getContext("2d");
+  function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+  resize();
+  window.addEventListener("resize", resize);
+
+  const drops = Array.from({ length: 220 }, () => ({
+    x: Math.random() * window.innerWidth,
+    y: Math.random() * window.innerHeight,
+    len: 12 + Math.random() * 18,
+    speed: 14 + Math.random() * 12,
+    opacity: 0.15 + Math.random() * 0.25
+  }));
+
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drops.forEach(d => {
+      ctx.strokeStyle = `rgba(174,194,224,${d.opacity})`;
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.moveTo(d.x, d.y);
+      ctx.lineTo(d.x + d.len * 0.32, d.y + d.len);
+      ctx.stroke();
+      d.x += 1.8; d.y += d.speed;
+      if (d.y > canvas.height + d.len) { d.y = -d.len; d.x = Math.random() * canvas.width; }
+      if (d.x > canvas.width + d.len)  { d.x = -d.len; }
+    });
+    requestAnimationFrame(draw);
+  }
+  draw();
+
+  // Periodic random lightning
+  function scheduleLightning() {
+    setTimeout(() => { flashLightning(); scheduleLightning(); }, 8000 + Math.random() * 12000);
+  }
+  scheduleLightning();
+})();
+
+function flashLightning(strong) {
+  const fl = document.createElement("div");
+  fl.className = "lightning-flash";
+  fl.style.background = strong ? "rgba(220,240,255,0.55)" : "rgba(200,220,255,0.3)";
+  document.body.appendChild(fl);
+  requestAnimationFrame(() => {
+    fl.style.opacity = "0";
+    setTimeout(() => fl.remove(), 300);
+  });
+  if (strong) {
+    setTimeout(() => {
+      const fl2 = document.createElement("div");
+      fl2.className = "lightning-flash";
+      fl2.style.background = "rgba(200,220,255,0.25)";
+      document.body.appendChild(fl2);
+      requestAnimationFrame(() => { fl2.style.opacity = "0"; setTimeout(() => fl2.remove(), 250); });
+    }, 80);
+  }
+}
+
+/* ── MAIN GAME ── */
+(function() {
+  const raw  = JSON.parse(localStorage.getItem("remorhaz") || "{}");
+  const char = raw.selectedCharacter || { name: "Relyt Murcielago", stats: { STR:-2,DEX:0,INT:2,WIS:2,CHA:1,CON:-1 } };
+  const s    = char.stats || {};
+  const charKey = char.name.includes("Lucy") ? "lucy" : char.name.includes("Irene") ? "irene" : "relyt";
+
+  /* Character-specific content */
+  const CHAR = {
+    relyt: {
+      cargoDesc: "Barrels of salted provisions and iron shot have broken their lashings — each wave sends them crashing across the hold. Your arcane training was not made for this. But the ship was, and right now the ship needs you.",
+      rigDesc:   "The mainsail bellies and snaps like a crack of thunder. You have to climb the ice-slick shrouds in howling wind and reef the canvas before it shreds completely. Your hands are a wizard's, not a sailor's.",
+      helmDesc:  "The helmsman is down — unconscious, bleeding from a boom-strike. The wheel spins free. You grab it and look into the black face of a forty-foot wave. But you can read patterns — you always could.",
+      cargoFail: "The rope tears from your grip. A barrel punches through a bulkhead strake with a sound like a hammer. Water begins to trickle in from the impact damage.",
+      cargoSucc: "You find leverage where others find brute force — using a fallen spar as a wedge, you work the cargo into its cradles and lash it tight just as the next wave hits.",
+      cargoNat20: "A flash of arcane intuition: you feel the ship's next pitch before it comes and time the bracing perfectly. The cargo shifts not an inch.",
+      cargoNat1:  "The barrel catches you on the shoulder as it rolls — you go down hard. When you rise, the hold has taken on water and your arm aches badly.",
+      rigFail:   "The shroud is ice over rope over nothing — your foot slips on the third ratline. You grab flailing canvas instead of the reef point, and the sail shreds another two yards.",
+      rigSucc:   "Slow, deliberate, methodical — exactly wrong for a sailor, exactly right for someone who must not fall. You reef the sail without error.",
+      rigNat20:  "You take one moment to read the wind's rhythm, then move in perfect sync with it. The sail comes down as if it chose to.",
+      rigNat1:   "The shroud whips in the gust and takes your feet out from under you. You catch yourself by one arm ten feet up, terrified. You descend without completing the reef.",
+      helmFail:  "You read the water too late — the wave logic escapes you and you call the turn a moment behind it. The ship takes the swell on the shoulder and shudders down to her keel.",
+      helmSucc:  "You read the sea like a chart: the swells have a pattern, and you find it. You turn the Remorhaz into the monster wave nose-first. She climbs it like a mountain.",
+      helmNat20: "You feel the ocean's intent as clearly as written text. You have the wheel turned a full breath before the rogue wave crests. Ursula shouts something from above — you think it might be admiration.",
+      helmNat1:  "You fight the wheel like an opponent rather than a tool — it spins, you overcorrect, and the ship heels terrifyingly to port before a screaming Kalt takes the helm from you.",
+    },
+    lucy: {
+      cargoDesc: "Heavy crates and a loose cannon-ball careen across the hold with each pitch of the hull. You're fast and sure-footed on your worst day — but the deck is slick, the crates are heavy, and the sea doesn't care about your talents.",
+      rigDesc:   "The mainsail is tearing loose in the gale. You have to climb — you have climbed worse, in worse weather, for worse reasons. But those jobs didn't require you to reef forty square feet of soaked canvas in a full gale.",
+      helmDesc:  "The helmsman is sprawled on the deck. The wheel is free. You grab it with both hands and look up at a wall of black water. You've balanced on a knife-edge before. This is bigger.",
+      cargoFail: "The wet rope slides right through even your grip. A crate launches across the hold and splinters against the wall, spilling its contents into the bilge water.",
+      cargoSucc: "Balance compensates for raw power. You use your body as a fulcrum, redirecting the cargo's own momentum into the cradles and roping it down before the next surge.",
+      cargoNat20: "You dance around the rolling barrels like they're part of a routine, flipping the last one into place with a kick just before the wave hits. Kalt stares at you in disbelief.",
+      cargoNat1:  "The deck lurches under you and, for once in your life, you lose your footing. You go down hard, and a barrel rolls over your leg. You're bruised, winded, and the cargo is everywhere.",
+      rigFail:   "Your palms are sure but the rope is a river of cold. The reef point slips out of your fingers three times before the next gust rips the section loose entirely.",
+      rigSucc:   "You run the ratlines like a rooftop — impossibly calm, impossibly sure. The reef is tied before the next gust even reaches the mast.",
+      rigNat20:  "You find a rhythm in the chaos — climbing in the same direction the rigging sways, working with the ship rather than against it. You're back on deck in under a minute. The sail is perfect.",
+      rigNat1:   "A rope snaps and whips across your cheek — you lose your hold and slide three feet down the shroud, burning your palms. You make it down safely, but the sail is not reefed.",
+      helmFail:  "The sea's rhythm feels alien under your feet. You overcorrect twice, and the second time the Remorhaz takes a wave broadside. A crewman is thrown from his feet.",
+      helmSucc:  "You feel the deck, read the shape of the water pressing up through the keel, and match the wheel to the wave's intent. The bow rises into the swell perfectly.",
+      helmNat20: "The sea is a puzzle and you solve it in seconds. The wheel moves under your hands as if it always knew where it was going.",
+      helmNat1:  "The wheel is nothing like anything you've trained on. It spins too fast and you can't find the feedback. The ship yaws, and a wave takes her full on the beam.",
+    },
+    irene: {
+      cargoDesc: "Heavy cargo has broken loose below — a cannon, three barrels of iron shot, and crates of salted beef are sliding and crashing with every pitch. You were made for this. The cargo was not expecting you.",
+      rigDesc:   "The mainsail is tearing free. You have to climb the ice-coated shrouds, in a gale, and muscle forty pounds of wet canvas into a reef. Brute strength might work where technique fails. Or it might make everything worse.",
+      helmDesc:  "The helmsman is down. The wheel is spinning free. You cross the tilting deck, grab the spokes, and find a forty-foot black wall of water coming fast. Your instincts have never steered you wrong on land.",
+      cargoFail: "You plant your feet and shove — but the ship pitches at exactly the wrong moment and the cannon rolls over your boot. You get it stopped, but a crate of provisions goes over the side through the open hatch.",
+      cargoSucc: "You plant yourself against the sliding cannon like a wall and push it into its cradle with a sound like an avalanche stopping. You rope it down in three motions. Simple.",
+      cargoNat20: "The cannon hits you at full roll and you hit it back. It doesn't move again. The crew in the hold cheers — they actually cheer — over the sound of the storm.",
+      cargoNat1:  "The deck pitches hard as you brace — your footing fails and the cannon pins your arm briefly against the bulkhead. You break free before it does real damage, but it's loose and the hold is a wreck.",
+      rigFail:   "Brute force on an ice-coated rope over a thirty-foot drop is exactly what it sounds like. You tear the reef point free of the line trying to pull it, and the sail shreds another three feet.",
+      rigSucc:   "Slow and methodical is not your style, but you find it here — hand over hand, deliberate, until the canvas comes down and you've tied it off. Not elegant. Done.",
+      rigNat20:  "You haul the sail down as if it insulted your mother. It's reefed, it's tight, and you did it in forty seconds. Kalt looks like he wants to cry with relief.",
+      rigNat1:   "The rigging fights back. You pull when you should slack, and a yard-arm swings around and catches you across the shoulders. You make it down — the sail does not come with you.",
+      helmFail:  "You fight the wheel like an opponent — it's a bad strategy against the ocean. You force the rudder when it needs to be guided, and the ship takes a wave badly on the quarter.",
+      helmSucc:  "Raw instinct: you feel the monster wave a breath before it crests, and you throw your whole body into the turn. The Remorhaz climbs it bow-first, straight and true.",
+      helmNat20: "You don't think. You let your hands and the sea settle into agreement. Something animal in you reads the water perfectly. The crew is white-knuckled when it's over. You look calm.",
+      helmNat1:  "You wrestle the wheel like an enemy — and lose. The sea wins this one. The ship yaws hard, takes a wave on the beam, and you hear something crack below the waterline.",
+    }
+  };
+  const C = CHAR[charKey];
+
+  /* Stat modifiers */
+  const STR = s.STR || 0;
+  const DEX = s.DEX || 0;
+  const WIS = s.WIS || 0;
+  const DC  = 5;
+
+  function fmtMod(n) { return n >= 0 ? "+" + n : "" + n; }
+
+  /* Track results */
+  const results = { cargo: null, rig: null, helm: null };
+  let score = 0;
+
+  /* ── OPENING CINEMATIC ── */
+  const cin = document.getElementById("cin-storm");
+  setTimeout(() => cin.classList.add("visible"), 120);
+
+  document.getElementById("cin-enter").addEventListener("click", () => {
+    cin.style.transition = "opacity 0.5s";
+    cin.style.opacity = "0";
+    setTimeout(() => { cin.style.display = "none"; }, 520);
+  });
+
+  /* ── INIT SCREENS ── */
+  document.getElementById("cargo-mod").textContent = fmtMod(STR);
+  document.getElementById("rig-mod").textContent   = fmtMod(DEX);
+  document.getElementById("helm-mod").textContent  = fmtMod(WIS);
+  document.getElementById("cargo-desc").textContent = C.cargoDesc;
+  document.getElementById("rig-desc").textContent   = C.rigDesc;
+  document.getElementById("helm-desc").textContent  = C.helmDesc;
+
+  /* ── SCREEN SWITCHER ── */
+  function goToScreen(id) {
+    document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+    document.getElementById(id).classList.add("active");
+  }
+
+  document.getElementById("begin-btn").addEventListener("click", () => {
+    setSidebar("The lower decks are chaos — barrels and shot crashing with every wave, punishing the hull from the inside.", "STAGE 1 OF 3 · CARGO", "Secure the rolling cargo before it staves in the hull.");
+    goToScreen("screen-cargo");
+    flashLightning(true);
+  });
+
+  /* ── DICE ROLLER ── */
+  function rollCheck(stageId, modifier, onDone) {
+    const dieEl    = document.getElementById(stageId + "-die");
+    const numEl    = document.getElementById(stageId + "-die-num");
+    const eqEl     = document.getElementById(stageId + "-eq");
+    const rollBtn  = document.getElementById(stageId + "-roll-btn");
+    const resultEl = document.getElementById(stageId + "-result");
+    const outEl    = document.getElementById(stageId + "-outcome");
+    const nextBtn  = document.getElementById(stageId + "-next");
+
+    rollBtn.disabled = true;
+    dieEl.classList.add("spinning");
+    numEl.textContent = "?";
+    eqEl.textContent  = "";
+    resultEl.textContent = "";
+    resultEl.className = "check-result";
+    outEl.textContent = "";
+    outEl.style.opacity = "0";
+
+    let frame = 0;
+    const frames = 16;
+    const interval = setInterval(() => {
+      numEl.textContent = Math.floor(Math.random() * 20) + 1;
+      frame++;
+      if (frame >= frames) {
+        clearInterval(interval);
+        const roll = Math.floor(Math.random() * 20) + 1;
+        const total = roll + modifier;
+        const success = total >= DC;
+        const natTwenty = roll === 20;
+        const natOne    = roll === 1;
+
+        dieEl.classList.remove("spinning");
+        numEl.textContent = roll;
+        if (natTwenty) dieEl.classList.add("nat20");
+        if (natOne)    dieEl.classList.add("nat1");
+
+        eqEl.textContent = `${roll} ${modifier >= 0 ? "+" : ""}${modifier} = ${total} vs DC ${DC}`;
+
+        setTimeout(() => {
+          if (natTwenty) {
+            resultEl.textContent = "CRITICAL SUCCESS";
+            resultEl.className = "check-result critical-success";
+            flashLightning(true);
+          } else if (natOne) {
+            resultEl.textContent = "CRITICAL FAILURE";
+            resultEl.className = "check-result critical-failure";
+          } else if (success) {
+            resultEl.textContent = "SUCCESS";
+            resultEl.className = "check-result success";
+            flashLightning(false);
+          } else {
+            resultEl.textContent = "FAILURE";
+            resultEl.className = "check-result failure";
+          }
+
+          outEl.style.opacity = "0";
+          setTimeout(() => {
+            onDone(roll, total, success, natTwenty, natOne);
+            outEl.style.transition = "opacity 0.5s";
+            outEl.style.opacity = "1";
+            nextBtn.classList.add("visible");
+          }, 300);
+        }, 200);
+      }
+    }, 80);
+  }
+
+  /* ── STAGE 1: CARGO ── */
+  document.getElementById("cargo-roll-btn").addEventListener("click", () => {
+    rollCheck("cargo", STR, (roll, total, success, nat20, nat1) => {
+      let txt = success
+        ? (nat20 ? C.cargoNat20 : C.cargoSucc)
+        : (nat1  ? C.cargoNat1  : C.cargoFail);
+      document.getElementById("cargo-outcome").textContent = txt;
+      results.cargo = success ? (nat20 ? "Critical success" : "Success") : (nat1 ? "Critical failure" : "Failure");
+      const pts = nat20 ? 4 : success ? 3 : nat1 ? -1 : 0;
+      score += pts;
+      document.getElementById("tally-cargo").textContent = results.cargo;
+      updateTotalTally();
+    });
+  });
+  document.getElementById("cargo-next").addEventListener("click", () => {
+    setSidebar("The mainsail is bellying and snapping. If it shreds, you lose all steering. Someone has to go up there — in this — and bring it down.", "STAGE 2 OF 3 · RIGGING", "Climb the ice-slick shrouds and reef the sail before the wind takes the rig.");
+    goToScreen("screen-rigging");
+    flashLightning();
+  });
+
+  /* ── STAGE 2: RIGGING ── */
+  document.getElementById("rig-roll-btn").addEventListener("click", () => {
+    rollCheck("rig", DEX, (roll, total, success, nat20, nat1) => {
+      let txt = success
+        ? (nat20 ? C.rigNat20 : C.rigSucc)
+        : (nat1  ? C.rigNat1  : C.rigFail);
+      document.getElementById("rig-outcome").textContent = txt;
+      results.rig = success ? (nat20 ? "Critical success" : "Success") : (nat1 ? "Critical failure" : "Failure");
+      const pts = nat20 ? 4 : success ? 3 : nat1 ? -1 : 0;
+      score += pts;
+      document.getElementById("tally-rig").textContent = results.rig;
+      updateTotalTally();
+    });
+  });
+  document.getElementById("rig-next").addEventListener("click", () => {
+    setSidebar("The helmsman is down. The wheel is spinning free. A rogue wave is coming — forty feet if it's an inch. Someone has to take the helm RIGHT NOW.", "STAGE 3 OF 3 · THE HELM", "Read the swells. Face the waves head-on. Keep her upright.");
+    goToScreen("screen-helm");
+    flashLightning(true);
+  });
+
+  /* ── STAGE 3: HELM ── */
+  document.getElementById("helm-roll-btn").addEventListener("click", () => {
+    rollCheck("helm", WIS, (roll, total, success, nat20, nat1) => {
+      let txt = success
+        ? (nat20 ? C.helmNat20 : C.helmSucc)
+        : (nat1  ? C.helmNat1  : C.helmFail);
+      document.getElementById("helm-outcome").textContent = txt;
+      results.helm = success ? (nat20 ? "Critical success" : "Success") : (nat1 ? "Critical failure" : "Failure");
+      const pts = nat20 ? 4 : success ? 3 : nat1 ? -1 : 0;
+      score += pts;
+      document.getElementById("tally-helm").textContent = results.helm;
+      updateTotalTally();
+    });
+  });
+  document.getElementById("helm-next").addEventListener("click", () => {
+    showResult();
+  });
+
+  /* ── TALLY ── */
+  function updateTotalTally() {
+    const successes = [results.cargo, results.rig, results.helm].filter(
+      r => r && (r === "Success" || r === "Critical success")
+    ).length;
+    document.getElementById("tally-total").textContent = successes + " / 3";
+  }
+
+  /* ── RESULT ── */
+  const VERDICTS = [
+    {
+      minScore: 9,
+      title: "The Remorhaz Holds",
+      text: "The storm breaks before dawn — and with it, any doubt about who commands this crew. Ursula meets you on the deck as the sky lightens. She says nothing. She nods once. From her, that is everything. The crew will follow you to Eiselcross and beyond.",
+      scoreDisplay: 10
+    },
+    {
+      minScore: 7,
+      title: "Bloodied but Upright",
+      text: "The Remorhaz is battered. She'll need work. But she is upright, she is sailing, and the crew is alive. Ursula shouts from the crow's nest as the squall passes: 'She held! The ship held!' What she means is: you held.",
+      scoreDisplay: 8
+    },
+    {
+      minScore: 4,
+      title: "A Costly Storm",
+      text: "The ship took damage, and not all of it can be fixed at sea. The crew is quiet, wringing out wet gear and avoiding each other's eyes. They survived. Whether they thrived — that depends on what comes next. Ursula says the sky will be clear by morning, at least.",
+      scoreDisplay: 5
+    },
+    {
+      minScore: 1,
+      title: "The Tempest's Due",
+      text: "The storm took more than it should have. Supplies are gone, a section of hull needs emergency caulking, and the crew's spirit is as waterlogged as the lower decks. They're alive — barely. Ursula is silent in her nest for a very long time.",
+      scoreDisplay: 3
+    },
+    {
+      minScore: -99,
+      title: "The Sea Takes What It Wants",
+      text: "A catastrophic night. The Remorhaz limps on into grey dawn under skeleton sails. The crew works in silence. No one died — but no one speaks, either. A day of emergency repairs lies ahead before you can sail again.",
+      scoreDisplay: 1
+    }
+  ];
+
+  function showResult() {
+    const successes = [results.cargo, results.rig, results.helm].filter(
+      r => r && (r === "Success" || r === "Critical success")
+    ).length;
+    const clampedScore = Math.max(0, Math.min(10, score));
+
+    const verdict = VERDICTS.find(v => clampedScore >= v.minScore) || VERDICTS[VERDICTS.length - 1];
+    document.getElementById("result-score").textContent = verdict.scoreDisplay;
+    document.getElementById("result-verdict").innerHTML =
+      `<strong>${verdict.title}.</strong> ${verdict.text}`;
+
+    if (verdict.scoreDisplay <= 3) {
+      document.getElementById("retry-btn").style.display = "";
+    }
+
+    // Save
+    try {
+      const ex = JSON.parse(localStorage.getItem("remorhaz") || "{}");
+      localStorage.setItem("remorhaz", JSON.stringify({
+        ...ex,
+        stormScore: clampedScore,
+        stormSuccesses: successes,
+        currentDay: Math.max(ex.currentDay || 7, 8),
+        completedDays: [...new Set([...(ex.completedDays || []), 7])],
+        completed: [...new Set([...(ex.completed || []), "ursula"])],
+      }));
+    } catch(e) {}
+
+    setSidebar(
+      successes >= 2
+        ? "The sky lightens in the east. She made it. You made it. Fair winds ahead, if you're lucky."
+        : "The storm passes as storms do — indifferent to what they have broken. She holds together. Just.",
+      "DAY 7 · COMPLETE",
+      "The worst is over."
+    );
+    goToScreen("screen-result");
+    flashLightning(successes >= 2);
+  }
+
+  document.getElementById("hub-btn").addEventListener("click", () => _navigateTo("index.html"));
+  document.getElementById("retry-btn").addEventListener("click", () => _navigateTo(window.location.href));
+
+  /* ── SIDEBAR UPDATER ── */
+  function setSidebar(dialogue, phase, inst) {
+    const dlEl = document.getElementById("sidebar-dialogue");
+    dlEl.style.opacity = "0";
+    setTimeout(() => {
+      dlEl.textContent = dialogue;
+      dlEl.style.opacity = "1";
+    }, 200);
+    document.getElementById("sidebar-phase").textContent = phase;
+    document.getElementById("sidebar-inst").textContent  = inst;
+  }
+
+})();
+</script>
+</body>
+</html>
