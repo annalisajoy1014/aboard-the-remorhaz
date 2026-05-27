@@ -798,34 +798,66 @@ function flashLightning(strong) {
     const clampedScore = Math.max(0, Math.min(10, score));
 
     const verdict = VERDICTS.find(v => clampedScore >= v.minScore) || VERDICTS[VERDICTS.length - 1];
-    document.getElementById("result-score").textContent = verdict.scoreDisplay;
-    document.getElementById("result-verdict").innerHTML =
-      `<strong>${verdict.title}.</strong> ${verdict.text}`;
+    const isHighScore = clampedScore >= 9;
+    const isPoorScore = clampedScore <= 3;
 
-    if (verdict.scoreDisplay <= 3) {
+    // Read existing state before computing consequences
+    let ex = {};
+    try { ex = JSON.parse(localStorage.getItem("remorhaz") || "{}"); } catch {}
+
+    // Fishing / cooking re-do requirements for poor score
+    const lc = ex.lastCatch;
+    const refishRequired = isPoorScore && (!lc || lc.quality === "Meagre Haul");
+    const recookRequired = isPoorScore && (refishRequired || (ex.cookingScore || 0) < 28);
+
+    // Consequence text appended to verdict
+    let consequenceHtml = "";
+    if (isHighScore) {
+      consequenceHtml = ` <em>The crew's loyalty is absolute. The sea runs clear — you sail straight into Syrinlya, one full day early.</em>`;
+      document.getElementById("hub-btn").textContent = "Sail Into Syrinlya →";
+    } else if (isPoorScore) {
+      consequenceHtml = ` <em>A day of emergency repairs lies ahead before the Remorhaz can sail again. Kalt will be waiting.`;
+      if (refishRequired) consequenceHtml += ` The storm destroyed most of the food stores — fishing and cooking must be repeated before you can depart.`;
+      consequenceHtml += `</em>`;
       document.getElementById("retry-btn").style.display = "";
     }
 
-    // Save
+    document.getElementById("result-score").textContent = verdict.scoreDisplay;
+    document.getElementById("result-verdict").innerHTML =
+      `<strong>${verdict.title}.</strong> ${verdict.text}${consequenceHtml}`;
+
+    // Save with branching consequences
     try {
-      const ex = JSON.parse(localStorage.getItem("remorhaz") || "{}");
-      localStorage.setItem("remorhaz", JSON.stringify({
+      const saveObj = {
         ...ex,
         stormScore: clampedScore,
         stormSuccesses: successes,
-        currentDay: Math.max(ex.currentDay || 7, 8),
         completedDays: [...new Set([...(ex.completedDays || []), 7])],
         completed: [...new Set([...(ex.completed || []), "ursula"])],
-      }));
+      };
+      if (isHighScore) {
+        saveObj.skipToSyrinlya = true;
+        saveObj.currentDay = 9;
+        saveObj.completedDays = [...new Set([...saveObj.completedDays, 8])];
+      } else if (isPoorScore) {
+        saveObj.repairDayRequired = true;
+        saveObj.refishRequired = refishRequired;
+        saveObj.recookRequired = recookRequired;
+        saveObj.currentDay = Math.max(ex.currentDay || 7, 8);
+      } else {
+        saveObj.currentDay = Math.max(ex.currentDay || 7, 8);
+      }
+      localStorage.setItem("remorhaz", JSON.stringify(saveObj));
     } catch(e) {}
 
-    setSidebar(
-      successes >= 2
-        ? "The sky lightens in the east. She made it. You made it. Fair winds ahead, if you're lucky."
-        : "The storm passes as storms do — indifferent to what they have broken. She holds together. Just.",
-      "DAY 7 · COMPLETE",
-      "The worst is over."
-    );
+    const sidebarMsg = isHighScore
+      ? "The sky is clean. The crew is with you. The Remorhaz runs before a fair wind — straight to Syrinlya."
+      : isPoorScore
+        ? "The damage is significant. Kalt is already below decks, assessing the hull. You will not sail until she says so."
+        : successes >= 2
+          ? "The sky lightens in the east. She made it. You made it. Fair winds ahead, if you're lucky."
+          : "The storm passes as storms do — indifferent to what they have broken. She holds together. Just.";
+    setSidebar(sidebarMsg, "DAY 7 · COMPLETE", isHighScore ? "Smooth sailing ahead." : "The worst is over.");
     goToScreen("screen-result");
     flashLightning(successes >= 2);
   }

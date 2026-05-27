@@ -1522,6 +1522,13 @@ function _navigateTo(url) {
         activityTitle: "DAY 4 · MARITIME COMBAT",
         activityDesc: "Captain Isskegg has assigned you to Haldor for basic combat training. Weapon drills first — then a live boarding simulation. Come ready to move.",
       },
+      day8: {
+        dayLabel: "DAY · 08 — EMERGENCY FISHING",
+        hook: "Storm ate the stores. Back to the lines — we don't reach Eiselcross on empty bellies.",
+        dialogue: "The bilge is half full of saltwater where the biscuit barrels used to be. Maybe two days of thin rations if we stretch it — which we won't. Lines are already out. Get over here and pull. No ceremony, no patience. Pull.",
+        activityTitle: "DAY 8 · EMERGENCY FISHING",
+        activityDesc: "The storm destroyed most of the food stores. Get back to the lines with Haldor — the crew needs provisions before the Remorhaz can sail on.",
+      },
     },
     ingrid: {
       name: "Chef Ingrid Firebrew",
@@ -1540,6 +1547,13 @@ function _navigateTo(url) {
       ],
       activityTitle: "DAY 1 · COOKING",
       activityDesc: "Help Ingrid render the day's catch into something warm. The galley is the only place on this ship that smells of home.",
+      day8: {
+        dayLabel: "DAY · 08 — EMERGENCY COOKING",
+        hook: "Do not bring me that fish and expect me to do nothing with it. Come.",
+        dialogue: "The galley took on water. The hearth is damp, the spice rack is overboard somewhere, and what provisions we saved are barely worth the name. There is fresh fish, if Haldor has done his job. I will make something of it. You will help and you will not waste a single scrap.",
+        activityTitle: "DAY 8 · EMERGENCY COOKING",
+        activityDesc: "Food stores were lost in the storm. Help Ingrid prepare the fresh catch — every meal counts before you can sail again.",
+      },
     },
     kalt: {
       name: "Kalt Ironfist",
@@ -1558,6 +1572,13 @@ function _navigateTo(url) {
       ],
       activityTitle: "DAY 2 · SHIP MAINTENANCE",
       activityDesc: "Inspect ropes, mend sailcloth, and check the rigging before the next squall. Sloppy work here will cost lives later.",
+      day8: {
+        dayLabel: "DAY · 08 — EMERGENCY REPAIRS",
+        hook: "The storm had its way with my ship. Let's put it right — now.",
+        dialogue: "The mainmast brace is cracked. Two bilge pumps are clogged. Port shrouds have rope damage across six lines, and the spare anchor dragged its cradle halfway across the stern. This is what a bad storm leaves you. Pick up a wrench. We are not going anywhere until I say we are fit to sail.",
+        activityTitle: "DAY 8 · EMERGENCY REPAIRS",
+        activityDesc: "The storm dealt severe damage to the Remorhaz. Work with Kalt to fix what broke — the ship cannot sail until she clears it for sea.",
+      },
     },
     ursula: {
       name: "Ursula Elara",
@@ -1608,17 +1629,62 @@ function _navigateTo(url) {
   /* ============== STATE ============== */
   const state = {
     currentDay: 1,
-    completed: new Set(),    // npc keys
-    completedDays: new Set() // day numbers fully done
+    completed: new Set(),
+    completedDays: new Set()
   };
 
-  // Persist
+  // Load raw flags from storm outcome
+  const _raw = (() => { try { return JSON.parse(localStorage.getItem("remorhaz") || "{}"); } catch { return {}; } })();
+  const repairDayRequired = !!_raw.repairDayRequired;
+  const refishRequired    = !!_raw.refishRequired;
+  const recookRequired    = !!_raw.recookRequired;
+  const skipToSyrinlya    = !!_raw.skipToSyrinlya;
+  const d8_initialized    = !!_raw.d8_initialized;
+
+  // Persist base state
   try {
-    const s = JSON.parse(localStorage.getItem("remorhaz") || "{}");
-    if (s.currentDay) state.currentDay = s.currentDay;
-    if (Array.isArray(s.completed)) state.completed = new Set(s.completed);
-    if (Array.isArray(s.completedDays)) state.completedDays = new Set(s.completedDays);
+    if (_raw.currentDay) state.currentDay = _raw.currentDay;
+    if (Array.isArray(_raw.completed)) state.completed = new Set(_raw.completed);
+    if (Array.isArray(_raw.completedDays)) state.completedDays = new Set(_raw.completedDays);
   } catch (e) { /* ignore */ }
+
+  // Day 8 repair: first-visit setup — clear required NPCs so they must be re-done
+  if (repairDayRequired && state.currentDay === 8 && !d8_initialized) {
+    state.completed.delete("kalt");
+    if (refishRequired) state.completed.delete("haldor");
+    if (recookRequired) state.completed.delete("ingrid");
+    try {
+      const _ex8 = JSON.parse(localStorage.getItem("remorhaz") || "{}");
+      localStorage.setItem("remorhaz", JSON.stringify({ ..._ex8, d8_initialized: true, completed: [...state.completed] }));
+    } catch {}
+  }
+
+  // Dynamic DAYS overrides based on storm outcome
+  if (repairDayRequired) {
+    const _d8 = DAYS.find(d => d.n === 8);
+    if (_d8) {
+      _d8.label = "Emergency Repairs";
+      _d8.npcs = ["kalt"];
+      if (refishRequired) _d8.npcs.push("haldor");
+      if (recookRequired) _d8.npcs.push("ingrid");
+    }
+  }
+  if (skipToSyrinlya) {
+    const _d8s = DAYS.find(d => d.n === 8);
+    if (_d8s) _d8s.label = "Fair Winds";
+    const _d9s = DAYS.find(d => d.n === 9);
+    if (_d9s) _d9s.label = "Arrival at Syrinlya";
+  }
+
+  // If all required Day 8 repairs are done, advance to Day 9
+  if (repairDayRequired && state.currentDay === 8) {
+    const _d8c = DAYS.find(d => d.n === 8);
+    if (_d8c && _d8c.npcs.length > 0 && _d8c.npcs.every(k => state.completed.has(k))) {
+      state.completedDays.add(8);
+      state.currentDay = 9;
+      save();
+    }
+  }
 
   function save() {
     try {
@@ -1743,10 +1809,16 @@ function _navigateTo(url) {
       pStatus.textContent = "";
     } else if (state.completed.has(zone)) {
       pBegin.textContent = "RE-VISIT";
-      pStatus.textContent = `Completed on Day ${npc.day}.`;
+      const _isD8req = repairDayRequired && state.currentDay === 8 && (DAYS.find(d => d.n === 8)?.npcs || []).includes(zone);
+      pStatus.textContent = _isD8req
+        ? "Emergency work complete — well done."
+        : `Completed on Day ${npc.day}.`;
     } else if (state.currentDay >= npc.day) {
       pBegin.textContent = "BEGIN ACTIVITY";
-      pStatus.textContent = `Available now — Day ${state.currentDay} of nine.`;
+      const _isD8req = repairDayRequired && state.currentDay === 8 && (DAYS.find(d => d.n === 8)?.npcs || []).includes(zone);
+      pStatus.textContent = _isD8req
+        ? "Required for repairs — the ship cannot sail without this."
+        : `Available now — Day ${state.currentDay} of nine.`;
     } else {
       pBegin.textContent = "NOT YET";
       pStatus.textContent = `Held in reserve until Day ${npc.day}.`;
@@ -1800,7 +1872,8 @@ function _navigateTo(url) {
 
     // Route to mini-game pages
     const routes = {
-      haldor: state.currentDay >= 4 ? "combat.html" : "fishing.html",
+      haldor: (repairDayRequired && state.currentDay === 8) ? "fishing.html"
+              : state.currentDay >= 4 ? "combat.html" : "fishing.html",
       ingrid:  "cooking.html",
       kalt:    "maintenance.html",
       ursula:  state.currentDay >= 7 ? "weatherstorm.html" : state.currentDay >= 6 ? "seabattle.html" : "navigation.html",
@@ -1925,7 +1998,10 @@ function _navigateTo(url) {
 
   function showDayTransition(prevDay, newDay) {
     const newDayData = DAYS.find(d => d.n === newDay);
-    cinDayPrevLbl.textContent  = `Day ${prevDay} draws to a close.`;
+    const skipped = skipToSyrinlya && newDay === 9 && prevDay <= 7;
+    cinDayPrevLbl.textContent  = skipped
+      ? "The storm broke, and the sea lay down. Day 8 — fair winds, uncontested."
+      : `Day ${prevDay} draws to a close.`;
     cinDayNumber.textContent   = "DAY · " + String(newDay).padStart(2, "0");
     cinDayEventLbl.textContent = newDayData ? newDayData.label : "";
     cinDay.classList.add("active");
