@@ -644,6 +644,18 @@
   /* Hide tooltip when shroud is open */
   .modal-shroud.open ~ .tooltip { opacity: 0 !important; }
 
+  /* ── RESTART BUTTON ── */
+  .restart-btn {
+    display: block; margin-top: 12px;
+    font-family: "IM Fell English SC", serif; font-size: 11px;
+    letter-spacing: 0.2em; color: var(--paper-deep);
+    background: none; border: 1px solid var(--paper-deep);
+    padding: 5px 12px; cursor: pointer; border-radius: 1px;
+    transition: color 0.2s, border-color 0.2s, opacity 0.2s;
+    opacity: 0.55; pointer-events: auto;
+  }
+  .restart-btn:hover { color: var(--blood); border-color: var(--blood); opacity: 1; }
+
   /* ── NPC / CHARACTER CINEMATIC OVERLAY ── */
   .cin-npc {
     position: fixed; inset: 0; z-index: 50;
@@ -782,6 +794,8 @@
 
 <div class="stage" id="stage">
 
+  <div id="page-fade" class="page-fade in"></div>
+
   <div class="backdrop"></div>
 
   <!-- Snow -->
@@ -805,6 +819,7 @@
   <div class="chrome chrome-bottom-left">
     <div class="compass">LATITUDE 71° 14' N · LONGITUDE — UNCHARTED</div>
     <div>Hover any soul aboard to learn their watch; click to read the day's chapter.</div>
+    <button class="restart-btn" id="restartBtn">↺ Restart Adventure</button>
   </div>
 
   <!-- SHIP SVG -->
@@ -1447,6 +1462,15 @@
 </div>
 
 <script>
+/* ── PAGE TRANSITIONS ── */
+const _pf = document.getElementById("page-fade");
+setTimeout(() => { if (_pf) _pf.classList.remove("in"); }, 50);
+function _navigateTo(url) {
+  if (!_pf) { window.location.href = url; return; }
+  _pf.classList.add("in");
+  _pf.addEventListener("transitionend", () => { window.location.href = url; }, { once: true });
+}
+
 (() => {
   /* ============== CHARACTER GUARD ============== */
   try {
@@ -1769,7 +1793,7 @@
     };
     if (routes[activeZone]) {
       save();
-      window.location.href = routes[activeZone];
+      _navigateTo(routes[activeZone]);
       return;
     }
 
@@ -1901,19 +1925,26 @@
 
   cinDay.addEventListener("click", dismissDayTransition);
 
-  // Detect day change since last visit
+  // Detect day change since last visit (delay until after page-fade completes)
   {
     const _s = JSON.parse(localStorage.getItem("remorhaz") || "{}");
     const lastSeen = _s.lastSeenDay || 0;
-    if (state.currentDay > lastSeen && lastSeen > 0) {
-      showDayTransition(lastSeen, state.currentDay);
-    }
-    // Update lastSeenDay immediately so refresh doesn't re-show
+    // Update lastSeenDay immediately so a refresh won't re-show the cinematic
     try {
       const _ex = JSON.parse(localStorage.getItem("remorhaz") || "{}");
       localStorage.setItem("remorhaz", JSON.stringify({ ..._ex, lastSeenDay: state.currentDay }));
     } catch {}
+    if (state.currentDay > lastSeen && lastSeen > 0) {
+      setTimeout(() => showDayTransition(lastSeen, state.currentDay), 750);
+    }
   }
+
+  /* ============== RESTART ============== */
+  document.getElementById("restartBtn").addEventListener("click", () => {
+    if (!confirm("Begin a new voyage?\n\nAll progress will be permanently lost.")) return;
+    localStorage.removeItem("remorhaz");
+    _navigateTo("character-select.html");
+  });
 
   /* ============== INITIAL EFFECTS ============== */
   // Subtle parallax on mouse move for ship
