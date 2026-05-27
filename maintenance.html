@@ -219,6 +219,47 @@
 .result-kalt { font-family:"Caveat",cursive; font-size:17px; color:var(--hull-dark); border-top:1px solid var(--paper-deep); padding-top:12px; line-height:1.45; }
 .result-actions { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin-top:4px; }
 
+/* ── DIALOGUE CHOICE SCREEN ── */
+.dialogue-screen-content {
+  max-width: 480px; width: 92%;
+  display: flex; flex-direction: column; align-items: center; gap: 20px;
+}
+.kalt-speech-bubble {
+  font-family: "IM Fell English", serif; font-style: italic;
+  font-size: 15.5px; line-height: 1.72; color: var(--paper);
+  text-align: center; padding: 22px 28px;
+  border-left: 2px solid color-mix(in oklch, var(--paper-deep) 55%, transparent);
+  border-right: 2px solid color-mix(in oklch, var(--paper-deep) 55%, transparent);
+  background: rgba(0,0,0,0.22);
+}
+.dialogue-prompt {
+  font-family: "Caveat", cursive; font-size: 15px;
+  color: var(--paper-deep); text-align: center;
+}
+.dialogue-choices { display: flex; flex-direction: column; gap: 9px; width: 100%; }
+.dialogue-btn {
+  font-family: "IM Fell English", serif; font-style: italic;
+  font-size: 14px; line-height: 1.5; color: var(--paper);
+  background: rgba(0,0,0,0.32);
+  border: 1px solid color-mix(in oklch, var(--paper-deep) 38%, transparent);
+  padding: 13px 18px; cursor: pointer; text-align: left;
+  transition: background 0.2s, border-color 0.2s, transform 0.12s;
+}
+.dialogue-btn:hover:not(:disabled) {
+  background: rgba(0,0,0,0.52);
+  border-color: color-mix(in oklch, var(--paper-deep) 75%, transparent);
+  transform: translateX(4px);
+}
+.dialogue-btn:disabled { cursor: default; }
+.dialogue-btn.chosen {
+  border-color: var(--lamp);
+  background: color-mix(in oklch, var(--lamp) 9%, rgba(0,0,0,0.5));
+}
+.tone-tag {
+  display: block; font-family: "IM Fell English SC", serif; font-style: normal;
+  font-size: 10px; letter-spacing: 0.24em; color: var(--blood); margin-bottom: 5px;
+}
+
 /* ── TRANSITION OVERLAY ── */
 .transition-overlay {
   position: absolute; inset: 0; z-index: 30;
@@ -295,6 +336,26 @@
         </div>
       </div>
 
+      <!-- DIALOGUE 1: after rope inspection -->
+      <div class="screen" id="screen-dialogue1">
+        <div class="screen-title">— KALT SPEAKS —</div>
+        <div class="dialogue-screen-content">
+          <div class="kalt-speech-bubble" id="kaltSpeech1">&nbsp;</div>
+          <div class="dialogue-prompt">How do you respond?</div>
+          <div class="dialogue-choices" id="dialogueChoices1"></div>
+        </div>
+      </div>
+
+      <!-- DIALOGUE 2: after sail repair -->
+      <div class="screen" id="screen-dialogue2">
+        <div class="screen-title">— KALT SPEAKS —</div>
+        <div class="dialogue-screen-content">
+          <div class="kalt-speech-bubble" id="kaltSpeech2">&nbsp;</div>
+          <div class="dialogue-prompt">How do you respond?</div>
+          <div class="dialogue-choices" id="dialogueChoices2"></div>
+        </div>
+      </div>
+
       <!-- RESULT -->
       <div class="screen" id="screen-result">
         <div class="result-card" id="resultCard"></div>
@@ -355,6 +416,7 @@ function loadState() {
   try {
     const s = JSON.parse(localStorage.getItem("remorhaz") || "{}");
     return {
+      selectedCharacter: s.selectedCharacter || null,
       currentDay:       s.currentDay       || 1,
       completed:        Array.from(s.completed    || []),
       completedDays:    Array.from(s.completedDays || []),
@@ -364,7 +426,14 @@ function loadState() {
     };
   } catch { return { currentDay: 1, completed: [], completedDays: [], cookingScore: 0 }; }
 }
-function saveState(s) { localStorage.setItem("remorhaz", JSON.stringify(s)); }
+function saveState(s) {
+  try {
+    const existing = JSON.parse(localStorage.getItem("remorhaz") || "{}");
+    localStorage.setItem("remorhaz", JSON.stringify({ ...existing, ...s }));
+  } catch {
+    localStorage.setItem("remorhaz", JSON.stringify(s));
+  }
+}
 
 const appState   = loadState();
 const catchRoll  = appState.lastCatch?.roll ?? 2;
@@ -459,6 +528,130 @@ const CFGS = {
 
 const cfg = CFGS[kaltMood.toString()];
 let stage1Score = 0, stage2Score = 0, stage3Score = 0;
+let rapport = 0;  // -2 to +2, shaped by player's dialogue choices
+
+const DIALOGUE_SETS = [
+  // Set 0 — after rope inspection, before sail repair
+  {
+    kaltSpeech: {
+      "-2": "That inspection tells me what I needed to know about you. Unfortunately.",
+      "-1": "Some of those wear points were obvious. The ones you missed were not. Keep that in mind.",
+       "0": "Not bad. I've seen worse rope inspections from hands who've been at sea for years.",
+       "1": "You know what you're looking for. That matters on a long voyage.",
+       "2": "...You have good eyes. That's useful out here.",
+    },
+    choices: [
+      {
+        tone: "AMICABLE",
+        text: "I'll pay closer attention next time. What should I watch for on the sail?",
+        rapport: +1,
+        kaltReply: {
+          "-2": "You're asking me. Fine. Watch the batten seams first.",
+          "-1": "The stitching tells you more than the canvas itself.",
+           "0": "Along the tear lines. Follow them from edge to center.",
+           "1": "Aye. The batten edges first, then the middle seams.",
+           "2": "You're already thinking. Good.",
+        },
+      },
+      {
+        tone: "ARGUMENTATIVE",
+        text: "Some of those spots were nearly invisible. I'm not sure anyone could have caught them all.",
+        rapport: -1,
+        kaltReply: {
+          "-2": "I find every single one. Every voyage. Because I look.",
+          "-1": "I find all of them. That's why I'm the carpenter.",
+           "0": "I find all of them. Every time. That is the standard.",
+           "1": "They weren't invisible. They were subtle. There is a difference.",
+           "2": "You could have found them. You chose not to look that closely.",
+        },
+      },
+      {
+        tone: "PLACATING",
+        text: "Understood. Ready for the next task whenever you are.",
+        rapport: 0,
+        kaltReply: {
+          "-2": "Sail. Pay attention this time.",
+          "-1": "Good. Don't dawdle.",
+           "0": "Sail repair. Follow my lead.",
+           "1": "Sail stitching. You'll manage.",
+           "2": "Aye. Move.",
+        },
+      },
+      {
+        tone: "COMPLIMENTARY",
+        text: "You clearly know this ship better than anyone. I'm glad you're the one teaching me.",
+        rapport: +1,
+        kaltReply: {
+          "-2": "Don't try to soften me with words. Work.",
+          "-1": "Prove yourself with the sail. That's how this works.",
+           "0": "The Captain relies on results. Go produce some.",
+           "1": "Aye. Keep that awareness.",
+           "2": "...We'll see if you can back that up. Move.",
+        },
+      },
+    ],
+  },
+  // Set 1 — after sail repair, before hull work
+  {
+    kaltSpeech: {
+      "-2": "Hull work next. Try not to drown us.",
+      "-1": "Hull breach below. Let's see how your hands hold when it matters.",
+       "0": "Sail's done. Hull's below, and it needs attention. Quick hands — that's what the hull demands.",
+       "1": "Good stitching. Hull work's different — it needs holding power, not just precision.",
+       "2": "You've got steady hands. The hull will test whether endurance comes with them.",
+    },
+    choices: [
+      {
+        tone: "AMICABLE",
+        text: "I'll keep up. Is there a technique I should know going in?",
+        rapport: +1,
+        kaltReply: {
+          "-2": "One tap for small cracks. Hold the large ones until they seal. Don't let go.",
+          "-1": "Small: one press. Large: hold it shut. Simple.",
+           "0": "Quick cracks get one press. Deep ones need holding. Watch the gauge.",
+           "1": "You've got the instinct. Trust it.",
+           "2": "You'll figure it out. You usually do.",
+        },
+      },
+      {
+        tone: "ARGUMENTATIVE",
+        text: "If the hull's this far gone, why wasn't it caught before we sailed?",
+        rapport: -1,
+        kaltReply: {
+          "-2": "Because the sea makes new problems faster than we find old ones. That's why we inspect.",
+          "-1": "Wood moves. Water works at it every day. That's why we maintain.",
+           "0": "Ships flex. They crack. That's why maintenance exists.",
+           "1": "That is actually a fair question. Wood moves under wave pressure. Constant vigilance.",
+           "2": "Minor breaches are expected on any voyage. Major ones are not. That's the line we hold.",
+        },
+      },
+      {
+        tone: "PLACATING",
+        text: "Understood. I'll stay focused and follow your lead.",
+        rapport: 0,
+        kaltReply: {
+          "-2": "Focus or don't. Just seal the cracks.",
+          "-1": "Good. Hull won't wait.",
+           "0": "Aye. Keep it.",
+           "1": "Good attitude.",
+           "2": "That is all I ask.",
+        },
+      },
+      {
+        tone: "COMPLIMENTARY",
+        text: "The way you handled that sail — the whole crew should see what real craftsmanship looks like.",
+        rapport: +1,
+        kaltReply: {
+          "-2": "Don't flatter me. Seal the hull.",
+          "-1": "I take pride in results. Go produce some.",
+           "0": "Every hand on this ship should take pride in their work. Including you. Hull, now.",
+           "1": "Aye. And now you'll take pride in yours.",
+           "2": "...Then match it. Hull's below.",
+        },
+      },
+    ],
+  },
+];
 
 /* ══════════════════════════════════════════
    SIDEBAR HELPERS
@@ -494,6 +687,45 @@ function goToScreen(id) {
     document.getElementById(id).classList.add("active");
     fadeOverlay.classList.remove("fade-in");
   }, 380);
+}
+
+/* ══════════════════════════════════════════
+   DIALOGUE CHOICE HANDLER
+══════════════════════════════════════════ */
+function showDialogue(idx) {
+  const set      = DIALOGUE_SETS[idx];
+  const speechEl = document.getElementById("kaltSpeech" + (idx+1));
+  const choicesEl= document.getElementById("dialogueChoices" + (idx+1));
+
+  const speech = set.kaltSpeech[kaltMood.toString()];
+  speechEl.textContent = speech;
+  setDialogue(speech);
+
+  choicesEl.innerHTML = "";
+  set.choices.forEach(choice => {
+    const btn = document.createElement("button");
+    btn.className = "dialogue-btn";
+    btn.innerHTML = `<span class="tone-tag">— ${choice.tone} —</span>${choice.text}`;
+    btn.addEventListener("click", () => {
+      rapport = Math.max(-2, Math.min(2, rapport + choice.rapport));
+      const reply = choice.kaltReply[kaltMood.toString()];
+      setDialogue(reply);
+      choicesEl.querySelectorAll(".dialogue-btn").forEach(b => { b.disabled = true; });
+      btn.classList.add("chosen");
+      setTimeout(() => {
+        if (idx === 0) {
+          setDialogue(cfg.kaltPre2);
+          goToScreen("screen-sail");
+          setTimeout(startSailRepair, 500);
+        } else {
+          setDialogue(cfg.kaltPre3);
+          goToScreen("screen-hull");
+          setTimeout(startHullRepair, 500);
+        }
+      }, 1900);
+    });
+    choicesEl.appendChild(btn);
+  });
 }
 
 /* ══════════════════════════════════════════
@@ -760,8 +992,8 @@ function startRopeInspection() {
     document.getElementById("ropeFeedback").textContent = `${spotted} / ${TOTAL} found · ${stage1Score} / 15 pts`;
 
     setTimeout(() => {
-      goToScreen("screen-sail");
-      setTimeout(startSailRepair, 500);
+      goToScreen("screen-dialogue1");
+      showDialogue(0);
     }, 2000);
   }
 }
@@ -1036,8 +1268,8 @@ function startSailRepair() {
     document.getElementById("stitchHint").textContent = `${totalHit} / ${totalDots} stitches · ${stage2Score} / 15 pts`;
 
     setTimeout(() => {
-      goToScreen("screen-hull");
-      setTimeout(startHullRepair, 500);
+      goToScreen("screen-dialogue2");
+      showDialogue(1);
     }, 2000);
   }
 }
@@ -1397,7 +1629,7 @@ function startHullRepair() {
 ══════════════════════════════════════════ */
 function showResult() {
   const total = stage1Score + stage2Score + stage3Score;
-  const earned = total >= cfg.winThreshold;
+  const earned = total >= cfg.winThreshold && rapport >= 0;
 
   const TIERS = [
     { min:42, tag:"MASTERWORK",           verdict:`Every task completed with a standard that surprised even Kalt. The crew has noticed. They respect you now — and that respect is not easily given on the Remorhaz.` },
@@ -1415,10 +1647,11 @@ function showResult() {
   setPhase("— Kalt's Assessment —", total + " / 45 points");
 
   const card = document.getElementById("resultCard");
+  const rapportLabel = rapport >= 2 ? "Solid Understanding" : rapport >= 1 ? "Cordial" : rapport === 0 ? "Professional Distance" : rapport === -1 ? "Strained" : "Hostile";
   card.innerHTML = `
     <div class="result-tag">— ${tier.tag} —</div>
     <div class="result-score">${total}</div>
-    <div class="result-max">out of 45 points</div>
+    <div class="result-max">out of 45 points · Kalt: ${rapportLabel}</div>
     ${earned ? `<div class="result-bonus">⚒ Crew Respect Earned · +1 to future ship-related checks</div>` : ""}
     <div class="result-verdict">${tier.verdict}</div>
     <div class="result-kalt">"${kaltFinal}"</div>
@@ -1426,9 +1659,10 @@ function showResult() {
 
   // Save to state
   const s = appState;
-  s.completed      = [...new Set([...s.completed, "kalt"])];
-  s.maintenanceScore   = total;
-  s.crewRespect    = earned;
+  s.completed        = [...new Set([...s.completed, "kalt"])];
+  s.maintenanceScore = total;
+  s.kaltRapport      = rapport;
+  s.crewRespect      = earned;
   if (s.completed.includes("haldor") && s.completed.includes("ingrid") && s.completed.includes("kalt")) {
     s.completedDays = [...new Set([...s.completedDays, 2])];
     if (s.currentDay < 3) s.currentDay = 3;

@@ -1,0 +1,1043 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Day 3 · Navigation — Aboard the Remorhaz</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+
+.stage {
+  position: fixed; inset: 0; z-index: 1;
+  display: flex; align-items: center; justify-content: center;
+}
+.game-area {
+  display: flex; align-items: stretch;
+  width: min(92vw, 1200px); height: min(76vh, 680px);
+  box-shadow: 0 30px 80px rgba(0,0,0,0.6);
+}
+.game-panel {
+  flex: 1; position: relative; overflow: hidden;
+  border: 1px solid color-mix(in oklch, var(--paper-deep) 25%, transparent);
+  border-right: none;
+}
+.screen {
+  position: absolute; inset: 0;
+  display: none; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 16px; padding: 28px;
+  background: linear-gradient(to bottom, oklch(0.13 0.03 45), oklch(0.09 0.02 40));
+}
+.screen.active { display: flex; }
+
+/* ── SIDEBAR ── */
+.ursula-sidebar {
+  width: 300px; flex-shrink: 0;
+  background: linear-gradient(160deg,
+    color-mix(in oklch, var(--paper) 11%, var(--ink)) 0%,
+    color-mix(in oklch, var(--paper)  7%, var(--sea-deep)) 100%);
+  border: 1px solid color-mix(in oklch, var(--paper-deep) 28%, transparent);
+  padding: 36px 28px 28px;
+  display: flex; flex-direction: column; gap: 16px;
+}
+.ursula-portrait {
+  width: 100px; height: 100px; border-radius: 50%; margin: 0 auto;
+  border: 2px solid var(--paper-deep);
+  outline: 5px solid color-mix(in oklch, var(--paper-deep) 28%, transparent);
+  background: var(--hull-darkest) center/cover no-repeat;
+}
+.npc-name { font-family: "IM Fell English SC", serif; font-size: 18px; letter-spacing: 0.08em; color: var(--paper); text-align: center; }
+.npc-role { font-family: "Caveat", cursive; font-size: 14px; color: var(--paper-deep); text-align: center; margin-top: -8px; }
+.sidebar-rule { width: 100%; height: 1px; flex-shrink: 0; background: linear-gradient(to right, transparent, var(--paper-deep), transparent); }
+.npc-dialogue { font-family: "IM Fell English", serif; font-style: italic; font-size: 15px; line-height: 1.58; color: var(--paper); flex: 1; min-height: 80px; transition: opacity 0.3s; }
+.phase-label { font-family: "IM Fell English SC", serif; font-size: 11px; letter-spacing: 0.2em; color: var(--blood); text-align: center; }
+.instruction-label { font-family: "Caveat", cursive; font-size: 13px; color: var(--paper-deep); text-align: center; margin-top: -8px; }
+.score-tally { display: flex; flex-direction: column; gap: 5px; }
+.score-row { display: flex; justify-content: space-between; border-bottom: 1px dotted color-mix(in oklch, var(--paper-deep) 35%, transparent); padding-bottom: 4px; font-family: "IM Fell English SC", serif; font-size: 11px; letter-spacing: 0.1em; color: var(--paper-deep); }
+.score-row span:last-child { font-family: "IM Fell English", serif; font-style: italic; color: var(--paper); }
+.score-total-row { display: flex; justify-content: space-between; padding-top: 4px; margin-top: 2px; font-family: "IM Fell English SC", serif; font-size: 12px; letter-spacing: 0.12em; color: var(--lamp); }
+
+/* ── INTRO ── */
+.intro-icon { font-size: 46px; }
+.intro-title { font-family: "IM Fell English SC", serif; font-size: 21px; letter-spacing: 0.1em; color: var(--lamp); }
+.intro-body { font-family: "IM Fell English", serif; font-style: italic; font-size: 15.5px; line-height: 1.6; color: var(--paper-dim); text-align: center; max-width: 460px; }
+.mood-tag { font-family: "IM Fell English SC", serif; font-size: 10px; letter-spacing: 0.26em; color: var(--blood); }
+
+/* ── CANVAS + LABELS ── */
+.stage-canvas { display: block; border-radius: 2px; }
+.screen-title { font-family: "IM Fell English SC", serif; font-size: 13px; letter-spacing: 0.26em; color: var(--blood); margin-bottom: -6px; }
+.stage-feedback { font-family: "IM Fell English SC", serif; font-size: 12px; letter-spacing: 0.22em; color: var(--lamp); min-height: 18px; text-align: center; }
+.stage-prompt { font-family: "IM Fell English", serif; font-style: italic; font-size: 14px; color: var(--paper-dim); min-height: 20px; text-align: center; max-width: 460px; }
+.timer-bar-wrap { width: 480px; height: 7px; background: var(--hull-darkest); border-radius: 4px; overflow: hidden; }
+.timer-bar-fill { height: 100%; width: 100%; background: linear-gradient(to right, var(--lamp), var(--blood)); transition: width 0.1s linear; }
+
+/* ── DIALOGUE SCREENS ── */
+.dialogue-screen-content { max-width: 480px; width: 92%; display: flex; flex-direction: column; align-items: center; gap: 20px; }
+.npc-speech-bubble { font-family: "IM Fell English", serif; font-style: italic; font-size: 15.5px; line-height: 1.72; color: var(--paper); text-align: center; padding: 22px 28px; border-left: 2px solid color-mix(in oklch, var(--paper-deep) 55%, transparent); border-right: 2px solid color-mix(in oklch, var(--paper-deep) 55%, transparent); background: rgba(0,0,0,0.22); }
+.dialogue-prompt { font-family: "Caveat", cursive; font-size: 15px; color: var(--paper-deep); text-align: center; }
+.dialogue-choices { display: flex; flex-direction: column; gap: 9px; width: 100%; }
+.dialogue-btn { font-family: "IM Fell English", serif; font-style: italic; font-size: 14px; line-height: 1.5; color: var(--paper); background: rgba(0,0,0,0.32); border: 1px solid color-mix(in oklch, var(--paper-deep) 38%, transparent); padding: 13px 18px; cursor: pointer; text-align: left; transition: background 0.2s, border-color 0.2s, transform 0.12s; }
+.dialogue-btn:hover:not(:disabled) { background: rgba(0,0,0,0.52); border-color: color-mix(in oklch, var(--paper-deep) 75%, transparent); transform: translateX(4px); }
+.dialogue-btn:disabled { cursor: default; }
+.dialogue-btn.chosen { border-color: var(--lamp); background: color-mix(in oklch, var(--lamp) 9%, rgba(0,0,0,0.5)); }
+.tone-tag { display: block; font-family: "IM Fell English SC", serif; font-style: normal; font-size: 10px; letter-spacing: 0.24em; color: var(--blood); margin-bottom: 5px; }
+
+/* ── HIMMSELK OVERLAY ── */
+.himmselk-overlay {
+  position: absolute; inset: 0; z-index: 20;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 14px; background: rgba(3,6,14,0.9);
+  opacity: 0; pointer-events: none; transition: opacity 0.55s;
+}
+.himmselk-overlay.visible { opacity: 1; pointer-events: auto; }
+.himmselk-name { font-family: "IM Fell English SC", serif; font-size: 20px; letter-spacing: 0.2em; color: #e0f0ff; text-shadow: 0 0 24px rgba(160,220,255,0.9); }
+.himmselk-desc { font-family: "IM Fell English", serif; font-style: italic; font-size: 13.5px; line-height: 1.65; color: var(--paper-dim); text-align: center; max-width: 360px; }
+
+/* ── RESULT CARD ── */
+.result-card { background: linear-gradient(135deg, var(--paper) 0%, var(--paper-dim) 100%); color: var(--ink); padding: 28px 40px; max-width: 500px; width: 92%; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.65), inset 0 0 0 1px rgba(255,255,255,0.3); animation: card-rise 0.55s cubic-bezier(0.2,0.8,0.3,1) both; position: relative; overflow: hidden; }
+.result-card::before { content: ""; position: absolute; inset: 0; background: radial-gradient(ellipse at 80% 110%, color-mix(in oklch, var(--lamp) 10%, transparent), transparent 60%); pointer-events: none; }
+@keyframes card-rise { from{transform:translateY(36px);opacity:0} to{transform:translateY(0);opacity:1} }
+.result-tag { font-family:"IM Fell English SC",serif; font-size:10px; letter-spacing:0.28em; color:var(--blood); margin-bottom:6px; }
+.result-score { font-family:"IM Fell English SC",serif; font-size:52px; letter-spacing:0.04em; color:var(--ink); line-height:1; }
+.result-max { font-family:"Caveat",cursive; font-size:18px; color:var(--paper-deep); margin-bottom:8px; }
+.result-verdict { font-family:"IM Fell English",serif; font-style:italic; font-size:15px; line-height:1.6; color:var(--ink); margin-bottom:12px; }
+.result-bonus { background: color-mix(in oklch, var(--lamp) 14%, transparent); border: 1px solid var(--lamp); padding: 9px 14px; margin-bottom:10px; font-family:"IM Fell English SC",serif; font-size:11px; letter-spacing:0.18em; color:var(--ink); }
+.result-himmselk { background: rgba(160,220,255,0.12); border: 1px solid rgba(160,220,255,0.55); padding: 9px 14px; margin-bottom:10px; font-family:"IM Fell English SC",serif; font-size:11px; letter-spacing:0.14em; color:var(--ink); }
+.result-npc { font-family:"Caveat",cursive; font-size:17px; color:var(--hull-dark); border-top:1px solid var(--paper-deep); padding-top:12px; line-height:1.45; }
+.result-actions { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin-top:4px; }
+
+/* ── TRANSITION ── */
+.transition-overlay { position: absolute; inset: 0; z-index: 30; background: oklch(0.08 0.02 40); opacity: 0; pointer-events: none; transition: opacity 0.35s; }
+.transition-overlay.fade-in { opacity: 1; pointer-events: auto; }
+
+</style>
+</head>
+<body>
+
+<div class="backdrop"></div>
+<div class="snow" id="snow"></div>
+<span class="corner tl"></span><span class="corner tr"></span>
+<span class="corner bl"></span><span class="corner br"></span>
+
+<div class="page-header">
+  <div class="eyebrow">— Glassblade Trading Co., Charter Vessel —</div>
+  <div class="title">Day 3 · Navigation &amp; Lookout</div>
+  <div class="rule"></div>
+</div>
+
+<button class="back-btn" id="backBtn">← Return to Deck</button>
+
+<div class="stage">
+  <div class="game-area">
+
+    <div class="game-panel" id="gamePanel">
+      <div class="transition-overlay" id="fadeOverlay"></div>
+
+      <!-- INTRO -->
+      <div class="screen active" id="screen-intro">
+        <div class="screen-title">— THE NAVIGATION DECK —</div>
+        <div class="intro-icon">🧭</div>
+        <div class="intro-title">Navigation &amp; Lookout</div>
+        <div class="intro-body" id="introBody">&nbsp;</div>
+        <div class="mood-tag" id="moodTag">&nbsp;</div>
+        <button class="btn-primary" id="beginBtn">REPORT FOR INSTRUCTION</button>
+      </div>
+
+      <!-- STAGE 1: CHART READING -->
+      <div class="screen" id="screen-chart">
+        <div class="screen-title">— STAGE I · CHART READING —</div>
+        <canvas class="stage-canvas" id="chartCanvas" width="480" height="252"></canvas>
+        <div class="stage-prompt" id="chartPrompt">&nbsp;</div>
+        <div class="stage-feedback" id="chartFeedback">&nbsp;</div>
+        <div class="timer-bar-wrap"><div class="timer-bar-fill" id="chartTimerFill"></div></div>
+      </div>
+
+      <!-- DIALOGUE 1 -->
+      <div class="screen" id="screen-dialogue1">
+        <div class="screen-title">— URSULA SPEAKS —</div>
+        <div class="dialogue-screen-content">
+          <div class="npc-speech-bubble" id="npcSpeech1">&nbsp;</div>
+          <div class="dialogue-prompt">How do you respond?</div>
+          <div class="dialogue-choices" id="dialogueChoices1"></div>
+        </div>
+      </div>
+
+      <!-- STAGE 2: SPYGLASS -->
+      <div class="screen" id="screen-spyglass">
+        <div class="screen-title">— STAGE II · THE CROW'S NEST —</div>
+        <canvas class="stage-canvas" id="spyglassCanvas" width="480" height="252"></canvas>
+        <div class="stage-feedback" id="spyglassFeedback">&nbsp;</div>
+        <div class="timer-bar-wrap"><div class="timer-bar-fill" id="spyglassTimerFill"></div></div>
+        <!-- Himmselk overlay sits over the whole screen -->
+        <div class="himmselk-overlay" id="himmselkOverlay">
+          <canvas id="himmselkCanvas" width="220" height="140"></canvas>
+          <div class="himmselk-name">Himmselk Isful</div>
+          <div class="himmselk-desc">The Heavenly Ice-Bird. To see one is to be promised fair weather through the passage ahead. The crew will take heart.</div>
+        </div>
+      </div>
+
+      <!-- DIALOGUE 2 -->
+      <div class="screen" id="screen-dialogue2">
+        <div class="screen-title">— URSULA SPEAKS —</div>
+        <div class="dialogue-screen-content">
+          <div class="npc-speech-bubble" id="npcSpeech2">&nbsp;</div>
+          <div class="dialogue-prompt">How do you respond?</div>
+          <div class="dialogue-choices" id="dialogueChoices2"></div>
+        </div>
+      </div>
+
+      <!-- RESULT -->
+      <div class="screen" id="screen-result">
+        <div class="result-card" id="resultCard"></div>
+        <div class="result-actions">
+          <button class="btn-primary" id="toHubBtn">Return to Deck</button>
+          <button class="btn-secondary" id="retryBtn">Try Again</button>
+        </div>
+      </div>
+
+    </div><!-- /game-panel -->
+
+    <!-- SIDEBAR -->
+    <div class="ursula-sidebar">
+      <div class="ursula-portrait" id="ursulaPortrait"></div>
+      <div class="npc-name">Ursula</div>
+      <div class="npc-role">Navigator · Day 3</div>
+      <div class="sidebar-rule"></div>
+      <div class="npc-dialogue" id="npcDialogue">&nbsp;</div>
+      <div class="sidebar-rule"></div>
+      <div class="phase-label" id="phaseLabel">Intelligence (Navigation) · Wisdom (Perception)</div>
+      <div class="instruction-label" id="instructionLabel">DC 4 / DC 5 · Earn the navigator's eye</div>
+      <div class="score-tally" id="scoreTally" style="display:none">
+        <div class="score-row"><span>Chart Reading</span><span id="ts1">—</span></div>
+        <div class="score-row"><span>Crow's Nest</span><span id="ts2">—</span></div>
+        <div class="score-total-row"><span>Total</span><span id="tsTotal">—</span></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+(function () {
+
+/* ══════════════════════════════════════════
+   SNOW
+══════════════════════════════════════════ */
+const snowEl = document.getElementById("snow");
+for (let i = 0; i < 55; i++) {
+  const f = document.createElement("div"); f.className = "flake";
+  const sz = 1 + Math.random()*2.5;
+  Object.assign(f.style, { width:sz+"px", height:sz+"px", left:Math.random()*100+"%", top:Math.random()*100+"%", animationDuration:(8+Math.random()*12)+"s", animationDelay:(-Math.random()*15)+"s" });
+  snowEl.appendChild(f);
+}
+
+/* ══════════════════════════════════════════
+   STATE
+══════════════════════════════════════════ */
+function loadState() {
+  try {
+    const s = JSON.parse(localStorage.getItem("remorhaz") || "{}");
+    return {
+      selectedCharacter: s.selectedCharacter || null,
+      currentDay:    s.currentDay    || 1,
+      completed:     Array.from(s.completed    || []),
+      completedDays: Array.from(s.completedDays || []),
+      lastCatch:     s.lastCatch     || null,
+      cookingScore:  s.cookingScore  || 0,
+      crewRespect:   s.crewRespect   || false,
+      kaltRapport:   s.kaltRapport   || 0,
+    };
+  } catch { return { currentDay: 1, completed: [], completedDays: [] }; }
+}
+function saveState(patch) {
+  try {
+    const existing = JSON.parse(localStorage.getItem("remorhaz") || "{}");
+    localStorage.setItem("remorhaz", JSON.stringify({ ...existing, ...patch }));
+  } catch { localStorage.setItem("remorhaz", JSON.stringify(patch)); }
+}
+
+const appState = loadState();
+function _stat(k) { const ch = appState.selectedCharacter; return ch?.stats?.[k] || 0; }
+
+/* ══════════════════════════════════════════
+   URSULA'S MOOD  –1 to +2
+══════════════════════════════════════════ */
+let ursulaMood = 0;
+if ((appState.lastCatch?.roll ?? 0) >= 4) ursulaMood += 1;
+if (appState.crewRespect)                 ursulaMood += 1;
+if (appState.cookingScore < 15)           ursulaMood -= 1;
+ursulaMood = Math.max(-1, Math.min(2, ursulaMood));
+
+const CFGS = {
+  "-1": {
+    label: "SKEPTICAL · URSULA HAS DOUBTS",
+    chartHitR: 18, chartTimePer: 2800,
+    spyVisDur: 2000, spyFog: 0.50,
+    intro:   "Captain asked me to take you in hand. I've taught harder cases. Possibly.",
+    preChart:"This is a nautical chart. If you can follow what I'm pointing to, you may yet be useful.",
+    preSpy:  "Crow's nest now. Don't fall.",
+    failD:   "That is not it.",
+    goodD:   "Better.",
+    greatD:  "Correct.",
+    final:   ["This is a disappointing result.", "You'll improve. Eventually.", "You paid attention. That counts for something.", "...You pick things up quickly.", "You have a navigator's instinct. I did not expect that."],
+  },
+  "0": {
+    label: "PATIENT · URSULA IS WATCHING",
+    chartHitR: 24, chartTimePer: 3400,
+    spyVisDur: 2700, spyFog: 0.38,
+    intro:   "We'll begin with the chart, then move to the crow's nest. Pay close attention and ask nothing foolish.",
+    preChart:"Read every marking on this chart as if your life depends on it — because someday it will.",
+    preSpy:  "Crow's nest. One hand for the ship, one hand for the spyglass. That order.",
+    failD:   "That's not it.",
+    goodD:   "Correct.",
+    greatD:  "Well spotted.",
+    final:   ["A poor start. We'll practice more.", "You managed the basics.", "Good comprehension.", "You have a natural aptitude for this.", "Exceptional. The sea will teach you the rest."],
+  },
+  "1": {
+    label: "ENGAGED · URSULA SEES PROMISE",
+    chartHitR: 30, chartTimePer: 4000,
+    spyVisDur: 3300, spyFog: 0.27,
+    intro:   "I've heard good things. Let's find out if they're true. Chart lesson first.",
+    preChart:"Mark what I point to. Navigation is pattern recognition — I think you'll find it comes naturally.",
+    preSpy:  "Now the crow's nest. Your eyes and judgment — this is where the real work happens.",
+    failD:   "Look closer.",
+    goodD:   "Good eye.",
+    greatD:  "Very well spotted.",
+    final:   ["We'll get there.", "Solid foundation.", "You have good instincts.", "Strong work. The sea will sharpen you further.", "...You belong up there. Few can say that."],
+  },
+  "2": {
+    label: "IMPRESSED · URSULA IS INTERESTED",
+    chartHitR: 36, chartTimePer: 4700,
+    spyVisDur: 3900, spyFog: 0.18,
+    intro:   "Word travels on this ship. You've impressed Kalt — that is no small thing. Let's see if you can impress me.",
+    preChart:"A chart is a conversation between the sea and the sailor. Read it carefully — I think you'll hear it.",
+    preSpy:  "Crow's nest. I want to see what you see when you're up there. That's the real test.",
+    failD:   "...Keep looking.",
+    goodD:   "Good.",
+    greatD:  "Exactly right.",
+    final:   ["Not everything — but more than most.", "Well done. I mean it.", "You have the makings of a navigator.", "...You see things others miss. Guard that instinct.", "I would have you at my elbow on any voyage. Remember I said that."],
+  },
+};
+const cfg = CFGS[ursulaMood.toString()];
+
+let stage1Score = 0, stage2Score = 0, rapport = 0;
+let himmselkSpotted = false;
+
+/* ══════════════════════════════════════════
+   DIALOGUE DATA
+══════════════════════════════════════════ */
+const DIALOGUE_SETS = [
+  // Set 0 — after chart reading
+  {
+    speech: {
+      "-1": "A chart is a record of every mistake a sailor has ever made. I hope you were taking notes.",
+       "0": "The chart tells you where you are and where not to go. Those are not the same lesson.",
+       "1": "Navigation is mostly pattern recognition — following what's there until you see it without looking.",
+       "2": "The way you read those markings — you've done this before, or you're a natural. One of those I can't teach.",
+    },
+    choices: [
+      {
+        tone: "AMICABLE",
+        text: "That made more sense than I expected. I think I understand the basics now.",
+        rapport: +1,
+        reply: {
+          "-1": "The basics are the foundation. Don't stop there.",
+           "0": "Understanding the basics is the start of knowing nothing. Keep learning.",
+           "1": "Good. The basics will carry you further than you think.",
+           "2": "Hold onto that. The sea will complicate everything. Start from solid ground.",
+        },
+      },
+      {
+        tone: "ARGUMENTATIVE",
+        text: "Some of those markings were ambiguous. The chart could be read two ways.",
+        rapport: -1,
+        reply: {
+          "-1": "Then you read both. A navigator who sees only one interpretation runs aground.",
+           "0": "Ambiguity is not a flaw in the chart. The sea is not a straight line.",
+           "1": "Exactly. That's the point. You're asking the right question, even if it came out wrong.",
+           "2": "Hm. The mark on the eastern shoal is deliberately imprecise. Good observation.",
+        },
+      },
+      {
+        tone: "PLACATING",
+        text: "I'll spend more time studying charts in my own time. I know I need the practice.",
+        rapport: 0,
+        reply: {
+          "-1": "See that you do. I won't repeat myself indefinitely.",
+           "0": "Self-study matters as much as instruction.",
+           "1": "That's all I ask. Come back with questions.",
+           "2": "The practice is the lesson. Ask me if you want more charts to work through.",
+        },
+      },
+      {
+        tone: "COMPLIMENTARY",
+        text: "You explained that better than any instructor I've had. The way you read the sea is something else.",
+        rapport: +1,
+        reply: {
+          "-1": "Flattery is not navigation. Crow's nest.",
+           "0": "The sea is a better teacher than I am. I just point you at it.",
+           "1": "...Thank you. I've been doing this a long time. The spyglass is waiting.",
+           "2": "The sea taught me. I'm passing it on. Up to the nest.",
+        },
+      },
+    ],
+  },
+  // Set 1 — after spyglass
+  {
+    speech: {
+      "-1": "The horizon keeps its own counsel. You have to meet it halfway.",
+       "0": "The crow's nest shows you what the deck cannot. What you do with that is up to you.",
+       "1": "A good lookout changes the course of a voyage. What you saw up there — it matters.",
+       "2": "Not many people see as much as you did from the nest. You have the patience for this work.",
+    },
+    choices: [
+      {
+        tone: "AMICABLE",
+        text: "The view from up there — I understand now why you love this work.",
+        rapport: +1,
+        reply: {
+          "-1": "Love is a strong word. The sea deserves respect, not affection.",
+           "0": "It is a privilege to read the water from up there. Don't take it lightly.",
+           "1": "Then you'll come back to it. Sailors always do.",
+           "2": "...Aye. It doesn't get old. Every horizon is different.",
+        },
+      },
+      {
+        tone: "ARGUMENTATIVE",
+        text: "Half of what I was meant to spot was barely visible. The fog wasn't fair.",
+        rapport: -1,
+        reply: {
+          "-1": "The sea is not in the business of being fair. Neither is the fog.",
+           "0": "The fog is always there. A lookout works around it.",
+           "1": "The fog was light today. You'll face worse. The eye adapts.",
+           "2": "Every sailor says that about their first time in the nest. They stop saying it by the third voyage.",
+        },
+      },
+      {
+        tone: "PLACATING",
+        text: "I know I missed things. I'll work on my observation. This was useful.",
+        rapport: 0,
+        reply: {
+          "-1": "See that you do.",
+           "0": "Awareness is a skill. It improves with practice.",
+           "1": "Honest assessment. That's more useful than false confidence.",
+           "2": "That's the right attitude. Come back when you've had a chance to sit with it.",
+        },
+      },
+      {
+        tone: "COMPLIMENTARY",
+        text: "I've never seen anyone scan a horizon that efficiently. You make it look effortless.",
+        rapport: +1,
+        reply: {
+          "-1": "Twenty years of looking. Effortless costs something.",
+           "0": "Years of practice. The eye learns to find patterns in chaos.",
+           "1": "It becomes second nature. That's what I want for you.",
+           "2": "...I'll take that. It wasn't always effortless. The sea teaches patience.",
+        },
+      },
+    ],
+  },
+];
+
+/* ══════════════════════════════════════════
+   SIDEBAR HELPERS
+══════════════════════════════════════════ */
+document.getElementById("ursulaPortrait").style.backgroundImage = "url('assets/ursula.jpg')";
+function setDialogue(text) {
+  if (!text) return;
+  const el = document.getElementById("npcDialogue");
+  el.style.opacity = "0";
+  setTimeout(() => { el.textContent = "“" + text + "”"; el.style.opacity = "1"; }, 260);
+}
+function setPhase(p, inst) {
+  document.getElementById("phaseLabel").textContent = p;
+  document.getElementById("instructionLabel").textContent = inst;
+}
+function showScoreTally() { document.getElementById("scoreTally").style.display = "flex"; }
+function updateTally(s1, s2) {
+  document.getElementById("ts1").textContent = s1 !== null ? s1 + " / 15" : "—";
+  document.getElementById("ts2").textContent = s2 !== null ? s2 + " / 15" : "—";
+  document.getElementById("tsTotal").textContent = (s1!==null || s2!==null) ? ((s1||0)+(s2||0)) + " / 30" : "—";
+}
+
+/* ══════════════════════════════════════════
+   SCREEN SWITCHER
+══════════════════════════════════════════ */
+const fadeOverlay = document.getElementById("fadeOverlay");
+function goToScreen(id) {
+  fadeOverlay.classList.add("fade-in");
+  setTimeout(() => {
+    document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+    document.getElementById(id).classList.add("active");
+    fadeOverlay.classList.remove("fade-in");
+  }, 380);
+}
+
+/* ══════════════════════════════════════════
+   DIALOGUE HANDLER
+══════════════════════════════════════════ */
+function showDialogue(idx) {
+  const set      = DIALOGUE_SETS[idx];
+  const speechEl = document.getElementById("npcSpeech" + (idx+1));
+  const choicesEl= document.getElementById("dialogueChoices" + (idx+1));
+
+  let speech = set.speech[ursulaMood.toString()];
+  // If player spotted the ice-bird, Ursula's second speech always references it
+  if (idx === 1 && himmselkSpotted) {
+    speech = "I have sailed these waters for sixteen years. The Himmselk Isful appeared once before, in my first year. You saw one. That is... not nothing.";
+  }
+  speechEl.textContent = speech;
+  setDialogue(speech);
+
+  choicesEl.innerHTML = "";
+  set.choices.forEach(choice => {
+    const btn = document.createElement("button");
+    btn.className = "dialogue-btn";
+    btn.innerHTML = `<span class="tone-tag">— ${choice.tone} —</span>${choice.text}`;
+    btn.addEventListener("click", () => {
+      rapport = Math.max(-2, Math.min(2, rapport + choice.rapport));
+      setDialogue(choice.reply[ursulaMood.toString()]);
+      choicesEl.querySelectorAll(".dialogue-btn").forEach(b => { b.disabled = true; });
+      btn.classList.add("chosen");
+      setTimeout(() => {
+        if (idx === 0) {
+          setDialogue(cfg.preSpy);
+          goToScreen("screen-spyglass");
+          setTimeout(startSpyglass, 500);
+        } else {
+          goToScreen("screen-result");
+          setTimeout(showResult, 500);
+        }
+      }, 1900);
+    });
+    choicesEl.appendChild(btn);
+  });
+}
+
+/* ══════════════════════════════════════════
+   INTRO
+══════════════════════════════════════════ */
+document.getElementById("introBody").textContent = cfg.intro;
+document.getElementById("moodTag").textContent   = cfg.label;
+setDialogue(cfg.intro);
+document.getElementById("beginBtn").addEventListener("click", () => {
+  setDialogue(cfg.preChart);
+  goToScreen("screen-chart");
+  setTimeout(startChartReading, 500);
+});
+document.getElementById("backBtn").addEventListener("click", () => { window.location.href = "index.html"; });
+
+/* ══════════════════════════════════════════
+   DRAW HELPERS (chart)
+══════════════════════════════════════════ */
+function lerp(a, b, t) { return a + (b-a)*Math.max(0,Math.min(1,t)); }
+
+function drawCompassRose(ctx, cx, cy, r) {
+  for (let i = 0; i < 8; i++) {
+    const a = (i/8)*Math.PI*2 - Math.PI/2, long = i%2===0;
+    ctx.strokeStyle = long ? "#3a2a18" : "rgba(80,60,30,0.45)";
+    ctx.lineWidth   = long ? 0.9 : 0.6;
+    ctx.beginPath(); ctx.moveTo(cx+Math.cos(a)*r*0.28, cy+Math.sin(a)*r*0.28);
+    ctx.lineTo(cx+Math.cos(a)*r, cy+Math.sin(a)*r); ctx.stroke();
+  }
+  ctx.font = `bold ${r*0.32}px "IM Fell English SC",serif`;
+  ctx.fillStyle = "#2a1a0a"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  const off = r*1.28;
+  ctx.fillText("N",cx,cy-off); ctx.fillText("S",cx,cy+off);
+  ctx.fillText("E",cx+off,cy); ctx.fillText("W",cx-off,cy);
+  ctx.fillStyle = "#3a2a18";
+  ctx.beginPath(); ctx.arc(cx,cy,r*0.1,0,Math.PI*2); ctx.fill();
+}
+
+function drawChartBackground(ctx, W, H) {
+  const bg = ctx.createLinearGradient(0,0,W,H);
+  bg.addColorStop(0,"#e9e0c5"); bg.addColorStop(0.6,"#dfd4af"); bg.addColorStop(1,"#d2c89e");
+  ctx.fillStyle = bg; ctx.fillRect(0,0,W,H);
+
+  // Age stain
+  const stain = ctx.createRadialGradient(W*0.92,H*0.08,0, W*0.92,H*0.08,W*0.28);
+  stain.addColorStop(0,"rgba(130,90,35,0.13)"); stain.addColorStop(1,"transparent");
+  ctx.fillStyle = stain; ctx.fillRect(0,0,W,H);
+
+  // Faint grid
+  ctx.strokeStyle = "rgba(100,80,40,0.11)"; ctx.lineWidth = 0.5;
+  for (let gx=0; gx<W; gx+=40) { ctx.beginPath(); ctx.moveTo(gx,0); ctx.lineTo(gx,H); ctx.stroke(); }
+  for (let gy=0; gy<H; gy+=35) { ctx.beginPath(); ctx.moveTo(0,gy); ctx.lineTo(W,gy); ctx.stroke(); }
+
+  // Island silhouettes
+  ctx.fillStyle = "rgba(95,75,38,0.22)"; ctx.strokeStyle = "rgba(70,50,24,0.38)"; ctx.lineWidth = 1;
+  [ [88,52,44,22,-0.2], [408,208,30,14,0.15], [128,192,22,11,0.1] ].forEach(([ex,ey,rx,ry,rot]) => {
+    ctx.beginPath(); ctx.ellipse(ex,ey,rx,ry,rot,0,Math.PI*2); ctx.fill(); ctx.stroke();
+  });
+
+  // Route (dashed blue)
+  ctx.strokeStyle = "rgba(28,55,115,0.48)"; ctx.lineWidth = 1.5; ctx.setLineDash([8,5]);
+  ctx.beginPath(); ctx.moveTo(50,222); ctx.bezierCurveTo(118,182,198,152,240,126);
+  ctx.bezierCurveTo(282,100,358,78,440,58); ctx.stroke(); ctx.setLineDash([]);
+
+  // Current arrows
+  ctx.strokeStyle = "rgba(28,75,155,0.32)"; ctx.lineWidth = 0.9;
+  [ [95,195,0.4],[198,168,-0.2],[308,140,0.3] ].forEach(([ax,ay,ang]) => {
+    ctx.save(); ctx.translate(ax,ay); ctx.rotate(ang);
+    ctx.beginPath(); ctx.moveTo(-12,0); ctx.lineTo(12,0);
+    ctx.moveTo(7,-5); ctx.lineTo(12,0); ctx.lineTo(7,5); ctx.stroke(); ctx.restore();
+  });
+
+  // Depth soundings
+  ctx.font = `bold 10px "IM Fell English",serif`;
+  ctx.fillStyle = "rgba(38,28,14,0.65)"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  [ [390,172,4],[152,84,28],[294,214,16],[428,114,7],[62,138,22] ].forEach(([x,y,d]) => { ctx.fillText(String(d),x,y); });
+
+  // Shoal marker
+  ctx.strokeStyle = "rgba(108,28,8,0.7)"; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(178,141); ctx.lineTo(192,155); ctx.moveTo(192,141); ctx.lineTo(178,155); ctx.stroke();
+  ctx.font = `8px "Caveat",cursive`; ctx.fillStyle = "rgba(108,28,8,0.65)"; ctx.fillText("RF",185,163);
+
+  // Waypoint diamond
+  ctx.fillStyle = "rgba(28,58,115,0.48)";
+  ctx.beginPath(); ctx.moveTo(240,118); ctx.lineTo(246,126); ctx.lineTo(240,134); ctx.lineTo(234,126); ctx.closePath(); ctx.fill();
+
+  // Wind rose (upper area)
+  ctx.strokeStyle = "rgba(75,58,28,0.6)"; ctx.lineWidth = 0.8;
+  for (let wi=0; wi<8; wi++) {
+    const wa=(wi/8)*Math.PI*2-Math.PI/2, wl=wi%2===0?18:11;
+    ctx.beginPath(); ctx.moveTo(320,58); ctx.lineTo(320+Math.cos(wa)*wl,58+Math.sin(wa)*wl); ctx.stroke();
+  }
+  ctx.font = `8px "IM Fell English SC",serif`; ctx.fillStyle = "rgba(58,38,18,0.72)"; ctx.textAlign = "center";
+  ctx.fillText("N",320,36);
+  ctx.beginPath(); ctx.arc(320,58,4,0,Math.PI*2); ctx.strokeStyle="rgba(75,58,28,0.5)"; ctx.lineWidth=0.8; ctx.stroke();
+
+  drawCompassRose(ctx, 442, 202, 18);
+  ctx.strokeStyle = "rgba(78,58,28,0.38)"; ctx.lineWidth = 1.5;
+  ctx.strokeRect(3,3,W-6,H-6);
+}
+
+/* ══════════════════════════════════════════
+   STAGE 1: CHART READING  (Int · DC 4)
+══════════════════════════════════════════ */
+const CHART_TARGETS = [
+  { x:320, y:58,  label:"WIND ROSE",    prompt:"Point to the wind direction indicator." },
+  { x:185, y:148, label:"SHOAL MARKER", prompt:"Mark the reef on the chart." },
+  { x:240, y:126, label:"WAYPOINT",     prompt:"Show me our next waypoint." },
+  { x:390, y:172, label:"SHALLOW WATER",prompt:"Find the shallowest depth sounding." },
+  { x:95,  y:195, label:"CURRENT",      prompt:"Identify the prevailing current." },
+];
+
+function startChartReading() {
+  const canvas = document.getElementById("chartCanvas");
+  const ctx    = canvas.getContext("2d");
+  const CW = canvas.width, CH = canvas.height;
+  const HIT_R    = cfg.chartHitR + _stat("intelligence") * 6;
+  const TIME_PER = cfg.chartTimePer + _stat("intelligence") * 400;
+  const TOTAL_T  = CHART_TARGETS.length * TIME_PER;
+
+  let current = 0, hits = 0, elapsed = 0, done = false, animId = null;
+  setPhase("Stage I — Chart Reading", "Intelligence (Navigation) · DC 4 · Follow Ursula's instruction");
+  document.getElementById("chartPrompt").textContent = CHART_TARGETS[0].prompt;
+
+  const ticker = setInterval(() => {
+    elapsed += 100;
+    document.getElementById("chartTimerFill").style.width = Math.max(0,100-(elapsed/TOTAL_T)*100)+"%";
+    if (elapsed >= TOTAL_T) { clearInterval(ticker); endChart(); }
+  }, 100);
+
+  canvas.style.cursor = "crosshair";
+  canvas.addEventListener("click", onClick);
+
+  function onClick(e) {
+    if (done || current >= CHART_TARGETS.length) return;
+    const r = canvas.getBoundingClientRect();
+    const mx = (e.clientX-r.left)*(CW/r.width), my = (e.clientY-r.top)*(CH/r.height);
+    const tgt = CHART_TARGETS[current];
+    if (Math.hypot(mx-tgt.x, my-tgt.y) < HIT_R+8) {
+      hits++; current++;
+      setDialogue(hits >= 4 ? cfg.greatD : cfg.goodD);
+      document.getElementById("chartFeedback").textContent = hits + " of " + CHART_TARGETS.length + " identified";
+      if (current < CHART_TARGETS.length) {
+        document.getElementById("chartPrompt").textContent = CHART_TARGETS[current].prompt;
+      } else { endChart(); }
+    } else {
+      setDialogue(cfg.failD);
+    }
+  }
+
+  function draw(ts) {
+    if (done) return;
+    ctx.clearRect(0,0,CW,CH);
+    drawChartBackground(ctx,CW,CH);
+
+    // Dim check marks for found targets
+    for (let i=0; i<current; i++) {
+      const t = CHART_TARGETS[i]; ctx.save(); ctx.globalAlpha = 0.45;
+      ctx.strokeStyle = "#3a6a22"; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(t.x,t.y,11,0,Math.PI*2); ctx.stroke();
+      ctx.restore();
+    }
+
+    // Current target — pulsing glow
+    if (current < CHART_TARGETS.length) {
+      const tgt = CHART_TARGETS[current];
+      const pulse = 0.55 + 0.45*Math.sin(ts*0.007);
+      const glow = ctx.createRadialGradient(tgt.x,tgt.y,0,tgt.x,tgt.y,HIT_R*2);
+      glow.addColorStop(0, `rgba(205,115,18,${pulse*0.52})`);
+      glow.addColorStop(0.5, `rgba(175,85,12,${pulse*0.18})`);
+      glow.addColorStop(1, "transparent");
+      ctx.fillStyle = glow; ctx.fillRect(tgt.x-HIT_R*2.2,tgt.y-HIT_R*2.2,HIT_R*4.4,HIT_R*4.4);
+      ctx.save();
+      ctx.strokeStyle = `rgba(205,130,25,${pulse*0.85})`; ctx.lineWidth = 1.8;
+      ctx.beginPath(); ctx.arc(tgt.x,tgt.y,HIT_R*0.52,0,Math.PI*2); ctx.stroke();
+      ctx.globalAlpha = pulse*0.5; ctx.strokeStyle = "#d4880a"; ctx.lineWidth = 0.9;
+      ctx.beginPath();
+      ctx.moveTo(tgt.x-HIT_R,tgt.y); ctx.lineTo(tgt.x-HIT_R*0.42,tgt.y);
+      ctx.moveTo(tgt.x+HIT_R*0.42,tgt.y); ctx.lineTo(tgt.x+HIT_R,tgt.y);
+      ctx.moveTo(tgt.x,tgt.y-HIT_R); ctx.lineTo(tgt.x,tgt.y-HIT_R*0.42);
+      ctx.moveTo(tgt.x,tgt.y+HIT_R*0.42); ctx.lineTo(tgt.x,tgt.y+HIT_R);
+      ctx.stroke(); ctx.restore();
+    }
+    animId = requestAnimationFrame(draw);
+  }
+  animId = requestAnimationFrame(draw);
+
+  function endChart() {
+    if (done) return; done = true;
+    cancelAnimationFrame(animId); canvas.removeEventListener("click",onClick); clearInterval(ticker);
+    const pct = hits/CHART_TARGETS.length;
+    stage1Score = Math.round(pct*15);
+    setDialogue(
+      pct>=1    ? "Every marker. You read that chart like you've studied it before." :
+      pct>=0.8  ? "Almost everything. You have the pattern. The rest is practice." :
+      pct>=0.6  ? "Most of them. The gaps will matter at sea — keep studying." :
+      pct>=0.4  ? "You found half. A navigator needs to find all of them." :
+                  "You struggled with the chart. That's honest information. Use it."
+    );
+    showScoreTally(); updateTally(stage1Score,null);
+    document.getElementById("chartPrompt").textContent = hits + " / " + CHART_TARGETS.length + " markers identified";
+    document.getElementById("chartFeedback").textContent = stage1Score + " / 15 pts";
+    setTimeout(() => { goToScreen("screen-dialogue1"); showDialogue(0); }, 2000);
+  }
+}
+
+/* ══════════════════════════════════════════
+   HIMMSELK BIRD DRAWING (shared)
+══════════════════════════════════════════ */
+function drawHimmselkBird(ctx, bx, by, alpha) {
+  ctx.save(); ctx.globalAlpha = alpha;
+  const glow = ctx.createRadialGradient(bx,by,0,bx,by,58);
+  glow.addColorStop(0,"rgba(200,235,255,0.42)"); glow.addColorStop(0.5,"rgba(160,210,255,0.15)"); glow.addColorStop(1,"transparent");
+  ctx.fillStyle = glow; ctx.fillRect(bx-58,by-58,116,116);
+
+  ctx.fillStyle = "rgba(232,246,255,0.94)";
+  ctx.beginPath(); ctx.ellipse(bx,by,14,5,0,0,Math.PI*2); ctx.fill();
+
+  ctx.strokeStyle = "rgba(240,250,255,0.95)"; ctx.lineWidth = 2.5; ctx.lineCap = "round";
+  ctx.beginPath(); ctx.moveTo(bx,by); ctx.quadraticCurveTo(bx-22,by-13,bx-40,by+2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(bx,by+2); ctx.quadraticCurveTo(bx-18,by-4,bx-36,by+9); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(bx,by); ctx.quadraticCurveTo(bx+22,by-13,bx+40,by+2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(bx,by+2); ctx.quadraticCurveTo(bx+18,by-4,bx+36,by+9); ctx.stroke();
+
+  ctx.fillStyle = "rgba(242,252,255,0.98)";
+  ctx.beginPath(); ctx.arc(bx+12,by-4,5,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle = "rgba(180,215,240,0.85)"; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(bx+16,by-4); ctx.lineTo(bx+22,by-3); ctx.stroke();
+
+  // Ice crystal tips
+  ctx.strokeStyle = "rgba(180,225,255,0.55)"; ctx.lineWidth = 1;
+  [ [-38,4],[-28,-4],[-44,10],[38,4],[28,-4],[44,10] ].forEach(([dx,dy]) => {
+    ctx.beginPath(); ctx.moveTo(bx+dx,by+dy); ctx.lineTo(bx+dx,by+dy-6); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(bx+dx,by+dy-6); ctx.lineTo(bx+dx-3,by+dy-2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(bx+dx,by+dy-6); ctx.lineTo(bx+dx+3,by+dy-2); ctx.stroke();
+  });
+  ctx.restore();
+}
+
+/* ══════════════════════════════════════════
+   STAGE 2: SPYGLASS  (Wis · DC 5)
+══════════════════════════════════════════ */
+function startSpyglass() {
+  const canvas = document.getElementById("spyglassCanvas");
+  const ctx    = canvas.getContext("2d");
+  const CW = canvas.width, CH = canvas.height;
+  const HY = Math.round(CH * 0.42);    // horizon y
+  const VIS = cfg.spyVisDur + _stat("wisdom")*500;
+  const FOG = Math.max(0.1, cfg.spyFog - _stat("wisdom")*0.06);
+  const STAGE_T = 28000;
+
+  setPhase("Stage II — Crow's Nest", "Wisdom (Perception) · DC 5 · Spot hazards and wonders");
+
+  // Five regular sighting objects
+  const OBJ = [
+    { type:"rocks",   x:68,  y:HY+24, w:56, h:26, spawn:2500,  spotted:false },
+    { type:"ship",    x:232, y:HY-14, w:38, h:44, spawn:6200,  spotted:false },
+    { type:"dolphins",x:164, y:HY+34, w:62, h:22, spawn:10200, spotted:false },
+    { type:"island",  x:348, y:HY-8,  w:70, h:20, spawn:14800, spotted:false },
+    { type:"storm",   x:118, y:22,    w:84, h:48, spawn:19500, spotted:false },
+  ];
+  const HIMMSELK_SPAWN = 11800;
+  const HIMMSELK_DUR   = Math.max(1100, 2000 + _stat("wisdom")*450);
+  let hBorn = null, hActive = false, hHandled = false;
+
+  let elapsed = 0, timeLeft = STAGE_T, done = false, animId = null, spotsHit = 0;
+
+  const ticker = setInterval(() => {
+    elapsed += 100; timeLeft -= 100;
+    document.getElementById("spyglassTimerFill").style.width = Math.max(0,(timeLeft/STAGE_T)*100)+"%";
+    if (timeLeft <= 0) { clearInterval(ticker); endSpyglass(); }
+  }, 100);
+
+  canvas.style.cursor = "crosshair";
+  canvas.addEventListener("click", onClick);
+
+  function onClick(e) {
+    if (done) return;
+    const r = canvas.getBoundingClientRect();
+    const mx = (e.clientX-r.left)*(CW/r.width), my = (e.clientY-r.top)*(CH/r.height);
+
+    // Himmselk hit-test
+    if (hActive && !hHandled && !himmselkSpotted) {
+      const hprog = (elapsed - hBorn) / HIMMSELK_DUR;
+      const bx = lerp(250,320,hprog);
+      const by = HY - 22 + Math.sin(hprog*Math.PI)*10;
+      if (Math.hypot(mx-bx, my-by) < 38) {
+        himmselkSpotted = true; hHandled = true; hActive = false;
+        setDialogue("...Did you just — yes. You saw it. A Himmselk Isful. Fair weather ahead. Mark it in the log.");
+        document.getElementById("spyglassFeedback").textContent = "✶ HIMMSELK ISFUL SPOTTED ✶";
+        showHimmselkOverlay();
+        return;
+      }
+    }
+
+    // Regular objects
+    for (let i = OBJ.length-1; i >= 0; i--) {
+      const o = OBJ[i];
+      if (o.spotted) continue;
+      const age = elapsed - o.spawn;
+      if (age < 0 || age > VIS) continue;
+      if (mx >= o.x && mx <= o.x+o.w && my >= o.y && my <= o.y+o.h) {
+        o.spotted = true; spotsHit++;
+        const lbl = {rocks:"Rocky outcrop",ship:"Distant vessel",dolphins:"Pod of dolphins",island:"Island on the horizon",storm:"Storm gathering to the north"}[o.type];
+        setDialogue(spotsHit >= 4 ? cfg.greatD + " " + lbl + ". Log it." : lbl + ". Log it.");
+        document.getElementById("spyglassFeedback").textContent = spotsHit + " / " + OBJ.length + " sightings";
+        break;
+      }
+    }
+  }
+
+  function showHimmselkOverlay() {
+    const ov = document.getElementById("himmselkOverlay");
+    ov.classList.add("visible");
+    const hc  = document.getElementById("himmselkCanvas");
+    const hctx = hc.getContext("2d");
+    hctx.clearRect(0,0,hc.width,hc.height);
+    const sky = hctx.createLinearGradient(0,0,0,hc.height);
+    sky.addColorStop(0,"#080e1a"); sky.addColorStop(1,"#131c2c");
+    hctx.fillStyle = sky; hctx.fillRect(0,0,hc.width,hc.height);
+    const hg = hctx.createLinearGradient(0,hc.height*0.55,0,hc.height);
+    hg.addColorStop(0,"rgba(38,72,115,0.38)"); hg.addColorStop(1,"transparent");
+    hctx.fillStyle = hg; hctx.fillRect(0,hc.height*0.55,hc.width,hc.height*0.45);
+    drawHimmselkBird(hctx, hc.width/2, hc.height/2-4, 1.0);
+    setTimeout(() => { ov.classList.remove("visible"); }, 3400);
+  }
+
+  function drawOcean(ctx, W, H, ms) {
+    // Sky
+    const sky = ctx.createLinearGradient(0,0,0,HY+12);
+    sky.addColorStop(0,"#0d1318"); sky.addColorStop(0.7,"#172030"); sky.addColorStop(1,"#1e2e40");
+    ctx.fillStyle = sky; ctx.fillRect(0,0,W,HY+12);
+    // Sea
+    const sea = ctx.createLinearGradient(0,HY,0,H);
+    sea.addColorStop(0,"#182c40"); sea.addColorStop(1,"#0b1825");
+    ctx.fillStyle = sea; ctx.fillRect(0,HY,W,H-HY);
+    // Waves
+    ctx.save(); ctx.globalAlpha = 0.18; ctx.strokeStyle = "#6aaacc"; ctx.lineWidth = 0.8;
+    for (let wy = HY+14; wy < H; wy += 16) {
+      ctx.beginPath(); ctx.moveTo(0,wy);
+      for (let wx=0; wx<=W; wx+=12) ctx.lineTo(wx, wy+Math.sin(wx*0.022+ms*0.0015+wy*0.04)*2.5);
+      ctx.stroke();
+    }
+    ctx.restore();
+    // Stars
+    ctx.save();
+    for (let si=0; si<28; si++) {
+      const sx=(si*137.5)%W, sy=((si*93.7)%(HY-18));
+      ctx.globalAlpha = (0.25+0.45*Math.sin(ms*0.002+si*1.4))*0.38;
+      ctx.fillStyle = "#d8e8ff";
+      ctx.beginPath(); ctx.arc(sx,sy,0.8,0,Math.PI*2); ctx.fill();
+    }
+    ctx.restore();
+    // Fog band
+    const fog = ctx.createLinearGradient(0,HY-42,0,HY+65);
+    fog.addColorStop(0,`rgba(115,155,195,${FOG*0.28})`);
+    fog.addColorStop(0.5,`rgba(145,180,210,${FOG})`);
+    fog.addColorStop(1,`rgba(95,135,175,${FOG*0.35})`);
+    ctx.fillStyle = fog; ctx.fillRect(0,HY-42,W,107);
+  }
+
+  function drawObj(ctx, o, alpha, ms) {
+    ctx.save(); ctx.globalAlpha = alpha;
+    switch(o.type) {
+      case "rocks": {
+        ctx.fillStyle = "#1a1208";
+        ctx.beginPath();
+        ctx.moveTo(o.x,o.y+o.h); ctx.lineTo(o.x+10,o.y+6); ctx.lineTo(o.x+22,o.y+1);
+        ctx.lineTo(o.x+34,o.y+9); ctx.lineTo(o.x+44,o.y+2); ctx.lineTo(o.x+o.w,o.y+o.h);
+        ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = "rgba(100,160,200,0.55)"; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(o.x+5,o.y+o.h); ctx.quadraticCurveTo(o.x+18,o.y+o.h-8,o.x+28,o.y+o.h+2); ctx.stroke();
+        break;
+      }
+      case "ship": {
+        const sx=o.x+o.w/2, sy=o.y;
+        ctx.fillStyle = "rgba(25,20,12,0.88)";
+        ctx.beginPath(); ctx.moveTo(sx-16,sy+o.h); ctx.lineTo(sx+16,sy+o.h); ctx.lineTo(sx+12,sy+30); ctx.lineTo(sx-12,sy+30); ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = "rgba(38,28,16,0.82)"; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(sx,sy+o.h); ctx.lineTo(sx,sy); ctx.stroke();
+        ctx.fillStyle = "rgba(195,185,165,0.68)";
+        ctx.beginPath(); ctx.moveTo(sx,sy); ctx.lineTo(sx+18,sy+14); ctx.lineTo(sx,sy+24); ctx.closePath(); ctx.fill();
+        break;
+      }
+      case "dolphins": {
+        for (let di=0; di<3; di++) {
+          const dx = o.x+12+di*18, dy = o.y+6+Math.sin(ms*0.005+di*1.2)*5;
+          ctx.fillStyle = "rgba(75,138,175,0.82)";
+          ctx.beginPath(); ctx.ellipse(dx,dy,9,5,-0.3,0,Math.PI*2); ctx.fill();
+          ctx.beginPath(); ctx.moveTo(dx,dy-5); ctx.lineTo(dx+3,dy-11); ctx.lineTo(dx+6,dy-5); ctx.closePath(); ctx.fill();
+        }
+        break;
+      }
+      case "island": {
+        ctx.fillStyle = "rgba(20,16,9,0.87)";
+        ctx.beginPath(); ctx.moveTo(o.x,o.y+o.h);
+        ctx.quadraticCurveTo(o.x+12,o.y+4,o.x+28,o.y); ctx.quadraticCurveTo(o.x+50,o.y+2,o.x+o.w,o.y+o.h);
+        ctx.closePath(); ctx.fill();
+        ctx.fillStyle = "rgba(14,11,5,0.9)";
+        [o.x+20,o.x+36,o.x+50].forEach(tx => {
+          ctx.beginPath(); ctx.moveTo(tx,o.y+o.h-2); ctx.lineTo(tx-4,o.y+4); ctx.lineTo(tx+4,o.y+4); ctx.closePath(); ctx.fill();
+        });
+        break;
+      }
+      case "storm": {
+        ctx.fillStyle = "rgba(26,30,38,0.84)";
+        [ [-4,20],[8,8],[22,4],[36,10],[50,6],[62,16],[70,24] ].forEach(([cx,cy],i) => {
+          ctx.beginPath(); ctx.arc(o.x+cx,o.y+cy,14+Math.sin(i*0.7)*4,0,Math.PI*2); ctx.fill();
+        });
+        ctx.strokeStyle = "rgba(215,195,75,0.55)"; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(o.x+35,o.y+30); ctx.lineTo(o.x+30,o.y+41); ctx.lineTo(o.x+36,o.y+41); ctx.lineTo(o.x+30,o.y+52); ctx.stroke();
+        break;
+      }
+    }
+    ctx.restore();
+  }
+
+  function draw(ts) {
+    if (done) return;
+    ctx.clearRect(0,0,CW,CH);
+    drawOcean(ctx,CW,CH,elapsed);
+
+    OBJ.forEach(o => {
+      const age = elapsed - o.spawn;
+      if (age < 0) return;
+      if (o.spotted) { drawObj(ctx,o,0.16,elapsed); return; }
+      const p = age/VIS;
+      if (p > 1) return;
+      const env   = p < 0.12 ? p/0.12 : p > 0.82 ? (1-p)/0.18 : 1;
+      const flick = 0.84 + 0.16*Math.sin(ts*0.009+o.x*0.01);
+      drawObj(ctx,o,env*flick,elapsed);
+    });
+
+    // Himmselk on canvas
+    if (elapsed >= HIMMSELK_SPAWN && !hHandled) {
+      if (!hActive) { hActive = true; hBorn = elapsed; }
+      const hAge = elapsed - hBorn;
+      if (hAge <= HIMMSELK_DUR) {
+        const hp   = hAge / HIMMSELK_DUR;
+        const hEnv = hp < 0.15 ? hp/0.15 : hp > 0.72 ? (1-hp)/0.28 : 1;
+        const bx   = lerp(250,320,hp);
+        const by   = HY - 22 + Math.sin(hp*Math.PI)*10;
+        drawHimmselkBird(ctx, bx, by, hEnv*0.82);
+      } else if (!hHandled) {
+        hActive = false; hHandled = true;
+      }
+    }
+
+    // Spyglass vignette
+    const vig = ctx.createRadialGradient(CW/2,CH/2,CW*0.27,CW/2,CH/2,CW*0.57);
+    vig.addColorStop(0,"transparent"); vig.addColorStop(0.68,"rgba(0,0,0,0.18)"); vig.addColorStop(1,"rgba(0,0,0,0.86)");
+    ctx.fillStyle = vig; ctx.fillRect(0,0,CW,CH);
+
+    animId = requestAnimationFrame(draw);
+  }
+  animId = requestAnimationFrame(draw);
+
+  function endSpyglass() {
+    if (done) return; done = true;
+    cancelAnimationFrame(animId); canvas.removeEventListener("click",onClick); clearInterval(ticker);
+    if (hActive && !hHandled) hHandled = true;
+
+    stage2Score = Math.round((spotsHit/OBJ.length)*15);
+    let d;
+    if (himmselkSpotted)   d = "...You saw the ice-bird. I'll want the full account later.";
+    else if (spotsHit>=5)  d = "Every sighting. The crew needs to know about all of these. Well done.";
+    else if (spotsHit>=4)  d = "Nearly everything. One slipped past — the storm is the one you want to catch.";
+    else if (spotsHit>=2)  d = "You spotted the obvious ones. Hazards near the waterline are easy to miss in fog.";
+    else                   d = "You need more time at the nest. The eye has to learn to distinguish shapes from noise.";
+    setDialogue(d);
+
+    updateTally(stage1Score, stage2Score);
+    document.getElementById("spyglassFeedback").textContent =
+      spotsHit + " / " + OBJ.length + " sighted · " + stage2Score + " / 15 pts" +
+      (himmselkSpotted ? " · ✶ Himmselk Isful" : "");
+
+    setTimeout(() => { goToScreen("screen-dialogue2"); showDialogue(1); }, 2200);
+  }
+}
+
+/* ══════════════════════════════════════════
+   RESULT
+══════════════════════════════════════════ */
+function showResult() {
+  const total  = stage1Score + stage2Score;
+  const earned = total >= 20 && rapport >= 0;
+
+  const TIERS = [
+    { min:27, tag:"NAVIGATOR'S EYE",   verdict:"Chart and crow's nest alike — you read both with clarity that surprised Ursula. You have a navigator's instincts. The crew will rely on them." },
+    { min:22, tag:"CAPABLE LOOKOUT",   verdict:"Strong work above and below. You found what mattered and stayed sharp. Ursula will note you for future watches." },
+    { min:15, tag:"ADEQUATE TRAINING", verdict:"You grasped the basics and spotted what you could. There are gaps — Ursula noticed every one — but the foundation is there to build from." },
+    { min:8,  tag:"ROUGH BEGINNING",   verdict:"The chart was a struggle and the nest harder still. Ursula has not written you off. Barely." },
+    { min:0,  tag:"NEEDS WORK",        verdict:"You missed more than you found. Ursula has seen greener sailors, she said, but not recently." },
+  ];
+
+  const tier      = TIERS.find(t => total >= t.min) || TIERS[TIERS.length-1];
+  const ursulaIdx = Math.min(4, Math.max(0, Math.round((total/30)*4)));
+  const final     = cfg.final[ursulaIdx];
+  const rapLabel  = rapport >= 2 ? "Trusted Student" : rapport >= 1 ? "Respectful" : rapport === 0 ? "Professional" : rapport === -1 ? "Friction" : "At Odds";
+
+  setDialogue(final);
+  setPhase("— Ursula's Assessment —", total + " / 30 points");
+
+  document.getElementById("resultCard").innerHTML = `
+    <div class="result-tag">— ${tier.tag} —</div>
+    <div class="result-score">${total}</div>
+    <div class="result-max">out of 30 points · Ursula: ${rapLabel}</div>
+    ${earned ? `<div class="result-bonus">&#x1F9ED; Navigator's Favour · +1 to future navigation &amp; observation checks</div>` : ""}
+    ${himmselkSpotted ? `<div class="result-himmselk">&#x2736; HIMMSELK ISFUL SIGHTED · Omen of Fair Weather · The crew takes heart</div>` : ""}
+    <div class="result-verdict">${tier.verdict}</div>
+    <div class="result-npc">"${final}"</div>
+  `;
+
+  const s = appState;
+  s.completed       = [...new Set([...s.completed, "ursula"])];
+  s.navigationScore = total;
+  s.ursulaRapport   = rapport;
+  s.navigatorBonus  = earned;
+  s.himmselkSpotted = himmselkSpotted;
+  s.completedDays   = [...new Set([...s.completedDays, 3])];
+  if (s.currentDay < 4) s.currentDay = 4;
+  saveState(s);
+
+  document.getElementById("toHubBtn").addEventListener("click", () => { window.location.href = "index.html"; });
+  document.getElementById("retryBtn").addEventListener("click", () => { window.location.reload(); });
+}
+
+})();
+</script>
+</body>
+</html>
