@@ -16,7 +16,7 @@
 
 /* ── HEADER ── */
 .cs-eyebrow {
-  font-family: "Caveat", cursive; font-size: 17px;
+  font-family: "Caveat", cursive; font-size: 22px;
   color: var(--paper-deep); letter-spacing: 0.04em; text-align: center;
 }
 .cs-title {
@@ -37,7 +37,7 @@
 .cs-rule::after  { right: 18px; }
 .cs-sub {
   font-family: "IM Fell English", serif; font-style: italic;
-  font-size: 15px; color: var(--paper-dim); text-align: center; max-width: 480px;
+  font-size: 20px; color: var(--paper-dim); text-align: center; max-width: 560px;
 }
 
 /* ── CHARACTER CARDS ── */
@@ -47,7 +47,7 @@
 }
 
 .char-card {
-  width: 290px; height: 430px; flex-shrink: 0;
+  width: 377px; height: 559px; flex-shrink: 0;
   border: 1px solid color-mix(in oklch, var(--paper-deep) 28%, transparent);
   position: relative; overflow: hidden; cursor: pointer;
   transition: border-color 0.3s, box-shadow 0.3s, transform 0.25s;
@@ -128,7 +128,7 @@
 }
 .char-blurb {
   font-family: "IM Fell English", serif; font-style: italic;
-  font-size: 14px; line-height: 1.68; color: var(--paper);
+  font-size: 18px; line-height: 1.68; color: var(--paper);
   text-align: center;
   transform: translateY(8px);
   transition: transform 0.45s ease 0.06s;
@@ -210,7 +210,7 @@
 }
 
 .cin-open-eyebrow {
-  font-family: "Caveat", cursive; font-size: 17px;
+  font-family: "Caveat", cursive; font-size: 22px;
   color: rgba(218,198,158,0.72); letter-spacing: 0.09em;
 }
 .cin-open-title {
@@ -227,12 +227,12 @@
 }
 .cin-open-sub {
   font-family: "IM Fell English", serif; font-style: italic;
-  font-size: 18px; color: rgba(220,200,162,0.9); margin: 0;
+  font-size: 23px; color: rgba(220,200,162,0.9); margin: 0;
 }
 .cin-open-passage {
   font-family: "IM Fell English", serif; font-style: italic;
-  font-size: 14px; color: rgba(200,182,146,0.78);
-  line-height: 1.82; max-width: 560px; margin: 4px 0;
+  font-size: 18px; color: rgba(200,182,146,0.78);
+  line-height: 1.82; max-width: 620px; margin: 4px 0;
 }
 .cin-open-btn {
   margin-top: 22px;
@@ -252,6 +252,77 @@
   letter-spacing: 0.42em;
 }
 
+/* ── VOYAGE CINEMATIC OVERLAY ── */
+.cin-voyage {
+  position: fixed; inset: 0; z-index: 9998;
+  display: none; opacity: 0;
+  transition: opacity 1.2s ease;
+}
+.cin-voyage.active { display: block; }
+.cin-voyage.fade-in { opacity: 1; }
+
+.cin-voyage-bg {
+  position: absolute; inset: 0;
+  background: url('assets/sailing-arctic.jpg') center center / cover no-repeat;
+  filter: brightness(0.6) saturate(0.78);
+  animation: cinZoom 30s ease-out alternate infinite;
+}
+.cin-voyage-vignette {
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse 80% 68% at 50% 50%, transparent 20%, rgba(0,0,0,0.75) 100%);
+}
+.cin-voyage-bar {
+  position: absolute; left: 0; right: 0; height: 9vh;
+  background: #000; z-index: 2;
+}
+.cin-voyage-bar-top { top: 0; }
+.cin-voyage-bar-bot { bottom: 0; }
+
+.cin-voyage-body {
+  position: absolute; inset: 0; z-index: 3;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  text-align: center; padding: 12vh 14% 12vh; gap: 24px;
+  opacity: 0;
+  transition: opacity 2s ease;
+}
+.cin-voyage-body.visible { opacity: 1; }
+
+.cin-voyage-eyebrow {
+  font-family: "Caveat", cursive; font-size: 20px;
+  color: rgba(218,198,158,0.72); letter-spacing: 0.09em;
+}
+.cin-voyage-sep {
+  width: 260px; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(218,190,132,0.55), transparent);
+}
+.cin-voyage-passage {
+  font-family: "IM Fell English", serif; font-style: italic;
+  font-size: 20px; color: rgba(220,200,162,0.92);
+  line-height: 1.82; max-width: 680px;
+}
+.cin-voyage-instruction {
+  font-family: "Caveat", cursive; font-size: 18px;
+  color: rgba(200,182,146,0.78); max-width: 500px;
+  line-height: 1.6;
+}
+.cin-voyage-btn {
+  margin-top: 28px;
+  font-family: "IM Fell English SC", serif; font-size: 14px;
+  letter-spacing: 0.32em; color: rgba(230,210,168,0.9);
+  background: transparent;
+  border: 1px solid rgba(218,186,122,0.42);
+  padding: 14px 54px; cursor: pointer;
+  transition: all 0.38s ease; border-radius: 1px;
+  box-shadow: 0 0 28px rgba(0,0,0,0.5);
+}
+.cin-voyage-btn:hover {
+  color: #ede2ca;
+  border-color: rgba(218,186,122,0.88);
+  background: rgba(218,186,122,0.1);
+  letter-spacing: 0.42em;
+}
+
 </style>
 </head>
 <body>
@@ -265,7 +336,7 @@
   <div class="cin-open-bar cin-open-bar-top"></div>
   <div class="cin-open-bar cin-open-bar-bot"></div>
   <div class="cin-open-body">
-    <div class="cin-open-eyebrow">— Glassblade Trading Co., Charter Vessel —</div>
+    <div class="cin-open-eyebrow">— Glassblade Charter Vessel —</div>
     <h1 class="cin-open-title">Aboard<br>the Remorhaz</h1>
     <div class="cin-open-sep"></div>
     <p class="cin-open-sub">A nine-day voyage across the frozen seas of Eiselcross</p>
@@ -284,7 +355,7 @@
 <div class="stage">
 
   <div>
-    <div class="cs-eyebrow">— Glassblade Trading Co., Charter Vessel —</div>
+    <div class="cs-eyebrow">— Glassblade Charter Vessel —</div>
     <div class="cs-title">Choose Your Character</div>
   </div>
   <div class="cs-rule"></div>
@@ -294,6 +365,21 @@
 
   <button class="btn-begin" id="beginBtn" disabled>Begin the Voyage →</button>
 
+</div>
+
+<!-- ══ VOYAGE CINEMATIC ══ -->
+<div id="cin-voyage" class="cin-voyage" aria-hidden="true">
+  <div class="cin-voyage-bg"></div>
+  <div class="cin-voyage-vignette"></div>
+  <div class="cin-voyage-bar cin-voyage-bar-top"></div>
+  <div class="cin-voyage-bar cin-voyage-bar-bot"></div>
+  <div class="cin-voyage-body" id="cin-voyage-body">
+    <div class="cin-voyage-eyebrow">— Glassblade Charter Vessel · The Remorhaz —</div>
+    <div class="cin-voyage-sep"></div>
+    <p class="cin-voyage-passage">You have set sail for Syrinlya, a nine-day voyage through the arctic seas of the north. Get comfortable — and better yet, get useful. This is a small crew, and everyone has work to do. Even you. It's time to meet the crew and find your place aboard the Remorhaz.</p>
+    <p class="cin-voyage-instruction">Seek out Captain Thorgrim Isskegg to find out what the next nine days hold in store, then see the crew mates who will walk you through them.</p>
+    <button class="cin-voyage-btn" id="cin-voyage-btn">— Report for Duty —</button>
+  </div>
 </div>
 
 <script>
@@ -458,6 +544,27 @@ document.getElementById("beginBtn").addEventListener("click", () => {
   state.selectedCharacter = { id: ch.id, name: ch.name, stats: ch.stats };
   localStorage.setItem("remorhaz", JSON.stringify(state));
 
+  // Fade to black, then reveal voyage cinematic
+  _pf.classList.add("in");
+  _pf.addEventListener("transitionend", () => {
+    const voy = document.getElementById("cin-voyage");
+    voy.classList.add("active");
+    voy.removeAttribute("aria-hidden");
+    // Fade page-fade back out to reveal the cinematic
+    requestAnimationFrame(() => {
+      _pf.classList.remove("in");
+      // Fade the cinematic in
+      requestAnimationFrame(() => { voy.classList.add("fade-in"); });
+    });
+    // After 5 seconds, show the text body
+    setTimeout(() => {
+      document.getElementById("cin-voyage-body").classList.add("visible");
+    }, 5000);
+  }, { once: true });
+});
+
+/* ── VOYAGE CINEMATIC BUTTON ── */
+document.getElementById("cin-voyage-btn").addEventListener("click", () => {
   _navigateTo("index.html");
 });
 

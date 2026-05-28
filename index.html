@@ -646,15 +646,34 @@
 
   /* ── RESTART BUTTON ── */
   .restart-btn {
-    display: block; margin-top: 12px;
-    font-family: "IM Fell English SC", serif; font-size: 11px;
-    letter-spacing: 0.2em; color: var(--paper-deep);
-    background: none; border: 1px solid var(--paper-deep);
-    padding: 5px 12px; cursor: pointer; border-radius: 1px;
-    transition: color 0.2s, border-color 0.2s, opacity 0.2s;
-    opacity: 0.55; pointer-events: auto;
+    display: block; margin-top: 14px;
+    font-family: "IM Fell English SC", serif; font-size: 13px;
+    letter-spacing: 0.2em; color: var(--paper);
+    background: rgba(110,15,15,0.55); border: 1px solid var(--blood);
+    padding: 9px 18px; cursor: pointer; border-radius: 1px;
+    transition: color 0.2s, border-color 0.2s, background 0.2s, opacity 0.2s;
+    opacity: 0.88; pointer-events: auto;
+    box-shadow: 0 0 16px rgba(120,15,15,0.35);
   }
-  .restart-btn:hover { color: var(--blood); border-color: var(--blood); opacity: 1; }
+  .restart-btn:hover { background: var(--blood); border-color: var(--blood); opacity: 1; }
+
+  /* ── FIRST-VISIT GOLD GLOW ON THORGRIM ── */
+  @keyframes goldPulse {
+    0%, 100% { opacity: 0.7; }
+    50%       { opacity: 1.0; }
+  }
+  .hotspot.first-visit-glow .ring-inner {
+    opacity: 0.9 !important;
+    stroke: #d4af37 !important;
+    stroke-width: 3.5 !important;
+    animation: goldPulse 1.8s ease-in-out infinite;
+  }
+  .hotspot.first-visit-glow .ring-outer {
+    opacity: 0.75 !important;
+    stroke: #d4af37 !important;
+    animation: goldPulse 1.8s ease-in-out infinite;
+  }
+  .hotspot.first-visit-glow .glow { opacity: 0.85 !important; }
 
   /* ── NPC / CHARACTER CINEMATIC OVERLAY ── */
   .cin-npc {
@@ -807,18 +826,10 @@
   <span class="corner bl"></span>
   <span class="corner br"></span>
 
-  <!-- Header -->
-  <div class="chrome chrome-top">
-    <div class="eyebrow">— Glassblade Trading Co., Charter Vessel —</div>
-    <h1>The Remorhaz</h1>
-    <div class="sub">A nine-day voyage across the frozen seas of Eiselcross</div>
-    <div class="rule"></div>
-  </div>
-
   <!-- Bottom-left logbook label -->
   <div class="chrome chrome-bottom-left">
     <div class="compass">LATITUDE 71° 14' N · LONGITUDE — UNCHARTED</div>
-    <div>Hover any soul aboard to learn their watch; click to read the day's chapter.</div>
+    <div>Hover over any of the crew members to learn their name and responsibilities aboard the ship. Click on the token for any character to speak with that crew member.</div>
     <button class="restart-btn" id="restartBtn">↺ Restart Adventure</button>
   </div>
 
@@ -1488,8 +1499,8 @@ function _navigateTo(url) {
       zone: "Helm / Captain's Post",
       portrait: "assets/thorgrim.png",
       cinPortrait: "assets/thorgrim-cin.png",
-      hook: "We sail at his word. Nothing on this deck moves until it does.",
-      dialogue: "Eyes on the horizon, traveller. The sea this far north does not forgive a slow watch — nor a slow tongue. State your business or stand aside; the wheel does not turn itself.",
+      hook: "It is hard to tell which is colder — the arctic voyage to Syrinlya, or the captain's icy stare.",
+      dialogue: "Alright sukolput negeez, Elro paid me to transport you to Eiselcross, not to fill bellies and pamper like lapdog. Report back to stern! Master Haldor will be teaching you ropes — literally. When you done with him, go to galley. Find Ingrid, our chef. She will take all from there.",
       stats: [
         ["LINEAGE", "Half-dwarf"],
         ["RANK",    "Captain"],
@@ -1508,7 +1519,7 @@ function _navigateTo(url) {
       portrait: "assets/haldor.jpg",
       cinPortrait: "assets/haldor-cin.jpg",
       hook: "The sea doesn't care about your magic. Pull!",
-      dialogue: "Aye, ye've a strong back — good. The lines are out an' the nets are heavy. If ye want supper on this voyage, ye'll be earnin' it. Grab a pole, mind yer footing, an' for the love of the deep — don't lose yer grip.",
+      dialogue: "I've never seen a day without snow, frost, or a biting wind in all my years — and that suits me fine. Been a fisherman on these ice seas all my life. Captain Isskegg pays me well to keep this crew fed, and I earn every coin of it. Now — grab a pole, mind yer footin', and for the love o' the deep — don't lose yer grip. The sea doesn't care if ye're cold.",
       stats: [
         ["LINEAGE", "Dwarf"],
         ["TRADE",   "Fisherman"],
@@ -1539,7 +1550,7 @@ function _navigateTo(url) {
       portrait: "assets/ingrid.png",
       cinPortrait: "assets/ingrid.png",
       hook: "Hands clean, knife steady. We feed the ship, or the ship eats us.",
-      dialogue: "Mmh — you smell of salt and bad weather, both welcome in my kitchen. Sit if you must, but pick up a blade if you can. There is fish enough for stew, and stew enough for ten, if we work quickly. The hearth is warmer than the sea, friend.",
+      dialogue: "Ah, bonjour — you smell of salt and the cold, both very welcome in my galley. I am Ingrid Firebrew — one of the first to make a proper meal in Syrinlya, oui. I helped build that outpost on Foren, so I know what it is to feed people at the very edge of the world. I stand six feet tall and I have never once dropped a knife. Sit if you like, but pick one up if you can. The fish does not cook itself.",
       stats: [
         ["LINEAGE", "Tabaxi (snow leopard)"],
         ["TRADE",   "Cook · Galley Master"],
@@ -1564,7 +1575,7 @@ function _navigateTo(url) {
       portrait: "assets/kalt.jpg",
       cinPortrait: "assets/kalt-cin.png",
       hook: "A rope that frays in calm water will snap in a storm.",
-      dialogue: "Don't just stand there gawking at the canvas. Every line on this ship has a knot, every knot has a name, and every name has a reason. Come — I'll show you which ones the sea is trying to undo today.",
+      dialogue: "Da — three years I am first mate on this ship. Three years, and every morning I check these lines like it is the first time, because the sea does not care how long you have done something. Every line has a knot, every knot has a name, and every name has a reason. Come. I show you which ones the sea is trying to undo today, yes?",
       stats: [
         ["LINEAGE", "Dwarf"],
         ["RANK",    "First Mate"],
@@ -1589,7 +1600,7 @@ function _navigateTo(url) {
       portrait: "assets/ursula.jpg",
       cinPortrait: "assets/ursula-cin.jpg",
       hook: "From up here, the world is a chart and the chart is a lie. Look closer.",
-      dialogue: "Come up — the wind is cleaner where I sit. The crescent on my throat catches more than moonlight; it answers to true north when the compass forgets. Bring the glass. There is something on the ice today, and I would have a second pair of eyes I trust.",
+      dialogue: "Oh, come on up — the wind's real clean up here, I'll tell you that much. Six months I've been on contract for this route, and back home in Shadycreek Run we sure don't get skies like this. I can see further than most, which is why the captain keeps me up here. Grab the glass, would ya? There's something on the ice today and I'd really appreciate a second set of eyes.",
       stats: [
         ["LINEAGE", "Human (lycanthrope · werebear)"],
         ["TRADE",   "Navigator · Lookout"],
@@ -1733,8 +1744,8 @@ function _navigateTo(url) {
     if (!npc) return;
     ttName.textContent = npc.name;
     ttRole.textContent = npc.role;
-    ttLine.textContent = '"' + npc.hook + '"';
-    ttDay.textContent  = npc.dayLabel;
+    ttLine.textContent = "";
+    ttDay.textContent  = "";
     tt.style.left = x + "px";
     tt.style.top  = y + "px";
     tt.classList.add("visible");
@@ -1754,6 +1765,7 @@ function _navigateTo(url) {
     });
     el.addEventListener("mouseleave", hideTooltip);
     el.addEventListener("click", () => {
+      el.classList.remove("first-visit-glow");
       showNpcCinematic(zone);
     });
   });
@@ -1791,7 +1803,7 @@ function _navigateTo(url) {
     pName.textContent = eff.name;
     pRole.textContent = eff.role;
     pPortrait.style.backgroundImage = `url('${eff.portrait}')`;
-    pDialogue.textContent = '"' + eff.dialogue + '"';
+    pDialogue.textContent = '“' + eff.dialogue + '”';
     pActTitle.textContent = eff.activityTitle;
     pActDesc.textContent = eff.activityDesc;
 
@@ -1921,6 +1933,16 @@ function _navigateTo(url) {
     });
   }
   renderKnots();
+
+  /* ============== FIRST-VISIT THORGRIM GLOW ============== */
+  if (!_raw.hubFirstVisitShown) {
+    const _thEl = document.querySelector('[data-zone="thorgrim"]');
+    if (_thEl) _thEl.classList.add("first-visit-glow");
+    try {
+      const _fv = JSON.parse(localStorage.getItem("remorhaz") || "{}");
+      localStorage.setItem("remorhaz", JSON.stringify({ ..._fv, hubFirstVisitShown: true }));
+    } catch {}
+  }
 
   /* ============== NPC CINEMATIC ============== */
   const cinNpc      = document.getElementById("cin-npc");
