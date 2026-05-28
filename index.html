@@ -1840,6 +1840,14 @@ function _navigateTo(url) {
           delta: 1,
         },
       },
+      day5: {
+        dayLabel: "DAY · 05 — HULL INSPECTION",
+        approach: "Kalt is already below the waterline on a boarding ladder, running her bare hands along the hull with methodical care. She doesn't look up when you approach. You can hear the scrape of her fingers over the planking as she checks for cracks. After a moment, she looks up — and the set of her jaw tells you what she's found.",
+        hook: "The hull will tell me the truth. It always does.",
+        dialogue: "Da. There is damage. Not catastrophic — but I do not sail a damaged ship. I have standards. You will help me check every frame and seal what needs sealing. When I say it is done, it is done. When I say we sail, we sail. Not before.",
+        activityTitle: "DAY 5 · HULL INSPECTION",
+        activityDesc: "The ice channel left its mark. Kalt must clear the hull before the Remorhaz can press on — work with her to assess and seal the damage.",
+      },
       day8: {
         dayLabel: "DAY · 08 — EMERGENCY REPAIRS",
         approach: "Kalt stands at the foot of the mainmast with a clipboard in one hand and a wrench in the other, moving her eyes over the damage with grim efficiency. No panic — just a cold tally of what it will take. She looks up when she hears you. She doesn't speak at first, just holds out the clipboard so you can see the list.",
@@ -1996,6 +2004,29 @@ function _navigateTo(url) {
     if (_d8s) _d8s.label = "Fair Winds";
     const _d9s = DAYS.find(d => d.n === 9);
     if (_d9s) _d9s.label = "Arrival at Syrinlya";
+  }
+
+  // Day 5: if icefloe caused hull damage, Kalt must inspect before sailing on
+  const d5KaltRequired = !!_raw.d5KaltRequired;
+  if (d5KaltRequired && state.currentDay === 5) {
+    const _d5 = DAYS.find(d => d.n === 5);
+    if (_d5 && !_d5.npcs.includes("kalt")) _d5.npcs.push("kalt");
+  }
+
+  // If all required Day 5 work is done (ursula + optional kalt repair), advance to Day 6
+  if (state.currentDay === 5) {
+    const _d5c = DAYS.find(d => d.n === 5);
+    if (_d5c && _d5c.npcs.length > 0 && _d5c.npcs.every(k => state.completed.has(k))) {
+      state.completedDays.add(5);
+      state.currentDay = 6;
+      if (d5KaltRequired) {
+        try {
+          const _ex5 = JSON.parse(localStorage.getItem("remorhaz") || "{}");
+          localStorage.setItem("remorhaz", JSON.stringify({ ..._ex5, d5KaltRequired: false }));
+        } catch {}
+      }
+      save();
+    }
   }
 
   // If all required Day 8 repairs are done, advance to Day 9
