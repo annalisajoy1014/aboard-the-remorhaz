@@ -496,7 +496,7 @@
   .panel h2 {
     font-family: "IM Fell English SC", serif;
     font-weight: 400;
-    font-size: 38px;
+    font-size: 49px;
     letter-spacing: 0.06em;
     color: var(--ink);
     line-height: 1.05;
@@ -505,7 +505,7 @@
   .panel h3 {
     font-family: "Caveat", cursive;
     font-weight: 400;
-    font-size: 22px;
+    font-size: 29px;
     color: var(--paper-deep);
     margin-bottom: 22px;
     letter-spacing: 0.01em;
@@ -535,11 +535,11 @@
     justify-content: space-between;
     border-bottom: 1px dotted color-mix(in oklch, var(--ink) 35%, transparent);
     padding: 4px 0;
-    font-size: 14px;
+    font-size: 18px;
   }
   .panel-stats .stat span:first-child {
     font-family: "IM Fell English SC", serif;
-    font-size: 11px;
+    font-size: 14px;
     letter-spacing: 0.16em;
     color: var(--paper-deep);
   }
@@ -556,7 +556,7 @@
   .panel .dialogue {
     position: relative;
     font-family: "IM Fell English", serif;
-    font-size: 19px;
+    font-size: 25px;
     font-style: italic;
     line-height: 1.5;
     color: var(--ink);
@@ -580,14 +580,14 @@
   }
   .panel .activity .ah {
     font-family: "IM Fell English SC", serif;
-    font-size: 12px;
+    font-size: 16px;
     letter-spacing: 0.22em;
     color: var(--blood);
     margin-bottom: 4px;
   }
   .panel .activity .at {
     font-family: "IM Fell English", serif;
-    font-size: 16px;
+    font-size: 21px;
     color: var(--ink);
     line-height: 1.4;
   }
@@ -599,7 +599,7 @@
   .panel button.primary,
   .panel button.secondary {
     font-family: "IM Fell English SC", serif;
-    font-size: 13px;
+    font-size: 17px;
     letter-spacing: 0.18em;
     padding: 12px 18px;
     cursor: pointer;
@@ -626,7 +626,7 @@
   .panel .status-line {
     margin-top: 18px;
     font-family: "Caveat", cursive;
-    font-size: 17px;
+    font-size: 22px;
     color: var(--blood);
     min-height: 22px;
   }
@@ -701,10 +701,10 @@
     position: absolute; inset: 0;
     background: linear-gradient(
       108deg,
-      rgba(0,0,0,0.93) 0%,
-      rgba(0,0,0,0.7)  36%,
-      rgba(0,0,0,0.18) 62%,
-      rgba(0,0,0,0.46) 100%
+      rgba(0,0,0,0.88) 0%,
+      rgba(0,0,0,0.52) 30%,
+      rgba(0,0,0,0.04) 56%,
+      rgba(0,0,0,0.22) 100%
     );
   }
 
@@ -720,17 +720,17 @@
   .cin-npc.active .cin-npc-content { opacity: 1; transform: translateX(0); }
 
   .cin-npc-eyebrow {
-    font-family: "Caveat", cursive; font-size: 17px;
+    font-family: "Caveat", cursive; font-size: 22px;
     color: rgba(210,190,152,0.72); letter-spacing: 0.08em;
   }
   .cin-npc-name {
     font-family: "IM Fell English SC", serif;
-    font-size: clamp(28px, 3.8vw, 62px);
+    font-size: clamp(36px, 4.9vw, 80px);
     color: #e4d8c2; letter-spacing: 0.1em; line-height: 1.05;
     text-shadow: 0 2px 22px rgba(0,0,0,0.85); margin: 0;
   }
   .cin-npc-role {
-    font-family: "Caveat", cursive; font-size: 20px;
+    font-family: "Caveat", cursive; font-size: 26px;
     color: rgba(204,180,140,0.9);
   }
   .cin-npc-rule {
@@ -740,12 +740,12 @@
   }
   .cin-npc-quote {
     font-family: "IM Fell English", serif; font-style: italic;
-    font-size: 15px; color: rgba(208,192,165,0.82);
-    line-height: 1.68; max-width: 420px; margin: 0;
+    font-size: 19px; color: rgba(208,192,165,0.88);
+    line-height: 1.72; max-width: 480px; margin: 0;
   }
   .cin-npc-btn {
     margin-top: 14px;
-    font-family: "IM Fell English SC", serif; font-size: 13px;
+    font-family: "IM Fell English SC", serif; font-size: 14px;
     letter-spacing: 0.22em; color: rgba(224,204,162,0.9);
     background: transparent; border: 1px solid rgba(200,168,102,0.4);
     padding: 12px 30px; cursor: pointer;
@@ -756,6 +756,50 @@
     background: rgba(200,168,102,0.12);
     color: #e4d8c2;
   }
+
+  /* ── DIALOGUE RESPONSE OPTIONS ── */
+  .cin-npc-options {
+    display: flex; flex-direction: column; gap: 8px;
+    margin-top: 14px; width: 100%; max-width: 480px;
+  }
+  .cin-opt-btn {
+    font-family: "IM Fell English", serif; font-style: italic;
+    font-size: 17px; color: rgba(230,210,168,0.82);
+    background: rgba(0,0,0,0.32); border: 1px solid rgba(218,186,122,0.28);
+    padding: 10px 16px; cursor: pointer; border-radius: 1px; text-align: left;
+    transition: all 0.2s ease; line-height: 1.45;
+  }
+  .cin-opt-btn:hover {
+    background: rgba(218,186,122,0.12); border-color: rgba(218,186,122,0.6);
+    color: #ede2ca;
+  }
+  .cin-npc-reaction {
+    font-family: "IM Fell English", serif; font-style: italic;
+    font-size: 19px; color: rgba(230,210,168,0.9); line-height: 1.65;
+    margin-top: 12px; max-width: 480px;
+    display: none; padding-top: 12px;
+    border-top: 1px solid rgba(218,186,122,0.22);
+  }
+  .cin-npc-reaction.visible { display: block; }
+  .cin-npc-influence {
+    font-family: "Caveat", cursive; font-size: 18px;
+    margin-top: 6px; display: none;
+  }
+  .cin-npc-influence.visible { display: block; }
+  .cin-npc-influence.pos { color: rgba(120,220,90,0.9); }
+  .cin-npc-influence.neg { color: rgba(220,80,60,0.9); }
+  .cin-npc-actions {
+    margin-top: 16px; display: none; flex-direction: column; gap: 10px;
+  }
+  .cin-npc-actions.visible { display: flex; }
+  .cin-npc-btn-sec {
+    font-family: "IM Fell English SC", serif; font-size: 13px;
+    letter-spacing: 0.22em; color: rgba(210,190,152,0.65);
+    background: transparent; border: 1px solid rgba(218,186,122,0.2);
+    padding: 10px 28px; cursor: pointer; transition: all 0.28s ease;
+    border-radius: 1px; width: fit-content;
+  }
+  .cin-npc-btn-sec:hover { color: rgba(230,210,168,0.9); border-color: rgba(218,186,122,0.5); }
 
   /* ── DAY TRANSITION CINEMATIC ── */
   .cin-day {
@@ -1423,7 +1467,13 @@
       <div class="cin-npc-role" id="cin-npc-role"></div>
       <div class="cin-npc-rule"></div>
       <p class="cin-npc-quote" id="cin-npc-quote"></p>
-      <button class="cin-npc-btn" id="cin-npc-enter">Speak With Them →</button>
+      <div class="cin-npc-options" id="cin-npc-options"></div>
+      <div class="cin-npc-reaction" id="cin-npc-reaction"></div>
+      <div class="cin-npc-influence" id="cin-npc-influence"></div>
+      <div class="cin-npc-actions" id="cin-npc-actions">
+        <button class="cin-npc-btn" id="cin-npc-enter">BEGIN ACTIVITY →</button>
+        <button class="cin-npc-btn-sec" id="cin-npc-return">RETURN TO DECK</button>
+      </div>
     </div>
   </div>
 
@@ -1490,137 +1540,386 @@ function _navigateTo(url) {
   } catch { window.location.replace("character-select.html"); }
 
   /* ============== DATA ============== */
+  const RESP_DELTAS = {
+    thorgrim: { amicable: 0, argumentative: -1, placating: 1, complimentary: 1 },
+    haldor:   { amicable: 0, argumentative:  1, placating: -1, complimentary: 1 },
+    ingrid:   { amicable: 0, argumentative: -1, placating: -1, complimentary: 0 },
+    kalt:     { amicable: 0, argumentative: -1, placating:  1, complimentary: 1 },
+    ursula:   { amicable: 0, argumentative:  0, placating:  1, complimentary: 1 },
+  };
+
   const NPCS = {
     thorgrim: {
       name: "Capt. Thorgrim Isskegg",
-      role: "Half-dwarf · Captain & Master of the Remorhaz",
+      role: "Captain & Master of the Remorhaz",
       day: 0,
       dayLabel: "ANY HOUR",
       zone: "Helm / Captain's Post",
       portrait: "assets/thorgrim.png",
       cinPortrait: "assets/thorgrim-cin.png",
+      approach: "The wheel of the Remorhaz is carved from northern ash, worn smooth by decades of hands. Captain Thorgrim Isskegg stands behind it like he was built there — feet planted wide, jaw set, eyes sweeping the grey horizon. The cold doesn't seem to touch him. He hasn't acknowledged you yet. He will when he's ready.",
       hook: "It is hard to tell which is colder — the arctic voyage to Syrinlya, or the captain's icy stare.",
-      dialogue: "Alright sukolput negeez, Elro paid me to transport you to Eiselcross, not to fill bellies and pamper like lapdog. Report back to stern! Master Haldor will be teaching you ropes — literally. When you done with him, go to galley. Find Ingrid, our chef. She will take all from there.",
+      dialogue: "Alright sukolput negeez — Elro paid me to transport you to Eiselcross, not to fill bellies and pamper like lapdog. Report back to stern. Master Haldor will be teaching you ropes — literally. When you done with him, go to galley. Find Ingrid, our chef. She will take all from there.",
       stats: [
-        ["LINEAGE", "Half-dwarf"],
         ["RANK",    "Captain"],
         ["AT POST", "The wheel, always"],
       ],
       activityTitle: "SHIP-WIDE EVENTS",
       activityDesc: "Speaking with Captain Thorgrim does not consume a day — he surfaces ship-wide news, course changes, and the day's order of march.",
       special: true,
+      responses: {
+        amicable:      {
+          relyt: "I'm ready to follow your orders, Captain.",
+          lucy:  "Whatever the ship needs, Captain. Just point me.",
+          irene: "I'm here to be useful, Captain. What do you need from me?",
+          npc:   "Hmm. We will see.",
+          delta: 0,
+        },
+        argumentative: {
+          relyt: "You don't need to be so cold. We're on the same ship.",
+          lucy:  "You know, a little warmth goes a long way up here. Just saying.",
+          irene: "There's no need to treat the crew like obstacles, Captain.",
+          npc:   "You speak to me like this again, you swim.",
+          delta: -1,
+        },
+        placating: {
+          relyt: "I know you carry this ship on your shoulders. I respect that.",
+          lucy:  "Running a ship this far north, in this cold — that's something. I get it.",
+          irene: "The weight of command in these waters can't be overstated. I understand.",
+          npc:   "Good. Then we understand each other.",
+          delta: 1,
+        },
+        complimentary: {
+          relyt: "You've got the best sea-legs I've ever seen, Captain.",
+          lucy:  "Honestly, I've never felt safer on a ship. You really know what you're doing.",
+          irene: "Your seamanship speaks for itself. This crew is lucky to sail under you.",
+          npc:   "Flattery wastes time. But... it is not entirely wrong.",
+          delta: 1,
+        },
+      },
+      dailyBriefing: {
+        1: {
+          low:  "You are alive. Good. Now earn your place. Find Haldor at the stern — he will put line in your hands. After, Ingrid in the galley. She will teach you to cook what you pull out. Go. I do not repeat myself.",
+          mid:  "Day one. You report to Haldor first — he is at the stern with the fishing lines. When your catch is done, bring it below to Ingrid. She will handle it from there. That is the shape of the day.",
+          high: "First full day underway. Haldor is at the stern — fishing lines are already out, should be a decent pull. Once you have the catch, bring it down to Ingrid in the galley. She has been waiting. Have a good day.",
+        },
+        2: {
+          low:  "Ship does not sail itself. Ropes, canvas, bolts — everything rots if you leave it. Find Kalt on the rigging. She will show you what needs doing. Try not to make more work than you fix.",
+          mid:  "Kalt needs help on maintenance today. Rigging, lines, the usual checks. Find her mid-ship. She knows what she is doing — follow her lead and do not cut corners.",
+          high: "Day two. Kalt is running maintenance on the rigging today — she could use an extra pair of hands. She will tell you what needs doing. Good work yesterday, by the way.",
+        },
+        3: {
+          low:  "Ursula is in the crow's nest. She is navigator. You will help her chart this stretch. Try not to fall. I will not come for you if you fall.",
+          mid:  "Navigation today. Ursula is up top in the crow's nest — she is charting the next stretch of ice. Climb up, take the glass. Watch what she watches.",
+          high: "Ursula is up in the crow's nest and she could use a second pair of eyes for today's navigation. Take the glass and follow her lead.",
+        },
+        4: {
+          low:  "You are soft. All of you. Haldor will fix this. Combat drills on the main deck — axes, harpoons, net work. You do not get to be soft on a ship sailing into Eiselcross. Move.",
+          mid:  "Combat training today. Haldor is running drills on the main deck — weapons, boarding defence. These waters get dangerous closer to Eiselcross. Do not skip it.",
+          high: "Day four — Haldor is running combat training on main deck. We are getting into open water where things can go sideways fast. I want you sharp. He is thorough — listen to him.",
+        },
+        5: {
+          low:  "There is a stretch of ice floes ahead — narrow channel, bad currents, rocks under the surface. Find Ursula. She will take you through it. If you fail, the ship gets damaged. You are responsible.",
+          mid:  "Ice floes ahead — we are threading through a channel that is not on most charts. Ursula is handling the navigation but she needs someone to call hazards from the bow. That is you. Do not miss anything.",
+          high: "Day five. We have a tricky stretch of ice floes ahead — rocky outcrops, unpredictable currents. Ursula knows this kind of sailing but she needs someone she can trust on hazard watch. Report to her and do exactly what she says.",
+        },
+        6: {
+          low:  "We have a problem. Current Revenants — water creatures, they circle the hull before they board. Ursula spotted them. You will fight. This is not training. Pick up a weapon.",
+          mid:  "We have Current Revenants circling the ship. Ursula spotted them from above. Get armed and get to the deck — they will board if we let them get close enough.",
+          high: "Ursula is reporting shapes under the water — Current Revenants, moving against the current toward the hull. I need you armed and on deck. She will fight from above; you hold the line down here.",
+        },
+        7: {
+          low:  "There is a storm coming. You can see it or you are blind. Ursula will coordinate. Every rope, every sail, every hatch — it all matters. Do not disappear when this gets hard.",
+          mid:  "Storm moving in from the north — faster than I would like. Ursula is coordinating. All hands at their stations, everything secured. Get to her for your assignment.",
+          high: "There is a wall of bad weather to the north and it is moving our way. Ursula has the best read on it from the crow's nest. Get to her, take your station, and let us ride this out clean.",
+        },
+        8: {
+          low:  "Storm took our stores. Kalt says the ship is damaged. Fix it. All of it. Kalt, Haldor if we need fish, Ingrid if we need food. No excuses.",
+          mid:  "Storm damage needs addressing before we can sail. Kalt is running repairs — find her. If we are low on provisions, Haldor is back at the lines and Ingrid is in the galley. Sort it out.",
+          high: "We took a beating last night. Kalt has already assessed the damage — find her and lend hands. If we are short on food, Haldor and Ingrid know what to do. Let us get the Remorhaz back in shape.",
+        },
+      },
     },
+
     haldor: {
       name: "Haldor Stormchaser",
-      role: "Scottish dwarf · Fisherman & deckhand",
+      role: "Fisherman & Deckhand",
       day: 1,
       dayLabel: "DAY · 01 — FISHING",
       zone: "Main Deck · Stern",
       portrait: "assets/haldor.jpg",
       cinPortrait: "assets/haldor-cin.jpg",
-      hook: "The sea doesn't care about your magic. Pull!",
+      approach: "The stern of the Remorhaz is battered by cold spray. Haldor stands at the rail with a net draped over one arm, working a splice with bare red hands that have never once fumbled it. The smell of brine and cold iron follows him. There is a fishing pole propped against the rail, waiting. He glances at you over his shoulder.",
+      hook: "The sea doesn't care about your magic. Pull.",
       dialogue: "I've never seen a day without snow, frost, or a biting wind in all my years — and that suits me fine. Been a fisherman on these ice seas all my life. Captain Isskegg pays me well to keep this crew fed, and I earn every coin of it. Now — grab a pole, mind yer footin', and for the love o' the deep — don't lose yer grip. The sea doesn't care if ye're cold.",
       stats: [
-        ["LINEAGE", "Dwarf"],
         ["TRADE",   "Fisherman"],
         ["AT POST", "Nets and lines, stern rail"],
       ],
       activityTitle: "DAY 1 · FISHING",
       activityDesc: "Cast lines into the freezing brine and haul what surfaces from the deep. The galley will need a catch before nightfall.",
+      responses: {
+        amicable:      {
+          relyt: "Right. Where do you want me to start?",
+          lucy:  "Put me to work, Haldor. I'm ready.",
+          irene: "I've never done this before, but I'll follow your lead.",
+          npc:   "Good. Grab that line. Don't let it go slack.",
+          delta: 0,
+        },
+        argumentative: {
+          relyt: "I'm a soldier, not a fisherman. You sure this is the right job for me?",
+          lucy:  "Standing in the freezing cold hauling rope wasn't exactly what I had in mind.",
+          irene: "I have to ask — is there not a more efficient method than hauling by hand?",
+          npc:   "Ha! Everyone who's ever said that ends up glad they know how. Now grab the line.",
+          delta: 1,
+        },
+        placating: {
+          relyt: "You clearly know these waters better than anyone alive. I'm listening.",
+          lucy:  "You look like the most competent person on this ship. Teach me.",
+          irene: "Your knowledge of these seas is exceptional. I would be grateful to learn from you.",
+          npc:   "Careful wi' the flattery. But aye, I do know these waters. Pay attention and ye'll come out ahead.",
+          delta: -1,
+        },
+        complimentary: {
+          relyt: "That splice looked perfect from twenty feet away. You've done that ten thousand times.",
+          lucy:  "You netted three fish in the time it took me to find my gloves. Impressive.",
+          irene: "Your technique is remarkable. There's real mastery in how you work.",
+          npc:   "Aye, well. Keep compliments short and work long — that's the rule.",
+          delta: 1,
+        },
+      },
       day4: {
         dayLabel: "DAY · 04 — COMBAT TRAINING",
+        approach: "The main deck has been cleared. Weapons are laid out in rows — axes, harpoons, throwing nets weighted with iron. Haldor stands at the centre with his arms crossed and jaw set, watching you approach. The air smells of cold metal and oiled rope. He gives you a look that says he has already decided this will be harder than you expect.",
+        hook: "Poles are put away. Today we fight.",
         dialogue: "Fishing poles are put away. Captain wants ye ready to fight if it comes to it — an' out here, it always comes to it. Harpoons, axes, nets. Ye'll drill until yer arms ache, then we'll see how ye hold up against me. Fair warning: I don't go easy.",
-        activityTitle: "DAY 4 · MARITIME COMBAT",
-        activityDesc: "Captain Isskegg has assigned you to Haldor for basic combat training. Weapon drills first — then a live boarding simulation. Come ready to move.",
+        activityTitle: "DAY 4 · MARITIME COMBAT TRAINING",
+        activityDesc: "Captain Isskegg has assigned you to Haldor for combat training. Weapon drills first — then a boarding simulation. Come ready to move.",
+        responses: {
+          amicable:      {
+            relyt: "I've trained before. I'll keep up.",
+            lucy:  "Let's do it. I'm faster than I look.",
+            irene: "I'd rather use my mind than my muscles, but I'm willing to try.",
+            npc:   "Words are free. Let's see what yer made of.",
+            delta: 0,
+          },
+          argumentative: {
+            relyt: "I've been in a hundred fights. This training might be beneath me.",
+            lucy:  "Is this really necessary? I've got other skills that are arguably more useful.",
+            irene: "Combat is a blunt solution. Surely there are more elegant approaches.",
+            npc:   "That right? The sea doesn't care how clever ye think ye are. Get yer axe.",
+            delta: 1,
+          },
+          placating: {
+            relyt: "You're the expert out here. I'll do it your way.",
+            lucy:  "I know I need this. You clearly know what you're talking about.",
+            irene: "I defer to your experience entirely. What should I focus on first?",
+            npc:   "Bah — dinnae butter me up. Just put in the work an' ye'll be fine.",
+            delta: -1,
+          },
+          complimentary: {
+            relyt: "Any fighter who's spent this long at sea must know things you can't learn on land.",
+            lucy:  "You move like someone who has won every fight they've been in. I want some of that.",
+            irene: "Your command of practical combat in maritime conditions is clearly well-earned.",
+            npc:   "Aye, well. Talk less, drill more. But that's not wrong.",
+            delta: 1,
+          },
+        },
       },
       day8: {
         dayLabel: "DAY · 08 — EMERGENCY FISHING",
+        approach: "Haldor is already at the rail — no ceremony, no warm-up. The lines are out, the rod is in his hand, and there is a second one planted in a holder waiting for you. His face is unreadable, but his jaw is tight. He doesn't speak until you're within arm's reach.",
         hook: "Storm ate the stores. Back to the lines — we don't reach Eiselcross on empty bellies.",
         dialogue: "The bilge is half full of saltwater where the biscuit barrels used to be. Maybe two days of thin rations if we stretch it — which we won't. Lines are already out. Get over here and pull. No ceremony, no patience. Pull.",
         activityTitle: "DAY 8 · EMERGENCY FISHING",
         activityDesc: "The storm destroyed most of the food stores. Get back to the lines with Haldor — the crew needs provisions before the Remorhaz can sail on.",
       },
     },
+
     ingrid: {
       name: "Chef Ingrid Firebrew",
-      role: "Snow-leopard tabaxi · Galley Master",
+      role: "Galley Master",
       day: 1,
       dayLabel: "DAY · 01 — COOKING",
       zone: "Below Deck · Galley",
       portrait: "assets/ingrid.png",
-      cinPortrait: "assets/ingrid.png",
+      cinPortrait: "assets/ingrid-cin.jpg",
+      approach: "The warmth hits you before the smell — a wave of wood smoke, rendered fat, and something spiced beneath it all. The galley below decks is amber-lit and cramped, but Chef Ingrid Firebrew moves through it like the space was designed for her. She stands six feet tall and hasn't bumped her head once. She glances at you over her shoulder and nods toward a spare knife on the board.",
       hook: "Hands clean, knife steady. We feed the ship, or the ship eats us.",
       dialogue: "Ah, bonjour — you smell of salt and the cold, both very welcome in my galley. I am Ingrid Firebrew — one of the first to make a proper meal in Syrinlya, oui. I helped build that outpost on Foren, so I know what it is to feed people at the very edge of the world. I stand six feet tall and I have never once dropped a knife. Sit if you like, but pick one up if you can. The fish does not cook itself.",
       stats: [
-        ["LINEAGE", "Tabaxi (snow leopard)"],
         ["TRADE",   "Cook · Galley Master"],
         ["AT POST", "The hearth, always lit"],
       ],
       activityTitle: "DAY 1 · COOKING",
       activityDesc: "Help Ingrid render the day's catch into something warm. The galley is the only place on this ship that smells of home.",
+      responses: {
+        amicable:      {
+          relyt: "I'm no cook, but I can follow directions. What do you need?",
+          lucy:  "Smells incredible down here. Tell me what to do and I'll do it.",
+          irene: "I'd love to learn this. Where should I start?",
+          npc:   "Bon. Pick up ze knife. We start wiz ze fish.",
+          delta: 0,
+        },
+        argumentative: {
+          relyt: "I'm more of a 'eat what's in front of me' kind of person. Do you really need help?",
+          lucy:  "Cooking is a whole thing. Can I just taste and give feedback?",
+          irene: "You haven't actually given me a task yet. Shouldn't there be a system?",
+          npc:   "Zere is a system. It is my system. And in my galley, everyone has a knife. Pick one up.",
+          delta: -1,
+        },
+        placating: {
+          relyt: "Feeding a crew this far from civilization — that's a real skill. I respect it.",
+          lucy:  "This smells better than anything I've had in months. You're clearly very good at this.",
+          irene: "The work you do here keeps this crew alive. I want to understand what goes into that.",
+          npc:   "Ah, you zink you can flatter your way into a better meal, non? You can try ze compliments while you chop ze onions.",
+          delta: -1,
+        },
+        complimentary: {
+          relyt: "You helped build Syrinlya AND you run this galley. That's something else.",
+          lucy:  "Six feet tall and you've never dropped a knife. I want to be you when I grow up.",
+          irene: "You were one of the first to establish a proper kitchen at the edge of the world. That history is remarkable.",
+          npc:   "Ha — I like zis one. You — stay close. You will learn something today.",
+          delta: 0,
+        },
+      },
       day8: {
         dayLabel: "DAY · 08 — EMERGENCY COOKING",
+        approach: "The galley smells wrong — damp stone where there should be warmth, cold iron where there should be fire. Ingrid stands at the cold hearth surveying the damage with controlled fury. Tipped shelves, waterlogged provisions, a spice rack that isn't there anymore. She turns when you enter. Her jaw is set.",
         hook: "Do not bring me that fish and expect me to do nothing with it. Come.",
         dialogue: "The galley took on water. The hearth is damp, the spice rack is overboard somewhere, and what provisions we saved are barely worth the name. There is fresh fish, if Haldor has done his job. I will make something of it. You will help and you will not waste a single scrap.",
         activityTitle: "DAY 8 · EMERGENCY COOKING",
         activityDesc: "Food stores were lost in the storm. Help Ingrid prepare the fresh catch — every meal counts before you can sail again.",
       },
     },
+
     kalt: {
       name: "Kalt Ironfist",
-      role: "Dwarf woman · First Mate",
+      role: "First Mate",
       day: 2,
       dayLabel: "DAY · 02 — MAINTENANCE",
       zone: "Rigging / Mid-Deck",
       portrait: "assets/kalt.jpg",
       cinPortrait: "assets/kalt-cin.png",
+      approach: "Mid-ship, the rigging hums in the wind. Kalt stands with a coil of heavy line over one shoulder, inspecting a splice with both bare hands that don't seem to notice the cold. She hears you approach, but she doesn't look up — she finishes what she is doing first, because that is what you do with rigging. Then she looks at you. It is a measuring look.",
       hook: "A rope that frays in calm water will snap in a storm.",
       dialogue: "Da — three years I am first mate on this ship. Three years, and every morning I check these lines like it is the first time, because the sea does not care how long you have done something. Every line has a knot, every knot has a name, and every name has a reason. Come. I show you which ones the sea is trying to undo today, yes?",
       stats: [
-        ["LINEAGE", "Dwarf"],
         ["RANK",    "First Mate"],
         ["AT POST", "Rigging, shrouds, and ratlines"],
       ],
       activityTitle: "DAY 2 · SHIP MAINTENANCE",
       activityDesc: "Inspect ropes, mend sailcloth, and check the rigging before the next squall. Sloppy work here will cost lives later.",
+      responses: {
+        amicable:      {
+          relyt: "Ready to work. Just show me what needs doing.",
+          lucy:  "I'm here to help. What's the most urgent thing?",
+          irene: "I'll do whatever is most useful. Where should I start?",
+          npc:   "Da. We start wiz the mainmast shrouds. Come.",
+          delta: 0,
+        },
+        argumentative: {
+          relyt: "I feel like I'm being treated as a deckhand. Is this really how I'm spending today?",
+          lucy:  "Rigging checks. Right. Is this as exciting as it sounds?",
+          irene: "This seems like work that should already be handled by dedicated crew.",
+          npc:   "You think the ship maintains itself? Every rope has a name. Every name matters. Come — I show you.",
+          delta: -1,
+        },
+        placating: {
+          relyt: "Three years as first mate on a ship like this. That's serious experience.",
+          lucy:  "You're clearly the one holding this ship together. I'm glad you're the one teaching me.",
+          irene: "Your understanding of this ship seems total. I would genuinely like to learn from you.",
+          npc:   "Hmm. Do not say things to make me feel good. Say them because they are true. Now — do you want to learn?",
+          delta: 1,
+        },
+        complimentary: {
+          relyt: "You check every line like it's the first time. That kind of discipline is rare.",
+          lucy:  "I've never seen anyone work rigging that fast. You're something else.",
+          irene: "The precision you apply to this work is impressive. I can see why the captain relies on you.",
+          npc:   "Save it for after the work is done. Then you can say such things and I will believe you.",
+          delta: 1,
+        },
+      },
       day8: {
         dayLabel: "DAY · 08 — EMERGENCY REPAIRS",
+        approach: "Kalt stands at the foot of the mainmast with a clipboard in one hand and a wrench in the other, moving her eyes over the damage with grim efficiency. No panic — just a cold tally of what it will take. She looks up when she hears you. She doesn't speak at first, just holds out the clipboard so you can see the list.",
         hook: "The storm had its way with my ship. Let's put it right — now.",
         dialogue: "The mainmast brace is cracked. Two bilge pumps are clogged. Port shrouds have rope damage across six lines, and the spare anchor dragged its cradle halfway across the stern. This is what a bad storm leaves you. Pick up a wrench. We are not going anywhere until I say we are fit to sail.",
         activityTitle: "DAY 8 · EMERGENCY REPAIRS",
         activityDesc: "The storm dealt severe damage to the Remorhaz. Work with Kalt to fix what broke — the ship cannot sail until she clears it for sea.",
       },
     },
+
     ursula: {
       name: "Ursula Elara",
-      role: "Human (werebear) · Navigator & Lookout",
+      role: "Navigator & Lookout",
       day: 3,
       dayLabel: "DAY · 03 — NAVIGATION",
       zone: "Crow's Nest",
       portrait: "assets/ursula.jpg",
       cinPortrait: "assets/ursula-cin.jpg",
+      approach: "The rope ladder to the crow's nest sways with the roll of the ship, each rung coated in a fine frost that makes the climb interesting. At the top, Ursula Elara stands with one hand on the rail and a long spyglass in the other, eyes fixed on something in the white distance. The view is staggering — an endless stretch of blue-white ice under a grey sky. She glances at you and holds the glass out without a word.",
       hook: "From up here, the world is a chart and the chart is a lie. Look closer.",
       dialogue: "Oh, come on up — the wind's real clean up here, I'll tell you that much. Six months I've been on contract for this route, and back home in Shadycreek Run we sure don't get skies like this. I can see further than most, which is why the captain keeps me up here. Grab the glass, would ya? There's something on the ice today and I'd really appreciate a second set of eyes.",
       stats: [
-        ["LINEAGE", "Human (lycanthrope · werebear)"],
         ["TRADE",   "Navigator · Lookout"],
         ["AT POST", "Crow's nest, by the silver amulet"],
       ],
       activityTitle: "DAY 3 · NAVIGATION",
       activityDesc: "Take the spyglass to the crow's nest and chart what lies on the horizon. The arctic does not show itself twice.",
+      responses: {
+        amicable:      {
+          relyt: "Tell me what to look for and I'll look for it.",
+          lucy:  "I've got good eyes. Show me what to watch.",
+          irene: "I'm ready to learn the navigation. What should I focus on?",
+          npc:   "Okay, good! Take the glass. See that shape two points off starboard?",
+          delta: 0,
+        },
+        argumentative: {
+          relyt: "Heights don't bother me. The cold might be another story.",
+          lucy:  "The ladder to get up here was terrifying, just so you know.",
+          irene: "I'll admit — I expected navigation to involve charts, not climbing.",
+          npc:   "Ha! Back home in Shadycreek Run we don't have ladders like this either. You get used to it. Take the glass.",
+          delta: 0,
+        },
+        placating: {
+          relyt: "Six months on this route and you make it look easy. I'm genuinely impressed.",
+          lucy:  "I don't know how you stay up here in all this wind and cold. That's incredible.",
+          irene: "Your capacity to process spatial information up here — while managing the cold — is remarkable.",
+          npc:   "Aw, that's sweet of ya. Honestly, the cold grew on me. Take the glass — I'll tell you what you're looking at.",
+          delta: 1,
+        },
+        complimentary: {
+          relyt: "You can see further than anyone on this ship. That's not just a gift — that's training.",
+          lucy:  "You spotted something just now that I'm pretty sure no one else would have caught. What was it?",
+          irene: "Your perceptual range and navigational memory must be extraordinary. I'd love to understand how you catalogue what you see.",
+          npc:   "That's actually a really good question. Take the glass and I'll show you — this ice does some wild things if you know what to look for.",
+          delta: 1,
+        },
+      },
+      day5: {
+        dayLabel: "DAY · 05 — ICE FLOE NAVIGATION",
+        approach: "The bow faces a narrowing channel of dark water threading between vast plates of sea ice. From the deck you can already see how the ice moves — slow, grinding, unpredictable. Ursula descends from the crow's nest to the bow, spyglass tucked under her arm, jaw tight. She waves you over before you're even fully on deck.",
+        hook: "This channel doesn't forgive mistakes. Keep your eyes ahead.",
+        dialogue: "Okay — I'm not going to lie to you, this stretch is rough. Rocky outcrops under the surface, currents that don't match the chart, and ice that shifts without much warning. I need someone on hazard watch at the bow while I call the helm. You're going to tell me everything you see the second you see it. We go slow and we go careful and we get through. Ready?",
+        activityTitle: "DAY 5 · ICE FLOE NAVIGATION",
+        activityDesc: "Thread the Remorhaz through a treacherous channel of shifting ice, rocky outcrops, and unpredictable currents. Timing and perception are everything.",
+      },
       day6: {
+        dayLabel: "DAY · 06 — SEA MONSTER ATTACK",
+        approach: "Ursula drops from the rigging to the deck in one motion, landing in a crouch. Her silver amulet catches the light. Her spyglass is already pointed over the rail, and when you follow her line of sight, you see it too — shapes beneath the surface, too large and too deliberate to be fish. Moving toward the hull.",
         hook: "Something circles beneath us. It's not ice. It's not natural. Get on deck.",
         dialogue: "I spotted them from the crow's nest — shapes under the water, moving against the current. Water Weirds. Current Revenants. They're going to hit the hull if we don't push them back. I'll be fighting from above. You need to hold the deck.",
         activityTitle: "DAY 6 · SEA MONSTER ATTACK",
         activityDesc: "Current Revenants have been spotted circling the Remorhaz. Arm yourself and defend the ship — before they board.",
-        dayLabel: "DAY · 06 — SEA MONSTER ATTACK",
       },
       day7: {
+        dayLabel: "DAY · 07 — THE TEMPEST",
+        approach: "The sky to the north has gone wrong. What was grey cloud an hour ago is now a dark wall moving with purpose you can feel in your teeth. Up in the crow's nest, Ursula is shouting before anyone below has processed the threat. When she slides down the rope to deck level, her face tells you everything: this is going to be bad.",
         hook: "The sky is wrong. The sea is wrong. Get everyone up here — we have maybe ten minutes.",
         dialogue: "I've sailed through bad weather before. This is something else. The barometric pressure dropped so fast my instruments couldn't track it. There's a wall of cloud to the north that moves like it has a purpose. Whatever's coming — we need all hands, all stations, and everyone doing exactly what they're supposed to do.",
         activityTitle: "DAY 7 · WEATHER THE STORM",
         activityDesc: "A violent squall descends without warning. Secure the cargo, reef the sails, and hold the helm — or the Remorhaz goes under.",
-        dayLabel: "DAY · 07 — THE TEMPEST",
       },
     },
   };
@@ -1630,7 +1929,7 @@ function _navigateTo(url) {
     { n: 2, label: "Ship Maintenance",   npcs: ["kalt"] },
     { n: 3, label: "Navigation",         npcs: ["ursula"] },
     { n: 4, label: "Maritime Combat",     npcs: ["haldor"] },
-    { n: 5, label: "Ice Floes",          npcs: [] },
+    { n: 5, label: "Ice Floes",          npcs: ["ursula"] },
     { n: 6, label: "Sea Monster Attack", npcs: ["ursula"] },
     { n: 7, label: "Weather the Storm",  npcs: ["ursula"] },
     { n: 8, label: "Skirting the Shelf", npcs: [] },
@@ -1641,7 +1940,8 @@ function _navigateTo(url) {
   const state = {
     currentDay: 1,
     completed: new Set(),
-    completedDays: new Set()
+    completedDays: new Set(),
+    influence: { thorgrim: 2, haldor: 2, ingrid: 2, kalt: 2, ursula: 2 },
   };
 
   // Load raw flags from storm outcome
@@ -1651,12 +1951,23 @@ function _navigateTo(url) {
   const recookRequired    = !!_raw.recookRequired;
   const skipToSyrinlya    = !!_raw.skipToSyrinlya;
   const d8_initialized    = !!_raw.d8_initialized;
+  const _char = (_raw.character || "relyt").toLowerCase();
+
+  function influenceTier(zone) {
+    const v = state.influence[zone] ?? 2;
+    if (v <= 3) return "low";
+    if (v <= 6) return "mid";
+    return "high";
+  }
 
   // Persist base state
   try {
     if (_raw.currentDay) state.currentDay = _raw.currentDay;
     if (Array.isArray(_raw.completed)) state.completed = new Set(_raw.completed);
     if (Array.isArray(_raw.completedDays)) state.completedDays = new Set(_raw.completedDays);
+    if (_raw.influence && typeof _raw.influence === "object") {
+      state.influence = { ...state.influence, ..._raw.influence };
+    }
   } catch (e) { /* ignore */ }
 
   // Day 8 repair: first-visit setup — clear required NPCs so they must be re-done
@@ -1705,12 +2016,14 @@ function _navigateTo(url) {
         currentDay: state.currentDay,
         completed: [...state.completed],
         completedDays: [...state.completedDays],
+        influence: state.influence,
       }));
     } catch {
       localStorage.setItem("remorhaz", JSON.stringify({
         currentDay: state.currentDay,
         completed: [...state.completed],
         completedDays: [...state.completedDays],
+        influence: state.influence,
       }));
     }
   }
@@ -1766,7 +2079,7 @@ function _navigateTo(url) {
     el.addEventListener("mouseleave", hideTooltip);
     el.addEventListener("click", () => {
       el.classList.remove("first-visit-glow");
-      showNpcCinematic(zone);
+      openPanel(zone);
     });
   });
 
@@ -1795,55 +2108,61 @@ function _navigateTo(url) {
     activeZone = zone;
     hideTooltip();
 
-    // Apply day-specific overrides (e.g. Haldor on Day 4 becomes combat trainer)
-    const dayOverride = npc["day" + state.currentDay] || {};
+    const dayOverride = npc[“day” + state.currentDay] || {};
     const eff = { ...npc, ...dayOverride };
 
-    pDay.textContent = eff.dayLabel;
+    pDay.textContent  = eff.dayLabel;
     pName.textContent = eff.name;
     pRole.textContent = eff.role;
     pPortrait.style.backgroundImage = `url('${eff.portrait}')`;
-    pDialogue.textContent = '“' + eff.dialogue + '”';
+    // Panel shows approach text (sensory description)
+    pDialogue.textContent = eff.approach || eff.hook;
     pActTitle.textContent = eff.activityTitle;
-    pActDesc.textContent = eff.activityDesc;
+    pActDesc.textContent  = eff.activityDesc;
 
-    pStats.innerHTML = "";
+    pStats.innerHTML = “”;
     npc.stats.forEach(([k, v]) => {
-      const r = document.createElement("div");
-      r.className = "stat";
+      const r = document.createElement(“div”);
+      r.className = “stat”;
       r.innerHTML = `<span>${k}</span><span>${v}</span>`;
       pStats.appendChild(r);
     });
 
-    // Status / button
+    // Day 4 fix: check if this NPC is required today even if previously completed
+    const dayEntry = DAYS.find(d => d.n === state.currentDay);
+    const isRequiredToday  = !!dayEntry?.npcs.includes(zone);
+    const todayIsComplete  = state.completedDays.has(state.currentDay);
+
+    pBegin.disabled = false;
     if (npc.special) {
-      pBegin.textContent = "ORDERS OF THE DAY";
-      pStatus.textContent = "";
-    } else if (state.completed.has(zone)) {
-      pBegin.textContent = "RE-VISIT";
+      pBegin.textContent = “SPEAK WITH THE CAPTAIN”;
+      pStatus.textContent = “”;
+    } else if (state.completed.has(zone) && (!isRequiredToday || todayIsComplete)) {
+      // Already done and not needed again today
+      pBegin.textContent = “SPEAK WITH THEM”;
       const _isD8req = repairDayRequired && state.currentDay === 8 && (DAYS.find(d => d.n === 8)?.npcs || []).includes(zone);
       pStatus.textContent = _isD8req
-        ? "Emergency work complete — well done."
-        : `Completed on Day ${npc.day}.`;
-    } else if (state.currentDay >= npc.day) {
-      pBegin.textContent = "BEGIN ACTIVITY";
+        ? “Emergency work complete — well done.”
+        : `You have already worked with ${eff.name.split(“ “)[0]} today.`;
+    } else if (state.currentDay >= npc.day || isRequiredToday) {
+      pBegin.textContent = “SPEAK WITH THEM”;
       const _isD8req = repairDayRequired && state.currentDay === 8 && (DAYS.find(d => d.n === 8)?.npcs || []).includes(zone);
       pStatus.textContent = _isD8req
-        ? "Required for repairs — the ship cannot sail without this."
+        ? “Required for repairs — the ship cannot sail without this.”
         : `Available now — Day ${state.currentDay} of nine.`;
     } else {
-      pBegin.textContent = "NOT YET";
+      pBegin.textContent = “NOT YET”;
+      pBegin.disabled = true;
       pStatus.textContent = `Held in reserve until Day ${npc.day}.`;
     }
 
-    // Highlight the active hotspot
-    document.querySelectorAll(".hotspot").forEach(h => {
-      h.classList.toggle("is-active", h.dataset.zone === zone);
+    document.querySelectorAll(“.hotspot”).forEach(h => {
+      h.classList.toggle(“is-active”, h.dataset.zone === zone);
     });
 
-    shroud.classList.add("open");
-    panel.classList.add("open");
-    panel.setAttribute("aria-hidden", "false");
+    shroud.classList.add(“open”);
+    panel.classList.add(“open”);
+    panel.setAttribute(“aria-hidden”, “false”);
   }
 
   function closePanel() {
@@ -1859,54 +2178,18 @@ function _navigateTo(url) {
   shroud.addEventListener("click", closePanel);
   document.addEventListener("keydown", (e) => {
     if (e.key !== "Escape") return;
-    // Check NPC cinematic first (declared later in IIFE, safe at event time)
     if (document.getElementById("cin-npc")?.classList.contains("active")) {
-      document.getElementById("cin-npc").classList.remove("active");
-      document.getElementById("cin-npc").setAttribute("aria-hidden", "true");
-      _pendingZone = null;
+      dismissNpcCinematic();
     } else {
       closePanel();
     }
   });
 
   pBegin.addEventListener("click", () => {
-    if (!activeZone) return;
-    const npc = NPCS[activeZone];
-
-    if (npc.special) {
-      pStatus.textContent = "The captain holds the deck. No day spent.";
-      return;
-    }
-    if (state.currentDay < npc.day) {
-      pStatus.textContent = `That work is held in reserve until Day ${npc.day}.`;
-      return;
-    }
-
-    // Route to mini-game pages
-    const routes = {
-      haldor: (repairDayRequired && state.currentDay === 8) ? "fishing.html"
-              : state.currentDay >= 4 ? "combat.html" : "fishing.html",
-      ingrid:  "cooking.html",
-      kalt:    "maintenance.html",
-      ursula:  state.currentDay >= 7 ? "weatherstorm.html" : state.currentDay >= 6 ? "seabattle.html" : "navigation.html",
-    };
-    if (routes[activeZone]) {
-      save();
-      _navigateTo(routes[activeZone]);
-      return;
-    }
-
-    // Fallback: mark complete in place (for zones without a page yet)
-    state.completed.add(activeZone);
-    const dayEntry = DAYS.find(d => d.n === state.currentDay);
-    if (dayEntry && dayEntry.npcs.every(k => state.completed.has(k))) {
-      state.completedDays.add(state.currentDay);
-      if (state.currentDay < 9) state.currentDay++;
-    }
-    save();
-    renderKnots();
-    pStatus.textContent = "Logged. The day turns.";
-    pBegin.textContent = "RE-VISIT";
+    if (!activeZone || pBegin.disabled) return;
+    const z = activeZone;
+    closePanel();
+    setTimeout(() => showNpcCinematic(z), 350);
   });
 
   /* ============== ROPE / KNOTS ============== */
@@ -1934,7 +2217,7 @@ function _navigateTo(url) {
   }
   renderKnots();
 
-  /* ============== FIRST-VISIT THORGRIM GLOW ============== */
+  /* ============== FIRST-VISIT / DAILY THORGRIM GLOW ============== */
   if (!_raw.hubFirstVisitShown) {
     const _thEl = document.querySelector('[data-zone="thorgrim"]');
     if (_thEl) _thEl.classList.add("first-visit-glow");
@@ -1942,47 +2225,182 @@ function _navigateTo(url) {
       const _fv = JSON.parse(localStorage.getItem("remorhaz") || "{}");
       localStorage.setItem("remorhaz", JSON.stringify({ ..._fv, hubFirstVisitShown: true }));
     } catch {}
+  } else {
+    // Glow on each new day until captain has been spoken to today
+    const _capSpokenDay = _raw.captainSpokenDay || 0;
+    if (_capSpokenDay < state.currentDay) {
+      const _thEl2 = document.querySelector('[data-zone="thorgrim"]');
+      if (_thEl2) _thEl2.classList.add("first-visit-glow");
+    }
   }
 
   /* ============== NPC CINEMATIC ============== */
-  const cinNpc      = document.getElementById("cin-npc");
-  const cinNpcBg    = document.getElementById("cin-npc-bg");
-  const cinNpcName  = document.getElementById("cin-npc-name");
-  const cinNpcRole  = document.getElementById("cin-npc-role");
-  const cinNpcQuote = document.getElementById("cin-npc-quote");
-  const cinNpcEnter = document.getElementById("cin-npc-enter");
+  const cinNpc         = document.getElementById(“cin-npc”);
+  const cinNpcBg       = document.getElementById(“cin-npc-bg”);
+  const cinNpcName     = document.getElementById(“cin-npc-name”);
+  const cinNpcRole     = document.getElementById(“cin-npc-role”);
+  const cinNpcQuote    = document.getElementById(“cin-npc-quote”);
+  const cinNpcOptions  = document.getElementById(“cin-npc-options”);
+  const cinNpcReaction = document.getElementById(“cin-npc-reaction”);
+  const cinNpcInfluenceEl = document.getElementById(“cin-npc-influence”);
+  const cinNpcActions  = document.getElementById(“cin-npc-actions”);
+  const cinNpcEnter    = document.getElementById(“cin-npc-enter”);
+  const cinNpcReturn   = document.getElementById(“cin-npc-return”);
 
   let _pendingZone = null;
 
   function showNpcCinematic(zone) {
     const npc = NPCS[zone];
-    if (!npc) { openPanel(zone); return; }
+    if (!npc) return;
     _pendingZone = zone;
 
-    const dayOverride = npc["day" + state.currentDay] || {};
+    const dayOverride = npc[“day” + state.currentDay] || {};
     const eff = { ...npc, ...dayOverride };
 
-    cinNpcBg.style.backgroundImage = `url('${npc.cinPortrait || npc.portrait}')`;
-    cinNpcName.textContent  = eff.name;
-    cinNpcRole.textContent  = eff.role;
-    cinNpcQuote.textContent = "“" + npc.hook + "”";
-    cinNpcEnter.textContent = npc.special ? "Take the Captain’s Orders →" : "Speak With Them →";
+    cinNpcBg.style.backgroundImage = `url(‘${eff.cinPortrait || npc.cinPortrait || npc.portrait}’)`;
+    cinNpcName.textContent = eff.name;
+    cinNpcRole.textContent = eff.role;
 
-    cinNpc.classList.add("active");
-    cinNpc.setAttribute("aria-hidden", "false");
+    // Reset state
+    cinNpcOptions.innerHTML = “”;
+    cinNpcReaction.textContent = “”;
+    cinNpcReaction.style.display = “none”;
+    cinNpcInfluenceEl.textContent = “”;
+    cinNpcInfluenceEl.className = “cin-npc-influence”;
+    cinNpcActions.style.display = “none”;
+    cinNpcEnter.disabled = false;
+
+    if (npc.special) {
+      // Captain: show daily briefing (or intro on first ever visit)
+      let briefing;
+      if (!_raw.captainIntroSeen) {
+        briefing = eff.dialogue;
+      } else {
+        const tier = influenceTier(“thorgrim”);
+        briefing = eff.dailyBriefing?.[state.currentDay]?.[tier] || eff.dialogue;
+      }
+      cinNpcQuote.textContent = ““” + briefing + “””;
+      cinNpcEnter.style.display = “none”;
+      cinNpcReturn.style.display = “”;
+      cinNpcReturn.textContent = “RETURN TO DECK”;
+      cinNpcActions.style.display = “flex”;
+      cinNpc.classList.add(“active”);
+      cinNpc.setAttribute(“aria-hidden”, “false”);
+      return;
+    }
+
+    // Regular NPC: show dialogue + response options
+    cinNpcQuote.textContent = ““” + (eff.dialogue || eff.hook) + “””;
+    cinNpcEnter.style.display = “”;
+    cinNpcReturn.style.display = “”;
+
+    const responses = eff.responses || npc.responses;
+    if (responses) {
+      const RESP_ORDER = [“amicable”, “argumentative”, “placating”, “complimentary”];
+      RESP_ORDER.forEach(type => {
+        const r = responses[type];
+        if (!r) return;
+        const btn = document.createElement(“button”);
+        btn.className = “cin-opt-btn”;
+        btn.textContent = r[_char] || r.relyt || r.npc;
+        btn.addEventListener(“click”, () => {
+          // Compute delta
+          const baseDelta = RESP_DELTAS[zone]?.[type] ?? 0;
+          if (typeof baseDelta === “number” && baseDelta !== 0) {
+            state.influence[zone] = Math.max(0, Math.min(10, (state.influence[zone] ?? 2) + baseDelta));
+            save();
+          }
+          // Hide options, show reaction
+          cinNpcOptions.innerHTML = “”;
+          cinNpcReaction.textContent = ““” + (r.npc || “”) + “””;
+          cinNpcReaction.style.display = “block”;
+          if (baseDelta > 0) {
+            cinNpcInfluenceEl.textContent = “▲ Rapport with “ + npc.name.split(“ “).slice(-1)[0] + “ +” + baseDelta;
+            cinNpcInfluenceEl.className = “cin-npc-influence visible pos”;
+          } else if (baseDelta < 0) {
+            cinNpcInfluenceEl.textContent = “▼ Rapport with “ + npc.name.split(“ “).slice(-1)[0] + “ “ + baseDelta;
+            cinNpcInfluenceEl.className = “cin-npc-influence visible neg”;
+          }
+          // Show actions
+          const dayEntry = DAYS.find(d => d.n === state.currentDay);
+          const isRequiredToday = dayEntry?.npcs.includes(zone);
+          if (state.currentDay < npc.day && !isRequiredToday) {
+            cinNpcEnter.textContent = “NOT YET AVAILABLE”;
+            cinNpcEnter.disabled = true;
+          } else {
+            cinNpcEnter.textContent = “BEGIN ACTIVITY →”;
+            cinNpcEnter.disabled = false;
+          }
+          cinNpcActions.style.display = “flex”;
+        });
+        cinNpcOptions.appendChild(btn);
+      });
+    } else {
+      cinNpcEnter.textContent = “BEGIN ACTIVITY →”;
+      cinNpcActions.style.display = “flex”;
+    }
+
+    cinNpc.classList.add(“active”);
+    cinNpc.setAttribute(“aria-hidden”, “false”);
   }
 
   function dismissNpcCinematic() {
-    cinNpc.classList.remove("active");
-    cinNpc.setAttribute("aria-hidden", "true");
-    if (_pendingZone) {
-      const z = _pendingZone;
-      _pendingZone = null;
-      setTimeout(() => openPanel(z), 340);
+    // Track captain interactions
+    if (_pendingZone === “thorgrim”) {
+      try {
+        const _exc = JSON.parse(localStorage.getItem(“remorhaz”) || “{}”);
+        localStorage.setItem(“remorhaz”, JSON.stringify({
+          ..._exc,
+          captainIntroSeen: true,
+          captainSpokenDay: state.currentDay,
+        }));
+        _raw.captainIntroSeen = true;
+        _raw.captainSpokenDay = state.currentDay;
+      } catch {}
+      document.querySelector(‘[data-zone=”thorgrim”]’)?.classList.remove(“first-visit-glow”);
     }
+    cinNpc.classList.remove(“active”);
+    cinNpc.setAttribute(“aria-hidden”, “true”);
+    _pendingZone = null;
   }
 
-  cinNpcEnter.addEventListener("click", dismissNpcCinematic);
+  cinNpcReturn.addEventListener(“click”, dismissNpcCinematic);
+
+  cinNpcEnter.addEventListener(“click”, () => {
+    if (!_pendingZone) return;
+    const zone = _pendingZone;
+    const npc = NPCS[zone];
+    if (!npc || cinNpcEnter.disabled) return;
+
+    const routes = {
+      haldor: (repairDayRequired && state.currentDay === 8) ? “fishing.html”
+              : state.currentDay >= 4 ? “combat.html” : “fishing.html”,
+      ingrid:  “cooking.html”,
+      kalt:    “maintenance.html”,
+      ursula:  state.currentDay >= 7 ? “weatherstorm.html”
+               : state.currentDay >= 6 ? “seabattle.html”
+               : state.currentDay >= 5 ? “icefloe.html”
+               : “navigation.html”,
+    };
+
+    if (routes[zone]) {
+      save();
+      dismissNpcCinematic();
+      setTimeout(() => _navigateTo(routes[zone]), 50);
+      return;
+    }
+
+    // Fallback: mark complete in-place
+    state.completed.add(zone);
+    const dayEntry = DAYS.find(d => d.n === state.currentDay);
+    if (dayEntry && dayEntry.npcs.every(k => state.completed.has(k))) {
+      state.completedDays.add(state.currentDay);
+      if (state.currentDay < 9) state.currentDay++;
+    }
+    save();
+    renderKnots();
+    dismissNpcCinematic();
+  });
 
   /* ============== DAY TRANSITION CINEMATIC ============== */
   const cinDay         = document.getElementById("cin-day");
