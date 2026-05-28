@@ -1,0 +1,729 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Day 5 · Ice Floe Navigation — Aboard the Remorhaz</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+
+/* ── LAYOUT ── */
+.stage {
+  position: fixed; inset: 0; z-index: 1;
+  display: flex; align-items: center; justify-content: center;
+}
+.game-area {
+  display: flex; align-items: stretch;
+  width: min(92vw, 1200px); height: min(78vh, 700px);
+  box-shadow: 0 30px 80px rgba(0,0,0,0.6);
+}
+.game-panel {
+  flex: 1; position: relative; overflow: hidden;
+  border: 1px solid color-mix(in oklch, var(--paper-deep) 25%, transparent);
+  border-right: none;
+}
+.screen {
+  position: absolute; inset: 0;
+  display: none; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 18px; padding: 32px;
+  background: linear-gradient(to bottom, oklch(0.10 0.06 230), oklch(0.07 0.04 230));
+}
+.screen.active { display: flex; }
+
+/* ── SIDEBAR ── */
+.sidebar {
+  width: 300px; flex-shrink: 0;
+  background: linear-gradient(160deg,
+    color-mix(in oklch, var(--paper) 10%, var(--ink)) 0%,
+    color-mix(in oklch, var(--paper)  6%, var(--sea-deep)) 100%);
+  border: 1px solid color-mix(in oklch, var(--paper-deep) 28%, transparent);
+  padding: 36px 28px 28px;
+  display: flex; flex-direction: column; gap: 16px;
+}
+.npc-portrait {
+  width: 100px; height: 100px; border-radius: 50%; margin: 0 auto;
+  border: 2px solid var(--paper-deep);
+  outline: 5px solid color-mix(in oklch, var(--paper-deep) 28%, transparent);
+  background: center/cover no-repeat;
+}
+.npc-name { font-family: "IM Fell English SC", serif; font-size: 18px; letter-spacing: 0.08em; color: var(--paper); text-align: center; }
+.npc-role { font-family: "Caveat", cursive; font-size: 14px; color: var(--paper-deep); text-align: center; margin-top: -8px; }
+.sidebar-rule { width: 100%; height: 1px; flex-shrink: 0; background: linear-gradient(to right, transparent, var(--paper-deep), transparent); }
+.npc-dialogue { font-family: "IM Fell English", serif; font-style: italic; font-size: 15px; line-height: 1.6; color: var(--paper); flex: 1; min-height: 80px; transition: opacity 0.3s; }
+.phase-label { font-family: "IM Fell English SC", serif; font-size: 11px; letter-spacing: 0.2em; color: var(--blood); text-align: center; }
+
+/* damage tracker */
+.damage-tracker { display: flex; flex-direction: column; gap: 6px; }
+.damage-row { display: flex; justify-content: space-between; align-items: center; font-family: "IM Fell English SC", serif; font-size: 11px; letter-spacing: 0.1em; color: var(--paper-deep); }
+.damage-pips { display: flex; gap: 6px; }
+.pip { width: 12px; height: 12px; border-radius: 50%; border: 1px solid var(--paper-deep); background: transparent; transition: background 0.3s; }
+.pip.hit { background: var(--blood); border-color: var(--blood); }
+
+/* check tally */
+.check-tally { display: flex; flex-direction: column; gap: 5px; }
+.check-row { display: flex; justify-content: space-between; border-bottom: 1px dotted color-mix(in oklch, var(--paper-deep) 35%, transparent); padding-bottom: 4px; font-family: "IM Fell English SC", serif; font-size: 11px; letter-spacing: 0.1em; color: var(--paper-deep); }
+.check-row span:last-child { font-family: "IM Fell English", serif; font-style: italic; color: var(--paper); }
+
+/* ── INTRO ── */
+.intro-icon { font-size: 52px; margin-bottom: -4px; }
+.intro-title { font-family: "IM Fell English SC", serif; font-size: 22px; letter-spacing: 0.1em; color: var(--lamp); }
+.intro-body { font-family: "IM Fell English", serif; font-style: italic; font-size: 15.5px; line-height: 1.65; color: var(--paper-dim); text-align: center; max-width: 480px; }
+.mood-tag { font-family: "IM Fell English SC", serif; font-size: 10px; letter-spacing: 0.26em; color: var(--blood); }
+
+/* ── HAZARD SCREEN ── */
+.hazard-header { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.hazard-num { font-family: "IM Fell English SC", serif; font-size: 10px; letter-spacing: 0.28em; color: var(--paper-deep); }
+.hazard-type { font-family: "IM Fell English SC", serif; font-size: 20px; letter-spacing: 0.14em; color: var(--lamp); }
+.hazard-glyph { font-size: 46px; filter: drop-shadow(0 0 16px rgba(160,230,255,0.5)); }
+.hazard-desc { font-family: "IM Fell English", serif; font-style: italic; font-size: 15.5px; line-height: 1.65; color: var(--paper-dim); text-align: center; max-width: 480px; }
+
+/* stat + DC row */
+.roll-meta { display: flex; align-items: center; gap: 22px; }
+.roll-stat-box {
+  display: flex; flex-direction: column; align-items: center;
+  background: rgba(0,0,0,0.35); border: 1px solid color-mix(in oklch, var(--paper-deep) 30%, transparent);
+  padding: 10px 20px; min-width: 80px;
+}
+.roll-stat-name { font-family:"IM Fell English SC",serif; font-size: 10px; letter-spacing:0.22em; color:var(--blood); }
+.roll-stat-mod  { font-family:"IM Fell English SC",serif; font-size: 24px; color:var(--lamp); }
+.roll-dc-box {
+  display: flex; flex-direction: column; align-items: center;
+  background: rgba(0,0,0,0.25); border: 1px solid color-mix(in oklch, var(--paper-deep) 18%, transparent);
+  padding: 10px 20px; min-width: 80px;
+}
+.roll-dc-label { font-family:"IM Fell English SC",serif; font-size: 10px; letter-spacing:0.22em; color:var(--paper-deep); }
+.roll-dc-val   { font-family:"IM Fell English SC",serif; font-size: 24px; color:var(--paper); }
+
+/* die */
+.die-wrap {
+  position: relative; width: 80px; height: 80px;
+  display: flex; align-items: center; justify-content: center;
+}
+.die-face {
+  width: 72px; height: 72px;
+  border: 2px solid color-mix(in oklch, var(--paper-deep) 55%, transparent);
+  display: flex; align-items: center; justify-content: center;
+  font-family: "IM Fell English SC", serif; font-size: 28px;
+  color: var(--paper); background: rgba(0,0,0,0.45);
+  transform: rotate(0deg); transition: transform 0.6s ease, background 0.4s;
+}
+.die-face.rolling { animation: rollSpin 0.55s ease-in-out; }
+.die-face.nat20   { background: color-mix(in oklch, var(--lamp) 22%, rgba(0,0,0,0.5)); border-color: var(--lamp); color: var(--lamp); }
+.die-face.nat1    { background: color-mix(in oklch, var(--blood) 22%, rgba(0,0,0,0.5)); border-color: var(--blood); color: var(--blood); }
+@keyframes rollSpin { 0%{transform:rotate(0)scale(1)} 40%{transform:rotate(180deg)scale(1.15)} 70%{transform:rotate(300deg)scale(0.95)} 100%{transform:rotate(360deg)scale(1)} }
+
+.roll-equation { font-family: "Caveat", cursive; font-size: 18px; color: var(--paper-deep); min-height: 22px; }
+
+/* outcome */
+.outcome-text {
+  font-family: "IM Fell English", serif; font-style: italic; font-size: 15.5px;
+  line-height: 1.65; color: var(--paper); text-align: center; max-width: 480px;
+  min-height: 72px; opacity: 0; transition: opacity 0.5s;
+}
+.outcome-text.visible { opacity: 1; }
+.outcome-banner {
+  font-family: "IM Fell English SC", serif; font-size: 11px; letter-spacing: 0.28em;
+  min-height: 18px; text-align: center;
+}
+.outcome-banner.pass { color: var(--lamp); }
+.outcome-banner.fail { color: var(--blood); }
+
+.roll-btn {
+  font-family: "IM Fell English SC", serif; letter-spacing: 0.18em; font-size: 14px;
+  padding: 13px 32px; background: color-mix(in oklch, var(--ink) 80%, transparent);
+  border: 1px solid color-mix(in oklch, var(--paper-deep) 60%, transparent); color: var(--paper);
+  cursor: pointer; transition: background 0.2s, border-color 0.2s;
+}
+.roll-btn:hover:not(:disabled) { background: var(--ink); border-color: var(--paper-deep); }
+.roll-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.next-btn {
+  font-family: "IM Fell English SC", serif; letter-spacing: 0.18em; font-size: 13px;
+  padding: 11px 28px; background: transparent;
+  border: 1px solid color-mix(in oklch, var(--paper-deep) 55%, transparent); color: var(--paper-dim);
+  cursor: pointer; opacity: 0; pointer-events: none; transition: opacity 0.4s, background 0.2s;
+}
+.next-btn.visible { opacity: 1; pointer-events: auto; }
+.next-btn:hover { background: rgba(0,0,0,0.3); }
+
+/* ── RESULT ── */
+.result-card {
+  background: linear-gradient(135deg, var(--paper) 0%, var(--paper-dim) 100%);
+  color: var(--ink); padding: 32px 44px; max-width: 520px; width: 92%; text-align: center;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.65), inset 0 0 0 1px rgba(255,255,255,0.3);
+  animation: card-rise 0.55s cubic-bezier(0.2,0.8,0.3,1) both; position: relative; overflow: hidden;
+}
+.result-card::before {
+  content: ""; position: absolute; inset: 0;
+  background: radial-gradient(ellipse at 80% 110%, color-mix(in oklch, var(--lamp) 8%, transparent), transparent 60%);
+  pointer-events: none;
+}
+@keyframes card-rise { from{transform:translateY(36px);opacity:0} to{transform:translateY(0);opacity:1} }
+.result-tag  { font-family:"IM Fell English SC",serif; font-size:10px; letter-spacing:0.28em; color:var(--blood); margin-bottom:6px; }
+.result-damage { font-family:"IM Fell English SC",serif; font-size:56px; letter-spacing:0.04em; color:var(--ink); line-height:1; }
+.result-sub  { font-family:"Caveat",cursive; font-size:18px; color:var(--paper-deep); margin-bottom:8px; }
+.result-verdict { font-family:"IM Fell English",serif; font-style:italic; font-size:15px; line-height:1.6; color:var(--ink); margin-bottom:14px; }
+.result-warn { background: color-mix(in oklch, var(--blood) 12%, transparent); border: 1px solid var(--blood); padding: 9px 14px; margin-bottom:10px; font-family:"IM Fell English SC",serif; font-size:11px; letter-spacing:0.16em; color:var(--ink); }
+.result-note { background: color-mix(in oklch, var(--lamp) 10%, transparent); border: 1px solid var(--lamp); padding: 9px 14px; margin-bottom:10px; font-family:"IM Fell English SC",serif; font-size:11px; letter-spacing:0.16em; color:var(--ink); }
+.result-npc  { font-family:"Caveat",cursive; font-size:17px; color:var(--hull-dark); border-top:1px solid var(--paper-deep); padding-top:12px; line-height:1.5; }
+.result-actions { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin-top:6px; }
+
+/* ── OPENING CINEMATIC ── */
+.cin-ice {
+  position: fixed; inset: 0; z-index: 60;
+  background: linear-gradient(180deg, oklch(0.08 0.04 230) 0%, oklch(0.12 0.06 220) 60%, oklch(0.16 0.05 200) 100%);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 20px; opacity: 0; pointer-events: none; transition: opacity 0.8s;
+}
+.cin-ice.visible { opacity: 1; pointer-events: auto; }
+.cin-ice-glyph { font-size: 72px; filter: drop-shadow(0 0 32px rgba(160,230,255,0.7)); animation: iceFloat 3s ease-in-out infinite; }
+@keyframes iceFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+.cin-ice-eyebrow { font-family:"IM Fell English SC",serif; font-size:11px; letter-spacing:0.3em; color:rgba(160,210,255,0.6); }
+.cin-ice-title { font-family:"IM Fell English SC",serif; font-size:clamp(28px,4vw,52px); letter-spacing:0.12em; color:rgba(200,235,255,0.95); text-align:center; }
+.cin-ice-rule { width: 200px; height:1px; background: linear-gradient(to right, transparent, rgba(160,210,255,0.5), transparent); }
+.cin-ice-text { font-family:"IM Fell English",serif; font-style:italic; font-size:16px; line-height:1.7; color:rgba(180,220,255,0.8); text-align:center; max-width:520px; }
+.cin-ice-btn {
+  font-family:"IM Fell English SC",serif; letter-spacing:0.2em; font-size:13px;
+  padding:13px 36px; background:rgba(160,210,255,0.1);
+  border:1px solid rgba(160,210,255,0.4); color:rgba(200,235,255,0.9);
+  cursor:pointer; transition:background 0.2s, border-color 0.2s; margin-top:8px;
+}
+.cin-ice-btn:hover { background:rgba(160,210,255,0.2); border-color:rgba(160,210,255,0.7); }
+
+/* transition flash */
+.transition-overlay {
+  position:absolute; inset:0; z-index:30;
+  background:oklch(0.08 0.04 230); opacity:0; pointer-events:none; transition:opacity 0.35s;
+}
+.transition-overlay.fade-in { opacity:1; pointer-events:auto; }
+
+</style>
+</head>
+<body>
+
+<div id="page-fade" class="page-fade in"></div>
+<div class="backdrop"></div>
+<div class="snow" id="snow"></div>
+<span class="corner tl"></span><span class="corner tr"></span>
+<span class="corner bl"></span><span class="corner br"></span>
+
+<div class="page-header">
+  <div class="eyebrow">— Glassblade Charter Vessel —</div>
+  <div class="title">Day 5 · The Ice Floes</div>
+  <div class="rule"></div>
+</div>
+
+<button class="back-btn" id="backBtn">← Return to Deck</button>
+
+<!-- OPENING CINEMATIC -->
+<div class="cin-ice" id="cin-ice">
+  <div class="cin-ice-eyebrow">— Aboard the Remorhaz —</div>
+  <div class="cin-ice-glyph">🧊</div>
+  <div class="cin-ice-title">The Floe Channel</div>
+  <div class="cin-ice-rule"></div>
+  <div class="cin-ice-text" id="cin-ice-text">
+    The bow of the Remorhaz faces a narrowing corridor of black water between vast
+    plates of sea ice. From the deck you can already feel how they move — slow,
+    grinding, unpredictable. One wrong call and the hull gets pinned.
+  </div>
+  <button class="cin-ice-btn" id="cin-enter">Take the Bow →</button>
+</div>
+
+<!-- MAIN LAYOUT -->
+<div class="stage">
+  <div class="game-area">
+
+    <!-- GAME PANEL -->
+    <div class="game-panel">
+
+      <!-- INTRO SCREEN -->
+      <div class="screen active" id="screen-intro">
+        <div class="mood-tag">— ICE NAVIGATION —</div>
+        <div class="intro-icon">⚓</div>
+        <div class="intro-title">Three Hazards Ahead</div>
+        <div class="intro-body" id="intro-body">
+          Ursula has taken the helm. You are on bow watch — the eyes of the ship
+          in this channel. Three hazards lie between the Remorhaz and open water.
+          Call them right, or the ship pays the price.
+        </div>
+        <button class="roll-btn" id="intro-start-btn">To the Bow →</button>
+      </div>
+
+      <!-- HAZARD 1: Rocky Outcrop — INT -->
+      <div class="screen" id="screen-h1">
+        <div class="hazard-header">
+          <div class="hazard-num">HAZARD ONE OF THREE</div>
+          <div class="hazard-glyph">🪨</div>
+          <div class="hazard-type">Rocky Outcrop</div>
+        </div>
+        <div class="hazard-desc" id="h1-desc"></div>
+        <div class="roll-meta">
+          <div class="roll-stat-box">
+            <div class="roll-stat-name">INTELLIGENCE</div>
+            <div class="roll-stat-mod" id="h1-mod">—</div>
+          </div>
+          <div class="die-wrap">
+            <div class="die-face" id="h1-die">d20</div>
+          </div>
+          <div class="roll-dc-box">
+            <div class="roll-dc-label">DIFFICULTY</div>
+            <div class="roll-dc-val">DC 7</div>
+          </div>
+        </div>
+        <div class="roll-equation" id="h1-eq"></div>
+        <div class="outcome-banner" id="h1-banner"></div>
+        <div class="outcome-text" id="h1-outcome"></div>
+        <button class="roll-btn" id="h1-roll-btn">Roll d20 →</button>
+        <button class="next-btn" id="h1-next-btn">Press On →</button>
+        <div class="transition-overlay" id="h1-trans"></div>
+      </div>
+
+      <!-- HAZARD 2: Rogue Current — WIS -->
+      <div class="screen" id="screen-h2">
+        <div class="hazard-header">
+          <div class="hazard-num">HAZARD TWO OF THREE</div>
+          <div class="hazard-glyph">🌊</div>
+          <div class="hazard-type">Rogue Current</div>
+        </div>
+        <div class="hazard-desc" id="h2-desc"></div>
+        <div class="roll-meta">
+          <div class="roll-stat-box">
+            <div class="roll-stat-name">WISDOM</div>
+            <div class="roll-stat-mod" id="h2-mod">—</div>
+          </div>
+          <div class="die-wrap">
+            <div class="die-face" id="h2-die">d20</div>
+          </div>
+          <div class="roll-dc-box">
+            <div class="roll-dc-label">DIFFICULTY</div>
+            <div class="roll-dc-val">DC 7</div>
+          </div>
+        </div>
+        <div class="roll-equation" id="h2-eq"></div>
+        <div class="outcome-banner" id="h2-banner"></div>
+        <div class="outcome-text" id="h2-outcome"></div>
+        <button class="roll-btn" id="h2-roll-btn">Roll d20 →</button>
+        <button class="next-btn" id="h2-next-btn">Hold Course →</button>
+        <div class="transition-overlay" id="h2-trans"></div>
+      </div>
+
+      <!-- HAZARD 3: Closing Ice Plate — INT -->
+      <div class="screen" id="screen-h3">
+        <div class="hazard-header">
+          <div class="hazard-num">HAZARD THREE OF THREE</div>
+          <div class="hazard-glyph">❄️</div>
+          <div class="hazard-type">Closing Ice Plate</div>
+        </div>
+        <div class="hazard-desc" id="h3-desc"></div>
+        <div class="roll-meta">
+          <div class="roll-stat-box">
+            <div class="roll-stat-name">INTELLIGENCE</div>
+            <div class="roll-stat-mod" id="h3-mod">—</div>
+          </div>
+          <div class="die-wrap">
+            <div class="die-face" id="h3-die">d20</div>
+          </div>
+          <div class="roll-dc-box">
+            <div class="roll-dc-label">DIFFICULTY</div>
+            <div class="roll-dc-val">DC 7</div>
+          </div>
+        </div>
+        <div class="roll-equation" id="h3-eq"></div>
+        <div class="outcome-banner" id="h3-banner"></div>
+        <div class="outcome-text" id="h3-outcome"></div>
+        <button class="roll-btn" id="h3-roll-btn">Roll d20 →</button>
+        <button class="next-btn" id="h3-next-btn">Through the Gap →</button>
+        <div class="transition-overlay" id="h3-trans"></div>
+      </div>
+
+      <!-- RESULT SCREEN -->
+      <div class="screen" id="screen-result">
+        <div class="result-card" id="result-card">
+          <div class="result-tag">— PASSAGE REPORT —</div>
+          <div class="result-damage" id="result-damage">0</div>
+          <div class="result-sub" id="result-sub">hull strikes</div>
+          <div class="result-verdict" id="result-verdict"></div>
+          <div class="result-warn" id="result-warn" style="display:none"></div>
+          <div class="result-note" id="result-note" style="display:none"></div>
+          <div class="result-npc" id="result-npc"></div>
+          <div class="result-actions">
+            <button class="roll-btn" id="result-continue-btn" style="font-size:13px;padding:11px 24px;">Continue →</button>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /game-panel -->
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+      <div class="npc-portrait" id="sidebar-portrait" style="background-image:url('assets/ursula.jpg')"></div>
+      <div class="npc-name">Ursula Elara</div>
+      <div class="npc-role">Navigator &amp; Lookout</div>
+      <div class="sidebar-rule"></div>
+      <div class="npc-dialogue" id="sidebar-dialogue">
+        "Call it the instant you see it — don't wait for confirmation. The hull doesn't forgive hesitation."
+      </div>
+      <div class="sidebar-rule"></div>
+      <div class="phase-label">HULL DAMAGE</div>
+      <div class="damage-tracker">
+        <div class="damage-row">
+          <span>Strikes</span>
+          <div class="damage-pips">
+            <div class="pip" id="pip-1"></div>
+            <div class="pip" id="pip-2"></div>
+            <div class="pip" id="pip-3"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sidebar-rule"></div>
+      <div class="phase-label">HAZARD LOG</div>
+      <div class="check-tally">
+        <div class="check-row"><span>OUTCROP</span><span id="log-h1">—</span></div>
+        <div class="check-row"><span>CURRENT</span><span id="log-h2">—</span></div>
+        <div class="check-row"><span>ICE PLATE</span><span id="log-h3">—</span></div>
+      </div>
+    </div>
+
+  </div><!-- /game-area -->
+</div><!-- /stage -->
+
+<script src="shared.js"></script>
+<script>
+/* ── SNOW ── */
+(function(){
+  const el = document.getElementById("snow");
+  for (let i = 0; i < 60; i++) {
+    const f = document.createElement("div"); f.className = "flake";
+    const sz = 1 + Math.random() * 3;
+    f.style.cssText = `width:${sz}px;height:${sz}px;left:${Math.random()*100}vw;` +
+      `animation-duration:${8+Math.random()*12}s;animation-delay:${-Math.random()*20}s;` +
+      `opacity:${(0.3+Math.random()*0.6).toFixed(2)}`;
+    el.appendChild(f);
+  }
+})();
+
+/* ── BACK BUTTON ── */
+document.getElementById("backBtn").addEventListener("click", () => _navigateTo("index.html"));
+
+/* ── STATE ── */
+function saveState(s) {
+  try {
+    const ex = JSON.parse(localStorage.getItem("remorhaz") || "{}");
+    localStorage.setItem("remorhaz", JSON.stringify({ ...ex, ...s }));
+  } catch { localStorage.setItem("remorhaz", JSON.stringify(s)); }
+}
+
+/* ── MAIN GAME ── */
+(function() {
+  const raw  = JSON.parse(localStorage.getItem("remorhaz") || "{}");
+  const char = raw.selectedCharacter || { name: "Relyt Murcielago", stats: { STR:-2,DEX:0,INT:2,WIS:2,CHA:1,CON:-1 } };
+  const s    = char.stats || {};
+  const charKey = char.name.includes("Lucy") ? "lucy" : char.name.includes("Irene") ? "irene" : "relyt";
+
+  const INT = s.INT || 0;
+  const WIS = s.WIS || 0;
+  const DC  = 7;
+
+  function fmtMod(n) { return n >= 0 ? "+" + n : "" + n; }
+
+  /* Character-specific flavour text */
+  const CHAR = {
+    relyt: {
+      intro:   "You've fought on ships, in storms, and once in the middle of a pitched naval battle. But navigating ice this dense requires something colder than courage — calculation. You scan the channel ahead. Your mind maps angles and vectors the way it maps spell trajectories.",
+      h1Desc:  "A granite outcrop the size of a house lurks just beneath the surface, betrayed only by a darker shadow in the water and a faint swell. You have seconds to call the correct heading. The math is clean. Run it.",
+      h1Pass:  "You calculate the turn with mechanical precision — angle, speed, drag. Your call comes clean and crisp. The bow swings and the rock scrapes nothing but black water.",
+      h1Fail:  "The calculation is a breath too slow. The Remorhaz's hull grazes the outcrop with a grinding shudder. Not catastrophic — but Kalt will not be pleased.",
+      h1Nat20: "You read the shadow, the current pattern, and the ice drift in one glance and call the perfect heading before Ursula even asks. The ship glides through like threading a needle.",
+      h1Nat1:  "The numbers refuse to resolve in time. You call the turn — but the wrong way. The outcrop catches the hull with a crack that echoes across the ice like a gunshot.",
+      h2Desc:  "An invisible current grabs the bow and tries to steer the ship toward the starboard ice shelf. You feel it through the boards under your feet — a pull that doesn't match the wind. Pattern recognition. Find it.",
+      h2Pass:  "You feel the current's geometry underfoot and triangulate its source in seconds. Your warning gets the helm over before the ship can be pushed. The correction is clean.",
+      h2Fail:  "The current is subtler than you expected — it acts at a depth the surface doesn't show. By the time you've mapped it, the hull has been pushed sideways into the shelf.",
+      h2Nat20: "You trace the subsurface current from memory of charts you read three days ago. You call the counter-heading before it pulls. The ship doesn't even notice.",
+      h2Nat1:  "The current defeats your model entirely. It splits in two directions beneath the hull and neither one matches the pattern. The ship is pushed hard into the ice before corrections arrive.",
+      h3Desc:  "Two ice plates the size of city blocks are slowly closing. There is a gap — barely — and it is moving. You need to calculate the closing rate, the ship's speed, and give the helm a number. Now.",
+      h3Pass:  "You run the geometry at speed: relative velocity, gap width, hull beam. Your number is right. The Remorhaz slips through with a foot to spare on each side.",
+      h3Fail:  "Your margin calculation is off by a fraction. The ice plate catches the hull at the waterline with a slow, terrible groan. The ship shudders and continues through.",
+      h3Nat20: "The closing calculation is perfect. You give the speed adjustment three seconds before Ursula would have asked for it. The ice plates close behind the Remorhaz as if the ship was never there.",
+      h3Nat1:  "The calculation collapses under the time pressure. You give a number but you already know it's wrong. The ice takes the hull hard amidships and the crew is thrown to the deck.",
+    },
+    lucy: {
+      intro:   "You've squeezed through tighter spots than this. Alleyways, smuggler channels, docks you weren't supposed to be on. Ice is just water that stopped moving. Read it, find the gap, go. You've done this a hundred times — just never this cold.",
+      h1Desc:  "Under the water, a dark mass of rock is visible if you know what to look for. The depth shadow, the current deflection, the faint lip of white foam where the surface disturbs. You know what to look for. Call it.",
+      h1Pass:  "You spot the telltale signs a full ship-length ahead — the slight current deviation, the darker patch just below the glitter. Your call is quick and precise. Easy.",
+      h1Fail:  "The rock is subtler than you gave it credit for. You call it late — not by much, but by enough. The hull skims the surface of the outcrop with a groaning vibration underfoot.",
+      h1Nat20: "You've read water your whole career. This rock may as well have been painted red. You call the heading change two lengths out with total confidence. Ursula laughs and complies.",
+      h1Nat1:  "For once, your eye is wrong. What you read as depth shadow is reflection. The actual rock is to starboard and you've called the ship directly into it.",
+      h2Desc:  "The ship starts to drift. Not wind — the push is from below, a rogue current pulling the bow sideways toward the starboard shelf. You feel it in the way the deck shifts under your feet. You've felt this before in rivers and harbor channels.",
+      h2Pass:  "You feel the tug of the current before it becomes obvious and shout the correction. Ursula responds; the ship corrects. Close, but clean.",
+      h2Fail:  "The current is deeper and stronger than the surface water suggests. Your read is off and the ship gets pushed into the shelf before the correction arrives.",
+      h2Nat20: "You feel the current through the soles of your boots — a trick you learned in the canals of a city you're not supposed to have been in. Your correction is perfect and instantaneous.",
+      h2Nat1:  "This current doesn't behave like any you've read before. It eddies in contradictory directions and by the time you've figured it out, the hull is already touching the ice.",
+      h3Desc:  "Two enormous ice plates drift toward each other at different speeds. There's a gap — shrinking. You need to judge the timing to a second. Too early and you're not through. Too late and the plates close on you.",
+      h3Pass:  "You watch the closing rates and count under your breath. You give the call at exactly the right moment. The Remorhaz threads the gap with room to breathe.",
+      h3Fail:  "Your count is right but your margin estimate is wrong. The plates are thicker below the waterline. The hull scrapes along the face of the ice as the ship pushes through.",
+      h3Nat20: "You count closing rates like you're running a heist: mark the clock, judge the gap, go on three. Perfect timing. The ice plates close a second after the stern clears.",
+      h3Nat1:  "The timing feels right but something in the ice's movement changes at the last second — it accelerates. The ship is caught in the closing gap and takes a hard strike.",
+    },
+    irene: {
+      intro:   "You approach this the way you approach everything: methodically. Ice floes follow physical laws. Currents have patterns. Gaps have closing rates. The danger is not the ice — the danger is moving faster than your analysis. Don't move faster than your analysis.",
+      h1Desc:  "A submerged rocky outcrop. The water surface shows three distinct signs: a slight upstream deflection in the current, a faint turbulence ripple, and a shadow at approximately two fathoms. You have the information. Apply it.",
+      h1Pass:  "Your analysis is thorough and fast. You identify all three surface indicators, triangulate the outcrop's position, and give the helm a precise heading change. The ship responds. The rock is missed by several yards.",
+      h1Fail:  "One of your three indicators was a false positive — surface reflection, not turbulence. You overcorrect by two degrees and the corrected heading brings you across the outer edge of the outcrop.",
+      h1Nat20: "Three data points, one conclusion, immediate action. You call the heading before Ursula has finished asking. The ship clears the rock by exactly the margin your math predicted.",
+      h1Nat1:  "A fourth indicator you didn't account for — wind-wave interference — masks the rock's true position until you're on top of it. The hull strikes before your correction can arrive.",
+      h2Desc:  "A sub-surface current is pushing the ship starboard. It has specific characteristics: a horizontal deflection, not vertical, pushing at approximately hull-depth. This is navigable — if you can model the source.",
+      h2Pass:  "You identify the current as a thermocline shear flow — cold melt water meeting deeper saltwater. It runs in one consistent direction. You give the counter-heading and the ship holds course.",
+      h2Fail:  "The current's model is more complex than a simple shear. There are layered flows at different depths and your single-vector solution is insufficient. The hull is pushed into the shelf.",
+      h2Nat20: "You've read this exact phenomenon in two separate texts on arctic sea dynamics. You identify it immediately, calculate the counter-heading analytically, and call it with total confidence.",
+      h2Nat1:  "The current defies your model in ways that suggest a geological feature you have no data on. Your analysis fails and the ship is driven into the ice before you can revise.",
+      h3Desc:  "Two ice plates are converging. You need to calculate the gap clearance using the ship's beam, speed, and the plates' closing velocity. You have perhaps ninety seconds to work this out.",
+      h3Pass:  "You run the calculation systematically: beam 22 feet, closing rate approximately 4 feet per minute combined, current speed 3 knots. The numbers give you a clear timing window. You call it and the ship passes through.",
+      h3Fail:  "The calculation is correct but your estimate of the plates' closing velocity was based on incomplete data — one plate accelerated. The hull is caught as the gap closes faster than predicted.",
+      h3Nat20: "The numbers are clean, your model is complete, and your timing call is precise to within a second. The Remorhaz passes through the gap without deviation. You feel, for a moment, like the sea is a solvable problem.",
+      h3Nat1:  "A variable you couldn't observe — subsurface ice geometry — changes the closing dynamic entirely. Your window turns out to be half what you calculated. The strike is hard and the hull groans.",
+    },
+  };
+  const C = CHAR[charKey];
+
+  /* damage state */
+  let damage = 0;
+  const results = { h1: null, h2: null, h3: null };
+
+  function updatePips() {
+    for (let i = 1; i <= 3; i++) {
+      document.getElementById("pip-" + i).classList.toggle("hit", i <= damage);
+    }
+  }
+
+  function updateSidebarDialogue(text) {
+    const el = document.getElementById("sidebar-dialogue");
+    el.style.opacity = "0";
+    setTimeout(() => { el.textContent = "“" + text + "”"; el.style.opacity = "1"; }, 300);
+  }
+
+  /* ── SCREEN SWITCHER ── */
+  function goToScreen(id) {
+    document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+    document.getElementById(id).classList.add("active");
+  }
+
+  /* ── OPENING CINEMATIC ── */
+  const cin = document.getElementById("cin-ice");
+  document.getElementById("cin-ice-text").textContent = C.intro;
+  setTimeout(() => cin.classList.add("visible"), 120);
+  document.getElementById("cin-enter").addEventListener("click", () => {
+    cin.style.transition = "opacity 0.5s";
+    cin.style.opacity = "0";
+    setTimeout(() => { cin.style.display = "none"; }, 520);
+  });
+
+  /* ── INIT ── */
+  document.getElementById("intro-body").textContent = C.intro;
+  document.getElementById("h1-mod").textContent = fmtMod(INT);
+  document.getElementById("h2-mod").textContent = fmtMod(WIS);
+  document.getElementById("h3-mod").textContent = fmtMod(INT);
+  document.getElementById("h1-desc").textContent = C.h1Desc;
+  document.getElementById("h2-desc").textContent = C.h2Desc;
+  document.getElementById("h3-desc").textContent = C.h3Desc;
+
+  document.getElementById("intro-start-btn").addEventListener("click", () => goToScreen("screen-h1"));
+
+  /* ── GENERIC HAZARD ROLL ── */
+  function setupHazardRoll(opts) {
+    const { dieFaceId, rollBtnId, nextBtnId, equationId, bannerId, outcomeId, transId,
+            modifier, logId, sidebarLines, onComplete } = opts;
+
+    const dieFace  = document.getElementById(dieFaceId);
+    const rollBtn  = document.getElementById(rollBtnId);
+    const nextBtn  = document.getElementById(nextBtnId);
+    const eqEl     = document.getElementById(equationId);
+    const bannerEl = document.getElementById(bannerId);
+    const outEl    = document.getElementById(outcomeId);
+    const transEl  = document.getElementById(transId);
+
+    rollBtn.addEventListener("click", () => {
+      if (rollBtn.disabled) return;
+      rollBtn.disabled = true;
+
+      const roll = Math.floor(Math.random() * 20) + 1;
+      const total = roll + modifier;
+      const nat20 = roll === 20;
+      const nat1  = roll === 1;
+
+      // Animate die
+      dieFace.classList.add("rolling");
+      let ticker = 0;
+      const interval = setInterval(() => {
+        dieFace.textContent = Math.floor(Math.random() * 20) + 1;
+        ticker++;
+        if (ticker >= 10) {
+          clearInterval(interval);
+          dieFace.classList.remove("rolling");
+          dieFace.textContent = roll;
+          dieFace.classList.toggle("nat20", nat20);
+          dieFace.classList.toggle("nat1", nat1);
+        }
+      }, 55);
+
+      setTimeout(() => {
+        eqEl.textContent = roll + (modifier !== 0 ? (modifier >= 0 ? " + " + modifier : " − " + Math.abs(modifier)) : "") + " = " + total;
+
+        const passed = total >= DC || nat20;
+        let outcomeText, bannerText, bannerClass;
+
+        if (nat20) {
+          bannerText = "NATURAL 20 — EXCEPTIONAL";
+          bannerClass = "pass";
+          outcomeText = opts.nat20Text;
+          document.getElementById(logId).textContent = "Critical pass";
+        } else if (nat1) {
+          bannerText = "CRITICAL FAILURE";
+          bannerClass = "fail";
+          outcomeText = opts.nat1Text;
+          damage++;
+          updatePips();
+          document.getElementById(logId).textContent = "Critical fail";
+          updateSidebarDialogue(sidebarLines.fail);
+        } else if (passed) {
+          bannerText = "SUCCESS — DC MET";
+          bannerClass = "pass";
+          outcomeText = opts.passText;
+          document.getElementById(logId).textContent = "Passed";
+        } else {
+          bannerText = "FAILURE — DC MISSED";
+          bannerClass = "fail";
+          outcomeText = opts.failText;
+          damage++;
+          updatePips();
+          document.getElementById(logId).textContent = "Failed";
+          updateSidebarDialogue(sidebarLines.fail);
+        }
+
+        if (nat20 || passed) updateSidebarDialogue(sidebarLines.pass);
+
+        bannerEl.textContent = bannerText;
+        bannerEl.className = "outcome-banner " + bannerClass;
+        outEl.textContent = outcomeText;
+        outEl.classList.add("visible");
+        nextBtn.classList.add("visible");
+      }, 660);
+    });
+
+    nextBtn.addEventListener("click", () => {
+      transEl.classList.add("fade-in");
+      setTimeout(() => { onComplete(); transEl.classList.remove("fade-in"); }, 360);
+    });
+  }
+
+  /* ── HAZARD 1 ── */
+  setupHazardRoll({
+    dieFaceId: "h1-die", rollBtnId: "h1-roll-btn", nextBtnId: "h1-next-btn",
+    equationId: "h1-eq", bannerId: "h1-banner", outcomeId: "h1-outcome", transId: "h1-trans",
+    modifier: INT, logId: "log-h1",
+    passText: C.h1Pass, failText: C.h1Fail, nat20Text: C.h1Nat20, nat1Text: C.h1Nat1,
+    sidebarLines: {
+      pass: "Good call. Keep your eyes ahead — the current's next.",
+      fail: "That's a strike. We'll deal with it. Eyes forward — there's more coming.",
+    },
+    onComplete: () => {
+      updateSidebarDialogue("Current's pulling us starboard. Feel the deck — it'll tell you before the compass does.");
+      goToScreen("screen-h2");
+    },
+  });
+
+  /* ── HAZARD 2 ── */
+  setupHazardRoll({
+    dieFaceId: "h2-die", rollBtnId: "h2-roll-btn", nextBtnId: "h2-next-btn",
+    equationId: "h2-eq", bannerId: "h2-banner", outcomeId: "h2-outcome", transId: "h2-trans",
+    modifier: WIS, logId: "log-h2",
+    passText: C.h2Pass, failText: C.h2Fail, nat20Text: C.h2Nat20, nat1Text: C.h2Nat1,
+    sidebarLines: {
+      pass: "That's what I'm talking about. One more — the plates are closing ahead.",
+      fail: "Shelf strike. This old girl can take it. Almost through — last hazard.",
+    },
+    onComplete: () => {
+      updateSidebarDialogue("Those two plates ahead — watch the gap. It's moving. Tell me when to push.");
+      goToScreen("screen-h3");
+    },
+  });
+
+  /* ── HAZARD 3 → RESULT ── */
+  setupHazardRoll({
+    dieFaceId: "h3-die", rollBtnId: "h3-roll-btn", nextBtnId: "h3-next-btn",
+    equationId: "h3-eq", bannerId: "h3-banner", outcomeId: "h3-outcome", transId: "h3-trans",
+    modifier: INT, logId: "log-h3",
+    passText: C.h3Pass, failText: C.h3Fail, nat20Text: C.h3Nat20, nat1Text: C.h3Nat1,
+    sidebarLines: {
+      pass: "We're through. Nice work up there. I mean it.",
+      fail: "That last one got us. But we're through. That's what matters.",
+    },
+    onComplete: () => showResult(),
+  });
+
+  /* ── RESULT ── */
+  function showResult() {
+    const damEl      = document.getElementById("result-damage");
+    const subEl      = document.getElementById("result-sub");
+    const verdictEl  = document.getElementById("result-verdict");
+    const warnEl     = document.getElementById("result-warn");
+    const noteEl     = document.getElementById("result-note");
+    const npcEl      = document.getElementById("result-npc");
+    const continueBtn = document.getElementById("result-continue-btn");
+
+    damEl.textContent = damage;
+    subEl.textContent = damage === 1 ? "hull strike" : "hull strikes";
+
+    if (damage === 0) {
+      verdictEl.textContent = "The Remorhaz threads the floe channel without a single contact. Open water ahead — the worst is behind you.";
+      noteEl.style.display = "";
+      noteEl.textContent   = "Perfect passage — the channel is behind you.";
+      npcEl.textContent    = "“That's a clean run. Not even Kalt could complain about that one. Nice work.” — Ursula";
+      continueBtn.textContent = "Sail On →";
+      continueBtn.addEventListener("click", () => {
+        // Complete Day 5, advance to Day 6
+        saveState({ d5KaltRequired: false });
+        const existing = JSON.parse(localStorage.getItem("remorhaz") || "{}");
+        const completed = new Set(Array.isArray(existing.completed) ? existing.completed : []);
+        const completedDays = new Set(Array.isArray(existing.completedDays) ? existing.completedDays : []);
+        completed.add("ursula");
+        completedDays.add(5);
+        saveState({ completed: [...completed], completedDays: [...completedDays], currentDay: 6 });
+        _navigateTo("index.html");
+      });
+    } else if (damage === 1) {
+      verdictEl.textContent = "The Remorhaz makes it through the channel with one hull strike. The damage is manageable, but Kalt will need to assess it before the ship is seaworthy again.";
+      warnEl.style.display = "";
+      warnEl.textContent   = "One hull strike — Kalt's assessment required before sailing on.";
+      npcEl.textContent    = "“One strike. Kalt's gonna want to run hands over the hull before I call this done. Find her.” — Ursula";
+      continueBtn.textContent = "Return to Deck →";
+      continueBtn.addEventListener("click", () => {
+        const existing = JSON.parse(localStorage.getItem("remorhaz") || "{}");
+        const completed = new Set(Array.isArray(existing.completed) ? existing.completed : []);
+        const completedDays = new Set(Array.isArray(existing.completedDays) ? existing.completedDays : []);
+        completed.add("ursula");
+        saveState({ completed: [...completed], completedDays: [...completedDays], d5KaltRequired: true });
+        _navigateTo("index.html");
+      });
+    } else {
+      verdictEl.textContent = "The Remorhaz takes multiple strikes working through the ice channel. She holds together, but the hull has taken real damage. Kalt won't let the ship sail another mile until it's assessed and repaired.";
+      warnEl.style.display = "";
+      warnEl.textContent   = damage + " hull strikes — significant damage. Kalt must inspect and repair before the voyage continues.";
+      npcEl.textContent    = "“Okay. We're through — barely. But there's no way Kalt clears us to sail with this kind of damage. Find her.” — Ursula";
+      continueBtn.textContent = "Return to Deck →";
+      continueBtn.addEventListener("click", () => {
+        const existing = JSON.parse(localStorage.getItem("remorhaz") || "{}");
+        const completed = new Set(Array.isArray(existing.completed) ? existing.completed : []);
+        const completedDays = new Set(Array.isArray(existing.completedDays) ? existing.completedDays : []);
+        completed.add("ursula");
+        saveState({ completed: [...completed], completedDays: [...completedDays], d5KaltRequired: true });
+        _navigateTo("index.html");
+      });
+    }
+
+    goToScreen("screen-result");
+  }
+
+})(); /* end IIFE */
+</script>
+</body>
+</html>
