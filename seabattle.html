@@ -10,9 +10,30 @@
   position: fixed; inset: 0; overflow: hidden;
   background: #000;
 }
+
+/* ── MAP VIEWPORT (scrollable area above HUD) ── */
+#map-viewport {
+  position: absolute;
+  left: 0; right: 0; top: 0; bottom: 210px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+  cursor: grab;
+  user-select: none;
+}
+#map-viewport::-webkit-scrollbar { display: none; }
+#map-viewport.panning { cursor: grabbing; }
+
+/* ── MAP WORLD (sized to image aspect ratio) ── */
+#map-world {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 416 / 930;
+}
+
 .battle-bg {
   position: absolute; inset: 0;
-  background: url('assets/combat-map.jpg') center/contain no-repeat, #0a0d12;
+  background: url('assets/combat-map.jpg') center / 100% 100% no-repeat;
   filter: brightness(0.75);
 }
 .battle-vignette {
@@ -88,7 +109,7 @@
 
 /* ── BATTLE UI (bottom HUD) ── */
 .battle-hud {
-  position: absolute; bottom: 0; left: 0; right: 0;
+  position: fixed; bottom: 0; left: 0; right: 0;
   height: 210px;
   background: linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.75) 70%, transparent 100%);
   display: flex; align-items: flex-end;
@@ -221,7 +242,7 @@
 
 /* ── INITIATIVE TRACKER ── */
 .initiative-panel {
-  position: absolute; right: 16px; top: 50%;
+  position: fixed; right: 16px; top: 50%;
   transform: translateY(-50%);
   background: rgba(0,0,0,0.72);
   border: 1px solid color-mix(in oklch, var(--paper-deep) 30%, transparent);
@@ -479,13 +500,17 @@
 
 <!-- MAIN STAGE -->
 <div class="stage">
-  <div class="battle-bg"></div>
-  <div class="battle-vignette"></div>
+  <!-- Scrollable map area -->
+  <div id="map-viewport">
+    <div id="map-world">
+      <div class="battle-bg"></div>
+      <div class="battle-vignette"></div>
+      <!-- Tokens -->
+      <div id="token-layer" class="token-layer"></div>
+    </div>
+  </div>
 
-  <!-- Tokens -->
-  <div id="token-layer" class="token-layer"></div>
-
-  <!-- Initiative panel -->
+  <!-- Initiative panel (fixed) -->
   <div class="initiative-panel" id="initiative-panel">
     <div class="init-title">INITIATIVE</div>
     <div id="init-list"></div>
@@ -735,6 +760,39 @@ function _navigateTo(url) {
     playerTok.style.top  = player.y + "%";
   });
   document.addEventListener("mouseup", () => { dragging = false; });
+
+  /* ── MAP DRAG-TO-PAN ── */
+  const mapViewport = document.getElementById("map-viewport");
+  const mapWorld    = document.getElementById("map-world");
+  let panning = false, panStartX = 0, panStartY = 0, panScrollX = 0, panScrollY = 0;
+
+  mapViewport.addEventListener("mousedown", e => {
+    if (e.target.closest(".token")) return;
+    panning = true;
+    panStartX = e.clientX;
+    panStartY = e.clientY;
+    panScrollX = mapViewport.scrollLeft;
+    panScrollY = mapViewport.scrollTop;
+    mapViewport.classList.add("panning");
+    e.preventDefault();
+  });
+  document.addEventListener("mousemove", e => {
+    if (!panning) return;
+    mapViewport.scrollLeft = panScrollX - (e.clientX - panStartX);
+    mapViewport.scrollTop  = panScrollY - (e.clientY - panStartY);
+  });
+  document.addEventListener("mouseup", () => {
+    if (panning) { panning = false; mapViewport.classList.remove("panning"); }
+  });
+
+  /* Scroll on load to show player starting position (~y 74% of world) */
+  requestAnimationFrame(() => {
+    const wH = mapWorld.offsetHeight;
+    const vH = mapViewport.offsetHeight;
+    if (wH && vH) {
+      mapViewport.scrollTop = Math.max(0, wH * 0.74 - vH * 0.5);
+    }
+  });
 
   document.addEventListener("keydown", e => {
     if (!combatStarted || !isPlayerTurn()) return;
