@@ -49,7 +49,7 @@
 }
 .token {
   position: absolute;
-  width: 72px; height: 72px;
+  width: 52px; height: 52px;
   transform: translate(-50%, -50%);
   display: flex; flex-direction: column; align-items: center;
   pointer-events: auto;
@@ -78,20 +78,18 @@
   border-radius: 50%;
 }
 .token-img {
-  width: 60px; height: 60px;
+  width: 52px; height: 52px;
   border-radius: 50%;
-  border: 2px solid var(--paper-deep);
   object-fit: cover;
   background: #111;
   display: block;
 }
-.token-crew .token-img { border-color: color-mix(in oklch, var(--paper-deep) 55%, transparent); }
-.token-enemy .token-img { border-color: var(--blood); }
 .token-hp-bar {
-  width: 60px; height: 5px;
-  background: rgba(0,0,0,0.6);
+  width: 52px; height: 5px;
+  background: rgba(0,0,0,0.55);
   border-radius: 3px; overflow: hidden;
-  margin-top: 3px;
+  margin-bottom: 2px;
+  flex-shrink: 0;
 }
 .token-hp-fill {
   height: 100%;
@@ -100,20 +98,20 @@
 }
 .token-label {
   font-family: "IM Fell English SC", serif;
-  font-size: 9px; letter-spacing: 0.12em;
+  font-size: 8px; letter-spacing: 0.1em;
   color: var(--paper);
   text-shadow: 0 1px 3px #000, 0 0 6px #000;
-  margin-top: 1px;
+  margin-top: 2px;
   white-space: nowrap;
 }
 
 /* ── BATTLE UI (bottom HUD) ── */
 .battle-hud {
   position: fixed; bottom: 0; left: 0; right: 0;
-  height: 210px;
-  background: linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.75) 70%, transparent 100%);
+  height: 190px;
+  background: linear-gradient(to top, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.45) 60%, transparent 100%);
   display: flex; align-items: flex-end;
-  padding: 0 20px 16px;
+  padding: 0 20px 14px;
   gap: 20px;
   z-index: 10;
 }
@@ -276,6 +274,41 @@
 }
 .init-entry.active .init-dot { background: var(--lamp); }
 .init-entry.enemy .init-dot { background: var(--blood); }
+
+/* ── ACTION TOOLTIP ── */
+.action-btn-wrap {
+  position: relative;
+  display: inline-block;
+}
+.action-btn-wrap .action-tip {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(10,8,5,0.92);
+  border: 1px solid color-mix(in oklch, var(--paper-deep) 50%, transparent);
+  color: var(--paper-dim);
+  font-family: "IM Fell English", serif;
+  font-style: italic;
+  font-size: 12px;
+  line-height: 1.5;
+  padding: 7px 12px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 50;
+}
+.action-btn-wrap:hover .action-tip { display: block; }
+
+/* ── TUTORIAL GLOW ── */
+@keyframes tutorial-pulse {
+  0%,100% { box-shadow: 0 0 8px 3px rgba(220,180,40,0.55); }
+  50%      { box-shadow: 0 0 18px 7px rgba(220,180,40,0.9); }
+}
+.action-btn.glow-tutorial {
+  animation: tutorial-pulse 1.4s ease-in-out infinite;
+  border-color: var(--lamp) !important;
+}
 
 /* ── INTRO CINEMATICS ── */
 .cin-battle {
@@ -580,6 +613,21 @@ function _navigateTo(url) {
 }
 
 (function() {
+  /* ── GRID ── */
+  const GRID_COLS = 11;
+  const GRID_ROWS = 24;
+  const CELL_W = 100 / GRID_COLS;   // % per column
+  const CELL_H = 100 / GRID_ROWS;   // % per row
+
+  function cellCenter(col, row) {
+    return { x: (col + 0.5) * CELL_W, y: (row + 0.5) * CELL_H };
+  }
+  function snapToGrid(x, y) {
+    const col = Math.max(0, Math.min(GRID_COLS - 1, Math.round(x / CELL_W - 0.5)));
+    const row = Math.max(0, Math.min(GRID_ROWS - 1, Math.round(y / CELL_H - 0.5)));
+    return cellCenter(col, row);
+  }
+
   /* ── STATE ── */
   const raw = JSON.parse(localStorage.getItem("remorhaz") || "{}");
   const char = raw.selectedCharacter || { name: "Relyt Murcielago", stats: { STR:-2,DEX:0,INT:2,WIS:2,CHA:1,CON:-1 }, portrait:"assets/relyt.jpg" };
@@ -610,29 +658,29 @@ function _navigateTo(url) {
   const CHAR_DATA = {
     relyt: {
       hp: 38, token: "assets/token-relyt.png", label: "Relyt",
-      tutorialText: `<strong>You are Relyt Murcielago,</strong> a wizard of formidable power. Your spells can devastate enemies at range — but you are fragile. <strong>Click an enemy token</strong> (red ring) to target it, then use <strong>Attack Spell</strong>. Use <strong>Spell Buff Ally</strong> to bolster a crew member's next strike. Use <strong>Healing Spell</strong> if you're badly wounded. You may use <strong>one action</strong> per turn, then click <em>End Turn</em>.`,
+      tutorialText: `<strong>Movement:</strong> Use <strong>arrow keys</strong> or <strong>click and drag</strong> your token to move — each square = 5 feet. Move as much as you like before acting.<br><br><strong>Your Action:</strong> Click an enemy token to target it, then choose one of the <strong>glowing actions</strong> below. <strong>Attack Spell</strong> blasts an enemy. <strong>Buff Ally</strong> empowers a crew member. <strong>Healing Spell</strong> restores your HP. One action per turn — then click <em>End Turn</em>.`,
       actions: [
-        { id:"attack", label:"⚡ Attack Spell",     desc:"70% hit · ~26 dmg", needsEnemy: true },
-        { id:"buff",   label:"✨ Buff Ally",         desc:"Empowers a crew ally", needsEnemy: false },
-        { id:"heal",   label:"💊 Healing Spell",     desc:"Restore ~18 HP",   needsEnemy: false },
+        { id:"attack", label:"⚡ Attack Spell",    desc:"70% hit · 20–32 damage to a targeted enemy. Channels into +50% damage if boosted.", needsEnemy: true },
+        { id:"buff",   label:"✨ Buff Ally",        desc:"Empower a random living crew member — their next attack deals +50% damage.", needsEnemy: false },
+        { id:"heal",   label:"💊 Healing Spell",    desc:"Restore 14–22 HP to yourself from arcane energy.", needsEnemy: false },
       ]
     },
     lucy: {
       hp: 45, token: "assets/token-lucy.png", label: "Lucy",
-      tutorialText: `<strong>You are Lucy Lei,</strong> an acrobat and street-fighter without equal. You hit hard and fast. <strong>Click an enemy token</strong> to target it, then <strong>Attack</strong> to strike. Use <strong>Defend</strong> to halve incoming damage this round — wise against grappling Revenants. <strong>Stun</strong> (75% hit) removes an enemy's next action entirely. One action per turn, then <em>End Turn</em>.`,
+      tutorialText: `<strong>Movement:</strong> Use <strong>arrow keys</strong> or <strong>click and drag</strong> your token — each square = 5 feet.<br><br><strong>Your Action:</strong> Click an enemy token to target it, then choose a <strong>glowing action</strong>. <strong>Attack</strong> strikes hard and fast. <strong>Defend</strong> halves incoming damage this round. <strong>Stun</strong> (75% hit) removes an enemy's next action entirely. One action per turn, then <em>End Turn</em>.`,
       actions: [
-        { id:"attack",  label:"⚔ Attack",    desc:"50% hit · ~20 dmg", needsEnemy: true },
-        { id:"defend",  label:"🛡 Defend",    desc:"+50% defense this round", needsEnemy: false },
-        { id:"stun",    label:"💥 Stun",      desc:"75% hit · skip target's turn", needsEnemy: true },
+        { id:"attack",  label:"⚔ Attack",           desc:"50% hit · 16–24 damage to a targeted enemy. Fast and precise.", needsEnemy: true },
+        { id:"defend",  label:"🛡 Defend",           desc:"Brace for impact — incoming damage is halved for the rest of this round.", needsEnemy: false },
+        { id:"stun",    label:"💥 Stun",             desc:"75% hit — disrupt a targeted enemy, causing them to lose their next action entirely.", needsEnemy: true },
       ]
     },
     irene: {
       hp: 52, token: "assets/token-irene.png", label: "Irene",
-      tutorialText: `<strong>You are Irene "Eye" Ladell,</strong> a hurricane in a person. You lead from the front. <strong>Click an enemy token</strong> to target it, then <strong>Attack</strong>. Use <strong>Battle Cry</strong> to boost all crew allies' hit and damage for one round. Use <strong>Channel the Storm</strong> to charge your next attack for +50% extra damage. One action per turn, then <em>End Turn</em>.`,
+      tutorialText: `<strong>Movement:</strong> Use <strong>arrow keys</strong> or <strong>click and drag</strong> your token — each square = 5 feet.<br><br><strong>Your Action:</strong> Click an enemy to target, then choose a <strong>glowing action</strong>. <strong>Attack</strong> leads from the front. <strong>Battle Cry</strong> boosts all crew for one round. <strong>Channel the Storm</strong> charges your next attack for +50% damage. One action per turn, then <em>End Turn</em>.`,
       actions: [
-        { id:"attack",  label:"⚔ Attack",            desc:"50% hit · ~20 dmg",     needsEnemy: true },
-        { id:"cry",     label:"📣 Battle Cry",         desc:"All allies +hit/+dmg",  needsEnemy: false },
-        { id:"channel", label:"⚡ Channel the Storm",  desc:"+50% dmg next attack",  needsEnemy: false },
+        { id:"attack",  label:"⚔ Attack",             desc:"50% hit · 16–24 damage. Deals +50% if Storm Channeled.", needsEnemy: true },
+        { id:"cry",     label:"📣 Battle Cry",          desc:"Inspire the crew — all living allies gain +20% hit chance and +20% damage until their next attack.", needsEnemy: false },
+        { id:"channel", label:"⚡ Channel the Storm",   desc:"Charge your next Attack for +50% extra damage. No damage now, devastating damage next.", needsEnemy: false },
       ]
     }
   };
@@ -641,32 +689,47 @@ function _navigateTo(url) {
   const NUM_ENEMIES = 4 + Math.floor(Math.random() * 3); // 4-6
 
   /* Combat entities */
+  const _pc = cellCenter(6, 8);
   const player = {
     id: "player", label: CD.label,
     hp: CD.hp, maxHp: CD.hp,
-    x: 50, y: 74,
-    dead: false, stunned: false,
+    x: _pc.x, y: _pc.y,
+    dead: false, revived: false, stunned: false,
     defense: 1.0, dmgMult: 1.0,
     channelActive: false, battleCryUsed: false
   };
 
+  function makeCrew(id, label, hp, col, row, token, isIngrid) {
+    const pos = cellCenter(col, row);
+    return { id, label, hp, maxHp:hp, x:pos.x, y:pos.y,
+             dead:false, revived:false, stunned:false, hitBonus:0, dmgBonus:0,
+             token, isIngrid: !!isIngrid };
+  }
   const crew = [
-    { id:"crew0", label:"Sailor", hp:26, maxHp:26, x:38, y:68, dead:false, stunned:false, hitBonus:0, dmgBonus:0 },
-    { id:"crew1", label:"Sailor", hp:26, maxHp:26, x:58, y:71, dead:false, stunned:false, hitBonus:0, dmgBonus:0 },
-    { id:"crew2", label:"Sailor", hp:26, maxHp:26, x:46, y:80, dead:false, stunned:false, hitBonus:0, dmgBonus:0 },
+    makeCrew("ingrid",   "Ingrid",  30,  2,  9, "assets/token-ingrid.png",   true),
+    makeCrew("ursula",   "Ursula",  28,  5, 12, "assets/token-ursula.jpg",   false),
+    makeCrew("haldor",   "Haldor",  32,  7, 14, "assets/token-haldor.jpg",   false),
+    makeCrew("kalt",     "Kalt",    34,  2, 14, "assets/token-kalt.jpg",     false),
+    makeCrew("thorgrim", "Captain", 40,  5, 17, "assets/token-thorgrim.png", false),
   ];
 
   const enemies = [];
-  const enemyStartPositions = [
-    [18,22],[35,15],[52,20],[66,14],[80,25],[44,10]
+  const _ep = [
+    cellCenter(4,  4),   // bow
+    cellCenter(0, 10),   // far-left water
+    cellCenter(1, 13),   // left water lower
+    cellCenter(10, 10),  // far-right water
+    cellCenter(9, 13),   // right water lower
+    cellCenter(5,  2),   // upper center bow
   ];
+  const enemyStartPositions = _ep.map(p => [p.x, p.y]);
   const countWords = ["four","five","six"];
   document.getElementById("enemy-count-text").textContent = countWords[NUM_ENEMIES - 4] || NUM_ENEMIES;
 
   for (let i = 0; i < NUM_ENEMIES; i++) {
     enemies.push({
       id: "e" + i, label: "Revenant",
-      hp: 58, maxHp: 58,
+      hp: 88, maxHp: 88,
       x: enemyStartPositions[i][0],
       y: enemyStartPositions[i][1],
       dead: false, stunned: false
@@ -705,12 +768,7 @@ function _navigateTo(url) {
     div.style.left = entity.x + "%";
     div.style.top  = entity.y + "%";
 
-    const img = document.createElement("img");
-    img.className = "token-img";
-    img.src = isEnemy ? "assets/water-weird.jpg" : isPlayer ? CD.token : "assets/ursula.jpg";
-    img.alt = entity.label;
-    div.appendChild(img);
-
+    // HP bar above the image
     const hpBar = document.createElement("div");
     hpBar.className = "token-hp-bar";
     const hpFill = document.createElement("div");
@@ -718,6 +776,14 @@ function _navigateTo(url) {
     hpFill.style.width = "100%";
     hpBar.appendChild(hpFill);
     div.appendChild(hpBar);
+
+    const img = document.createElement("img");
+    img.className = "token-img";
+    img.src = isEnemy ? "assets/token-revenant.png"
+              : isPlayer ? CD.token
+              : (entity.token || "assets/token-ursula.jpg");
+    img.alt = entity.label;
+    div.appendChild(img);
 
     const lbl = document.createElement("div");
     lbl.className = "token-label";
@@ -759,7 +825,16 @@ function _navigateTo(url) {
     playerTok.style.left = player.x + "%";
     playerTok.style.top  = player.y + "%";
   });
-  document.addEventListener("mouseup", () => { dragging = false; });
+  document.addEventListener("mouseup", () => {
+    if (dragging) {
+      dragging = false;
+      const snapped = snapToGrid(player.x, player.y);
+      player.x = snapped.x;
+      player.y = snapped.y;
+      playerTok.style.left = player.x + "%";
+      playerTok.style.top  = player.y + "%";
+    }
+  });
 
   /* ── MAP DRAG-TO-PAN ── */
   const mapViewport = document.getElementById("map-viewport");
@@ -796,11 +871,20 @@ function _navigateTo(url) {
 
   document.addEventListener("keydown", e => {
     if (!combatStarted || !isPlayerTurn()) return;
-    const step = 2;
-    if (e.key === "ArrowLeft")  { player.x = Math.max(2,  player.x - step); playerTok.style.left = player.x + "%"; e.preventDefault(); }
-    if (e.key === "ArrowRight") { player.x = Math.min(98, player.x + step); playerTok.style.left = player.x + "%"; e.preventDefault(); }
-    if (e.key === "ArrowUp")    { player.y = Math.max(2,  player.y - step); playerTok.style.top  = player.y + "%"; e.preventDefault(); }
-    if (e.key === "ArrowDown")  { player.y = Math.min(95, player.y + step); playerTok.style.top  = player.y + "%"; e.preventDefault(); }
+    const arrowKeys = ["ArrowLeft","ArrowRight","ArrowUp","ArrowDown"];
+    if (!arrowKeys.includes(e.key)) return;
+    e.preventDefault();
+    let col = Math.round(player.x / CELL_W - 0.5);
+    let row = Math.round(player.y / CELL_H - 0.5);
+    if (e.key === "ArrowLeft")  col = Math.max(0, col - 1);
+    if (e.key === "ArrowRight") col = Math.min(GRID_COLS - 1, col + 1);
+    if (e.key === "ArrowUp")    row = Math.max(0, row - 1);
+    if (e.key === "ArrowDown")  row = Math.min(GRID_ROWS - 1, row + 1);
+    const snapped = cellCenter(col, row);
+    player.x = snapped.x;
+    player.y = snapped.y;
+    playerTok.style.left = player.x + "%";
+    playerTok.style.top  = player.y + "%";
   });
 
   /* ── TARGET SELECTION ── */
@@ -877,15 +961,22 @@ function _navigateTo(url) {
 
     endBtn.disabled = actionUsed ? false : true;
 
+    const glowClass = (!tutorialShown && !actionUsed) ? " glow-tutorial" : "";
     container.innerHTML = CD.actions.map(a => {
       const disabled = actionUsed || (a.needsEnemy && !selectedTarget);
-      return `<button class="action-btn${actionUsed ? " btn-used" : ""}" data-action="${a.id}" ${disabled ? "disabled" : ""} title="${a.desc}">
-        ${a.label}
-      </button>`;
+      return `<div class="action-btn-wrap">
+        <button class="action-btn${actionUsed ? " btn-used" : ""}${glowClass}" data-action="${a.id}" ${disabled ? "disabled" : ""}>
+          ${a.label}
+        </button>
+        <div class="action-tip">${a.desc}</div>
+      </div>`;
     }).join("");
 
     container.querySelectorAll(".action-btn").forEach(btn => {
-      btn.addEventListener("click", () => doPlayerAction(btn.dataset.action));
+      btn.addEventListener("click", () => {
+        btn.classList.remove("glow-tutorial");
+        doPlayerAction(btn.dataset.action);
+      });
     });
   }
 
@@ -994,11 +1085,29 @@ function _navigateTo(url) {
   function doCrewTurn(crewMember) {
     return new Promise(resolve => {
       setTimeout(() => {
-        if (crewMember.dead || crewMember.stunned) {
+        if (crewMember.dead) { resolve(); return; }
+        if (crewMember.stunned) {
           crewMember.stunned = false;
           addLog(`${crewMember.label} is stunned — skips turn.`, "log-miss");
           resolve(); return;
         }
+
+        // Ingrid: revive a fallen ally before attacking
+        if (crewMember.isIngrid) {
+          const fallen = [player, ...crew].find(e => e.dead && !e.revived);
+          if (fallen) {
+            fallen.dead = false;
+            fallen.revived = true;
+            fallen.hp = Math.ceil(fallen.maxHp * 0.10);
+            const el = tokenEls[fallen.id];
+            if (el) { el.classList.remove("dead"); }
+            updateTokenHp(fallen);
+            if (fallen === player) refreshHud();
+            addLog(`Ingrid channels healing — ${fallen.label} revived to ${fallen.hp} HP!`, "log-crit");
+            resolve(); return;
+          }
+        }
+
         const alive = enemies.filter(e => !e.dead);
         if (alive.length === 0) { resolve(); return; }
         const target = alive[Math.floor(Math.random() * alive.length)];
@@ -1009,9 +1118,9 @@ function _navigateTo(url) {
           if (crewMember.dmgBonus) dmg = Math.round(dmg * (1 + crewMember.dmgBonus));
           target.hp -= dmg;
           updateTokenHp(target);
-          addLog(`Sailor strikes ${target.label} — ${dmg} dmg.`, "log-hit");
+          addLog(`${crewMember.label} strikes ${target.label} — ${dmg} dmg.`, "log-hit");
         } else {
-          addLog(`Sailor swings at ${target.label} — miss.`, "log-miss");
+          addLog(`${crewMember.label} swings at ${target.label} — miss.`, "log-miss");
         }
         crewMember.hitBonus = 0;
         crewMember.dmgBonus = 0;
@@ -1209,6 +1318,7 @@ function _navigateTo(url) {
     document.getElementById("tutorial-overlay").classList.add("visible");
   }
   document.getElementById("tutorial-close").addEventListener("click", () => {
+    tutorialShown = true;
     document.getElementById("tutorial-overlay").classList.remove("visible");
     startCombat();
   });
