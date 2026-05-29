@@ -261,10 +261,10 @@
   position: fixed; inset: 0; z-index: 200;
   display: flex; align-items: stretch;
   background: #000;
-  opacity: 0;
+  opacity: 0; pointer-events: none;
   transition: opacity 0.7s ease;
 }
-.cin-battle.visible { opacity: 1; }
+.cin-battle.visible { opacity: 1; pointer-events: auto; }
 .cin-battle-bg {
   position: absolute; inset: 0;
   background-size: cover; background-position: center top;
@@ -559,6 +559,28 @@ function _navigateTo(url) {
   const raw = JSON.parse(localStorage.getItem("remorhaz") || "{}");
   const char = raw.selectedCharacter || { name: "Relyt Murcielago", stats: { STR:-2,DEX:0,INT:2,WIS:2,CHA:1,CON:-1 }, portrait:"assets/relyt.jpg" };
   const charKey = char.name.includes("Lucy") ? "lucy" : char.name.includes("Irene") ? "irene" : "relyt";
+  // If combat training was not passed (or not done), apply 30% hit penalty
+  const trainingMult = raw.combatTrainingPassed ? 1.0 : 0.70;
+  const trainingPenaltyActive = !raw.combatTrainingPassed;
+  const HALDOR_TAUNTS = [
+    "I was hopin' ye were jus' havin' an off day when we were trainin'! This isn't poking at a mark on the deck, this is life or death! If I have to come over there 'n save ye, I'm going ta skelp yer wee behind!",
+    "Ye missed! I showed ye that exact move in training — now USE IT!",
+    "By the frost, that was terrible. Focus, ye blithering land-leg!",
+  ];
+  let _tauntIdx = 0;
+  function maybeHaldorTaunt() {
+    if (!trainingPenaltyActive) return;
+    const logEl = document.getElementById("log");
+    if (logEl) {
+      const div = document.createElement("div");
+      div.className = "log-entry log-miss";
+      div.style.cssText = "color:#f0a040;font-style:italic;border-left:3px solid #f0a040;padding-left:6px;margin:4px 0;";
+      div.textContent = "Haldor: \"" + HALDOR_TAUNTS[_tauntIdx % HALDOR_TAUNTS.length] + "\"";
+      logEl.appendChild(div);
+      logEl.scrollTop = logEl.scrollHeight;
+      _tauntIdx++;
+    }
+  }
 
   const CHAR_DATA = {
     relyt: {
@@ -832,7 +854,8 @@ function _navigateTo(url) {
   function doRelytAction(id) {
     if (id === "attack") {
       if (!selectedTarget || selectedTarget.dead) { addLog("No target selected.", "log-miss"); actionUsed = false; return; }
-      const hit = roll(0.70);
+      const hit = roll(0.70 * trainingMult);
+      if (!hit) maybeHaldorTaunt();
       if (hit) {
         const dmg = randRange(20, 32);
         const final = player.channelActive ? Math.round(dmg * 1.5) : dmg;
@@ -860,7 +883,7 @@ function _navigateTo(url) {
   function doLucyAction(id) {
     if (id === "attack") {
       if (!selectedTarget || selectedTarget.dead) { addLog("No target selected.", "log-miss"); actionUsed = false; return; }
-      const hit = roll(0.50);
+      const hit = roll(0.50 * trainingMult);
       if (hit) {
         const dmg = randRange(16, 24);
         selectedTarget.hp -= dmg;
@@ -868,18 +891,20 @@ function _navigateTo(url) {
         addLog(`${CD.label} strikes ${selectedTarget.label} — ${dmg} dmg!`, "log-hit");
       } else {
         addLog(`${CD.label}'s strike deflects off the Revenant — miss.`, "log-miss");
+        maybeHaldorTaunt();
       }
     } else if (id === "defend") {
       player.defense = 0.5;
       addLog(`${CD.label} braces — incoming damage halved this round.`, "log-hit");
     } else if (id === "stun") {
       if (!selectedTarget || selectedTarget.dead) { addLog("No target selected.", "log-miss"); actionUsed = false; return; }
-      const hit = roll(0.75);
+      const hit = roll(0.75 * trainingMult);
       if (hit) {
         selectedTarget.stunned = true;
         addLog(`${CD.label} stuns ${selectedTarget.label} — it loses its next action!`, "log-crit");
       } else {
         addLog(`${CD.label}'s stun attempt fails — the Revenant surges forward.`, "log-miss");
+        maybeHaldorTaunt();
       }
     }
   }
@@ -887,7 +912,7 @@ function _navigateTo(url) {
   function doIreneAction(id) {
     if (id === "attack") {
       if (!selectedTarget || selectedTarget.dead) { addLog("No target selected.", "log-miss"); actionUsed = false; return; }
-      const hit = roll(0.50);
+      const hit = roll(0.50 * trainingMult);
       if (hit) {
         let dmg = randRange(16, 24);
         if (player.channelActive) { dmg = Math.round(dmg * 1.5); player.channelActive = false; }
@@ -896,6 +921,7 @@ function _navigateTo(url) {
         addLog(`${CD.label} hammers ${selectedTarget.label} — ${dmg} dmg!`, "log-hit");
       } else {
         addLog(`${CD.label}'s swing crashes through water — miss.`, "log-miss");
+        maybeHaldorTaunt();
       }
     } else if (id === "cry") {
       crew.filter(c => !c.dead).forEach(c => { c.hitBonus = 0.2; c.dmgBonus = 0.2; });
