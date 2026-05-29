@@ -564,7 +564,7 @@
     margin-bottom: 20px;
   }
   .panel .dialogue::before {
-    content: "“";
+    content: "c";
     position: absolute;
     left: -2px; top: -12px;
     font-family: "IM Fell English SC", serif;
@@ -2139,7 +2139,7 @@ function _navigateTo(url) {
     activeZone = zone;
     hideTooltip();
 
-    const dayOverride = npc[“day” + state.currentDay] || {};
+    const dayOverride = npc["day" + state.currentDay] || {};
     const eff = { ...npc, ...dayOverride };
 
     pDay.textContent  = eff.dayLabel;
@@ -2151,10 +2151,10 @@ function _navigateTo(url) {
     pActTitle.textContent = eff.activityTitle;
     pActDesc.textContent  = eff.activityDesc;
 
-    pStats.innerHTML = “”;
+    pStats.innerHTML = "";
     npc.stats.forEach(([k, v]) => {
-      const r = document.createElement(“div”);
-      r.className = “stat”;
+      const r = document.createElement("div");
+      r.className = "stat";
       r.innerHTML = `<span>${k}</span><span>${v}</span>`;
       pStats.appendChild(r);
     });
@@ -2166,34 +2166,34 @@ function _navigateTo(url) {
 
     pBegin.disabled = false;
     if (npc.special) {
-      pBegin.textContent = “SPEAK WITH THE CAPTAIN”;
-      pStatus.textContent = “”;
+      pBegin.textContent = "SPEAK WITH THE CAPTAIN";
+      pStatus.textContent = "";
     } else if (state.completed.has(zone) && (!isRequiredToday || todayIsComplete)) {
       // Already done and not needed again today
-      pBegin.textContent = “SPEAK WITH THEM”;
+      pBegin.textContent = "SPEAK WITH THEM";
       const _isD8req = repairDayRequired && state.currentDay === 8 && (DAYS.find(d => d.n === 8)?.npcs || []).includes(zone);
       pStatus.textContent = _isD8req
-        ? “Emergency work complete — well done.”
-        : `You have already worked with ${eff.name.split(“ “)[0]} today.`;
+        ? "Emergency work complete — well done."
+        : `You have already worked with ${eff.name.split(" ")[0]} today.`;
     } else if (state.currentDay >= npc.day || isRequiredToday) {
-      pBegin.textContent = “SPEAK WITH THEM”;
+      pBegin.textContent = "SPEAK WITH THEM";
       const _isD8req = repairDayRequired && state.currentDay === 8 && (DAYS.find(d => d.n === 8)?.npcs || []).includes(zone);
       pStatus.textContent = _isD8req
-        ? “Required for repairs — the ship cannot sail without this.”
+        ? "Required for repairs — the ship cannot sail without this."
         : `Available now — Day ${state.currentDay} of nine.`;
     } else {
-      pBegin.textContent = “NOT YET”;
+      pBegin.textContent = "NOT YET";
       pBegin.disabled = true;
       pStatus.textContent = `Held in reserve until Day ${npc.day}.`;
     }
 
-    document.querySelectorAll(“.hotspot”).forEach(h => {
-      h.classList.toggle(“is-active”, h.dataset.zone === zone);
+    document.querySelectorAll(".hotspot").forEach(h => {
+      h.classList.toggle("is-active", h.dataset.zone === zone);
     });
 
-    shroud.classList.add(“open”);
-    panel.classList.add(“open”);
-    panel.setAttribute(“aria-hidden”, “false”);
+    shroud.classList.add("open");
+    panel.classList.add("open");
+    panel.setAttribute("aria-hidden", "false");
   }
 
   function closePanel() {
@@ -2266,17 +2266,17 @@ function _navigateTo(url) {
   }
 
   /* ============== NPC CINEMATIC ============== */
-  const cinNpc         = document.getElementById(“cin-npc”);
-  const cinNpcBg       = document.getElementById(“cin-npc-bg”);
-  const cinNpcName     = document.getElementById(“cin-npc-name”);
-  const cinNpcRole     = document.getElementById(“cin-npc-role”);
-  const cinNpcQuote    = document.getElementById(“cin-npc-quote”);
-  const cinNpcOptions  = document.getElementById(“cin-npc-options”);
-  const cinNpcReaction = document.getElementById(“cin-npc-reaction”);
-  const cinNpcInfluenceEl = document.getElementById(“cin-npc-influence”);
-  const cinNpcActions  = document.getElementById(“cin-npc-actions”);
-  const cinNpcEnter    = document.getElementById(“cin-npc-enter”);
-  const cinNpcReturn   = document.getElementById(“cin-npc-return”);
+  const cinNpc         = document.getElementById("cin-npc");
+  const cinNpcBg       = document.getElementById("cin-npc-bg");
+  const cinNpcName     = document.getElementById("cin-npc-name");
+  const cinNpcRole     = document.getElementById("cin-npc-role");
+  const cinNpcQuote    = document.getElementById("cin-npc-quote");
+  const cinNpcOptions  = document.getElementById("cin-npc-options");
+  const cinNpcReaction = document.getElementById("cin-npc-reaction");
+  const cinNpcInfluenceEl = document.getElementById("cin-npc-influence");
+  const cinNpcActions  = document.getElementById("cin-npc-actions");
+  const cinNpcEnter    = document.getElementById("cin-npc-enter");
+  const cinNpcReturn   = document.getElementById("cin-npc-return");
 
   let _pendingZone = null;
 
@@ -2285,20 +2285,20 @@ function _navigateTo(url) {
     if (!npc) return;
     _pendingZone = zone;
 
-    const dayOverride = npc[“day” + state.currentDay] || {};
+    const dayOverride = npc["day" + state.currentDay] || {};
     const eff = { ...npc, ...dayOverride };
 
-    cinNpcBg.style.backgroundImage = `url(‘${eff.cinPortrait || npc.cinPortrait || npc.portrait}’)`;
+    cinNpcBg.style.backgroundImage = `url('${eff.cinPortrait || npc.cinPortrait || npc.portrait}')`;
     cinNpcName.textContent = eff.name;
     cinNpcRole.textContent = eff.role;
 
     // Reset state
-    cinNpcOptions.innerHTML = “”;
-    cinNpcReaction.textContent = “”;
-    cinNpcReaction.style.display = “none”;
-    cinNpcInfluenceEl.textContent = “”;
-    cinNpcInfluenceEl.className = “cin-npc-influence”;
-    cinNpcActions.style.display = “none”;
+    cinNpcOptions.innerHTML = "";
+    cinNpcReaction.textContent = "";
+    cinNpcReaction.style.display = "none";
+    cinNpcInfluenceEl.textContent = "";
+    cinNpcInfluenceEl.className = "cin-npc-influence";
+    cinNpcActions.style.display = "none";
     cinNpcEnter.disabled = false;
 
     if (npc.special) {
@@ -2307,80 +2307,80 @@ function _navigateTo(url) {
       if (!_raw.captainIntroSeen) {
         briefing = eff.dialogue;
       } else {
-        const tier = influenceTier(“thorgrim”);
+        const tier = influenceTier("thorgrim");
         briefing = eff.dailyBriefing?.[state.currentDay]?.[tier] || eff.dialogue;
       }
-      cinNpcQuote.textContent = ““” + briefing + “””;
-      cinNpcEnter.style.display = “none”;
-      cinNpcReturn.style.display = “”;
-      cinNpcReturn.textContent = “RETURN TO DECK”;
-      cinNpcActions.style.display = “flex”;
-      cinNpc.classList.add(“active”);
-      cinNpc.setAttribute(“aria-hidden”, “false”);
+      cinNpcQuote.textContent = "“" + briefing + "”";
+      cinNpcEnter.style.display = "none";
+      cinNpcReturn.style.display = "";
+      cinNpcReturn.textContent = "RETURN TO DECK";
+      cinNpcActions.style.display = "flex";
+      cinNpc.classList.add("active");
+      cinNpc.setAttribute("aria-hidden", "false");
       return;
     }
 
     // Regular NPC: show dialogue + response options
-    cinNpcQuote.textContent = ““” + (eff.dialogue || eff.hook) + “””;
-    cinNpcEnter.style.display = “”;
-    cinNpcReturn.style.display = “”;
+    cinNpcQuote.textContent = "“" + (eff.dialogue || eff.hook) + "”";
+    cinNpcEnter.style.display = "";
+    cinNpcReturn.style.display = "";
 
     const responses = eff.responses || npc.responses;
     if (responses) {
-      const RESP_ORDER = [“amicable”, “argumentative”, “placating”, “complimentary”];
+      const RESP_ORDER = ["amicable", "argumentative", "placating", "complimentary"];
       RESP_ORDER.forEach(type => {
         const r = responses[type];
         if (!r) return;
-        const btn = document.createElement(“button”);
-        btn.className = “cin-opt-btn”;
+        const btn = document.createElement("button");
+        btn.className = "cin-opt-btn";
         btn.textContent = r[_char] || r.relyt || r.npc;
-        btn.addEventListener(“click”, () => {
+        btn.addEventListener("click", () => {
           // Compute delta
           const baseDelta = RESP_DELTAS[zone]?.[type] ?? 0;
-          if (typeof baseDelta === “number” && baseDelta !== 0) {
+          if (typeof baseDelta === "number" && baseDelta !== 0) {
             state.influence[zone] = Math.max(0, Math.min(10, (state.influence[zone] ?? 2) + baseDelta));
             save();
           }
           // Hide options, show reaction
-          cinNpcOptions.innerHTML = “”;
-          cinNpcReaction.textContent = ““” + (r.npc || “”) + “””;
-          cinNpcReaction.style.display = “block”;
+          cinNpcOptions.innerHTML = "";
+          cinNpcReaction.textContent = "“" + (r.npc || "") + "”";
+          cinNpcReaction.style.display = "block";
           if (baseDelta > 0) {
-            cinNpcInfluenceEl.textContent = “▲ Rapport with “ + npc.name.split(“ “).slice(-1)[0] + “ +” + baseDelta;
-            cinNpcInfluenceEl.className = “cin-npc-influence visible pos”;
+            cinNpcInfluenceEl.textContent = "▲ Rapport with " + npc.name.split(" ").slice(-1)[0] + " +" + baseDelta;
+            cinNpcInfluenceEl.className = "cin-npc-influence visible pos";
           } else if (baseDelta < 0) {
-            cinNpcInfluenceEl.textContent = “▼ Rapport with “ + npc.name.split(“ “).slice(-1)[0] + “ “ + baseDelta;
-            cinNpcInfluenceEl.className = “cin-npc-influence visible neg”;
+            cinNpcInfluenceEl.textContent = "▼ Rapport with " + npc.name.split(" ").slice(-1)[0] + " " + baseDelta;
+            cinNpcInfluenceEl.className = "cin-npc-influence visible neg";
           }
           // Show actions
           const dayEntry = DAYS.find(d => d.n === state.currentDay);
           const isRequiredToday = dayEntry?.npcs.includes(zone);
           if (state.currentDay < npc.day && !isRequiredToday) {
-            cinNpcEnter.textContent = “NOT YET AVAILABLE”;
+            cinNpcEnter.textContent = "NOT YET AVAILABLE";
             cinNpcEnter.disabled = true;
           } else {
-            cinNpcEnter.textContent = “BEGIN ACTIVITY →”;
+            cinNpcEnter.textContent = "BEGIN ACTIVITY →";
             cinNpcEnter.disabled = false;
           }
-          cinNpcActions.style.display = “flex”;
+          cinNpcActions.style.display = "flex";
         });
         cinNpcOptions.appendChild(btn);
       });
     } else {
-      cinNpcEnter.textContent = “BEGIN ACTIVITY →”;
-      cinNpcActions.style.display = “flex”;
+      cinNpcEnter.textContent = "BEGIN ACTIVITY →";
+      cinNpcActions.style.display = "flex";
     }
 
-    cinNpc.classList.add(“active”);
-    cinNpc.setAttribute(“aria-hidden”, “false”);
+    cinNpc.classList.add("active");
+    cinNpc.setAttribute("aria-hidden", "false");
   }
 
   function dismissNpcCinematic() {
     // Track captain interactions
-    if (_pendingZone === “thorgrim”) {
+    if (_pendingZone === "thorgrim") {
       try {
-        const _exc = JSON.parse(localStorage.getItem(“remorhaz”) || “{}”);
-        localStorage.setItem(“remorhaz”, JSON.stringify({
+        const _exc = JSON.parse(localStorage.getItem("remorhaz") || "{}");
+        localStorage.setItem("remorhaz", JSON.stringify({
           ..._exc,
           captainIntroSeen: true,
           captainSpokenDay: state.currentDay,
@@ -2388,30 +2388,30 @@ function _navigateTo(url) {
         _raw.captainIntroSeen = true;
         _raw.captainSpokenDay = state.currentDay;
       } catch {}
-      document.querySelector(‘[data-zone=”thorgrim”]’)?.classList.remove(“first-visit-glow”);
+      document.querySelector('[data-zone="thorgrim"]')?.classList.remove("first-visit-glow");
     }
-    cinNpc.classList.remove(“active”);
-    cinNpc.setAttribute(“aria-hidden”, “true”);
+    cinNpc.classList.remove("active");
+    cinNpc.setAttribute("aria-hidden", "true");
     _pendingZone = null;
   }
 
-  cinNpcReturn.addEventListener(“click”, dismissNpcCinematic);
+  cinNpcReturn.addEventListener("click", dismissNpcCinematic);
 
-  cinNpcEnter.addEventListener(“click”, () => {
+  cinNpcEnter.addEventListener("click", () => {
     if (!_pendingZone) return;
     const zone = _pendingZone;
     const npc = NPCS[zone];
     if (!npc || cinNpcEnter.disabled) return;
 
     const routes = {
-      haldor: (repairDayRequired && state.currentDay === 8) ? “fishing.html”
-              : state.currentDay >= 4 ? “combat.html” : “fishing.html”,
-      ingrid:  “cooking.html”,
-      kalt:    “maintenance.html”,
-      ursula:  state.currentDay >= 7 ? “weatherstorm.html”
-               : state.currentDay >= 6 ? “seabattle.html”
-               : state.currentDay >= 5 ? “icefloe.html”
-               : “navigation.html”,
+      haldor: (repairDayRequired && state.currentDay === 8) ? "fishing.html"
+              : state.currentDay >= 4 ? "combat.html" : "fishing.html",
+      ingrid:  "cooking.html",
+      kalt:    "maintenance.html",
+      ursula:  state.currentDay >= 7 ? "weatherstorm.html"
+               : state.currentDay >= 6 ? "seabattle.html"
+               : state.currentDay >= 5 ? "icefloe.html"
+               : "navigation.html",
     };
 
     if (routes[zone]) {
