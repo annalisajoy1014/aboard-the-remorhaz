@@ -919,7 +919,7 @@ function _navigateTo(url) {
       hp: 88, maxHp: 88,
       x: enemyStartPositions[i][0],
       y: enemyStartPositions[i][1],
-      dead: false, stunned: false
+      dead: false, stunned: false, damagedBy: {}
     });
   }
 
@@ -1342,6 +1342,7 @@ function _navigateTo(url) {
         const dmg = randRange(23, 37);
         const final = player.channelActive ? Math.round(dmg * 1.5) : dmg;
         selectedTarget.hp -= final;
+        trackDamage(selectedTarget, "player", final);
         showSpellBlast(tokenEls[selectedTarget.id]);
         updateTokenHp(selectedTarget);
         addLog(`${CD.label} blasts ${selectedTarget.label} — ${final} dmg!`, "log-hit");
@@ -1375,6 +1376,7 @@ function _navigateTo(url) {
       if (hit) {
         const dmg = randRange(18, 28);
         selectedTarget.hp -= dmg;
+        trackDamage(selectedTarget, "player", dmg);
         showSlashEffect(tokenEls[selectedTarget.id]);
         updateTokenHp(selectedTarget);
         addLog(`${CD.label} strikes ${selectedTarget.label} — ${dmg} dmg!`, "log-hit");
@@ -1413,6 +1415,7 @@ function _navigateTo(url) {
         let dmg = randRange(18, 28);
         if (player.channelActive) { dmg = Math.round(dmg * 1.5); player.channelActive = false; }
         selectedTarget.hp -= dmg;
+        trackDamage(selectedTarget, "player", dmg);
         showImpactEffect(tokenEls[selectedTarget.id]);
         updateTokenHp(selectedTarget);
         addLog(`${CD.label} hammers ${selectedTarget.label} — ${dmg} dmg!`, "log-hit");
@@ -1603,6 +1606,10 @@ function _navigateTo(url) {
     });
   }
 
+  function trackDamage(enemy, attackerId, dmg) {
+    if (enemy.damagedBy) enemy.damagedBy[attackerId] = (enemy.damagedBy[attackerId] || 0) + dmg;
+  }
+
   function showMissFloat(el) {
     if (!el) return;
     const d = document.createElement("div");
@@ -1641,6 +1648,7 @@ function _navigateTo(url) {
         let dmg = randRange(18, 30);
         if (ursula.dmgBonus) dmg = Math.round(dmg * (1 + ursula.dmgBonus));
         target.hp -= dmg;
+        trackDamage(target, "ursula", dmg);
         showClawMarks(tokenEls[target.id]);
         updateTokenHp(target);
         addLog(`Ursula's bear claws rend ${target.label} — ${dmg} dmg!`, "log-crit");
@@ -1687,6 +1695,7 @@ function _navigateTo(url) {
           let dmg = randRange(8, 16);
           if (crewMember.dmgBonus) dmg = Math.round(dmg * (1 + crewMember.dmgBonus));
           target.hp -= dmg;
+          trackDamage(target, crewMember.id, dmg);
           showAxeEffect(tokenEls[target.id]);
           updateTokenHp(target);
           addLog(`${crewMember.label} cleaves ${target.label} — ${dmg} dmg.`, "log-hit");
@@ -1700,6 +1709,7 @@ function _navigateTo(url) {
         let dmg = randRange(8, 16);
         if (crewMember.dmgBonus) dmg = Math.round(dmg * (1 + crewMember.dmgBonus));
         target.hp -= dmg;
+        trackDamage(target, crewMember.id, dmg);
         await showArrowFly(tokenEls[crewMember.id], tokenEls[target.id]);
         updateTokenHp(target);
         addLog(`${crewMember.label} fires at ${target.label} — ${dmg} dmg.`, "log-hit");
@@ -1713,6 +1723,7 @@ function _navigateTo(url) {
         let dmg = randRange(8, 16);
         if (crewMember.dmgBonus) dmg = Math.round(dmg * (1 + crewMember.dmgBonus));
         target.hp -= dmg;
+        trackDamage(target, crewMember.id, dmg);
         updateTokenHp(target);
         addLog(`${crewMember.label} strikes ${target.label} — ${dmg} dmg.`, "log-hit");
       } else {
@@ -1720,6 +1731,32 @@ function _navigateTo(url) {
       }
     }
     crewMember.hitBonus = 0; crewMember.dmgBonus = 0;
+  }
+
+  /* ── ENEMY TARGET SELECTION ── */
+  function selectEnemyTarget(enemy) {
+    const alive = [player, ...crew].filter(e => !e.dead);
+    if (alive.length === 0) return null;
+
+    // Find closest living entity
+    let closest = alive[0], minD = Infinity;
+    for (const e of alive) {
+      const dx = e.x - enemy.x, dy = e.y - enemy.y;
+      const d = dx*dx + dy*dy;
+      if (d < minD) { minD = d; closest = e; }
+    }
+
+    // Find who has dealt the most damage to this specific enemy
+    let topDealer = null, maxDmg = 0;
+    for (const [id, dmg] of Object.entries(enemy.damagedBy || {})) {
+      if (dmg > maxDmg) {
+        const e = id === "player" ? player : crew.find(c => c.id === id);
+        if (e && !e.dead) { maxDmg = dmg; topDealer = e; }
+      }
+    }
+
+    // 35% chance: go after the biggest threat; 65%: go after the nearest
+    return (topDealer && Math.random() < 0.35) ? topDealer : closest;
   }
 
   /* ── ENEMY TURN ── */
@@ -1731,14 +1768,16 @@ function _navigateTo(url) {
         addLog(`${enemy.label} is held fast — cannot move or act!`, "log-miss");
         return;
       }
-      // Stun expired — clear and let it act
       enemy.stunned = false;
       enemy.stunnedUntilRound = undefined;
     }
-    if (player.dead) return;
 
-    // Move toward player with smooth transition
-    const dx = player.x - enemy.x, dy = player.y - enemy.y;
+    // Pick a target: nearest or highest-aggro entity
+    const t = selectEnemyTarget(enemy);
+    if (!t || t.dead) return;
+
+    // Move toward chosen target
+    const dx = t.x - enemy.x, dy = t.y - enemy.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
     if (dist > 10) {
       const step = Math.min(8, dist * 0.35);
@@ -1752,40 +1791,54 @@ function _navigateTo(url) {
       await delay(580);
     }
 
-    // Only one Revenant attacks per round; others stalk closer but hold back
+    // Only one Revenant attacks per round
     if (enemyAttacksThisRound >= 1) {
       addLog(`${enemy.label} circles, watching for an opening…`, "log-miss");
       return;
     }
     enemyAttacksThisRound++;
 
-    // Player's DEX or STR reduces the enemy's chance to hit
+    // Player's DEX / STR reduces their personal hit chance
     const dexMod = char.stats ? (char.stats.DEX || 0) : 0;
     const strMod = char.stats ? (char.stats.STR || 0) : 0;
     const statDefense = Math.max(dexMod, strMod) * 0.08;
-    const baseHit = Math.max(0.20, 0.60 - statDefense);
+    const playerHitChance = Math.max(0.20, 0.60 - statDefense);
 
-    // 30% chance: drag overboard attempt instead of normal attack
-    if (Math.random() < 0.30) {
-      await doDragAttempt(enemy);
-    } else {
-      const hit = roll(baseHit * player.defense);
-      if (hit) {
-        const dmg = randRange(8, 19);
-        player.hp -= dmg;
-        showWaterEffect(tokenEls["player"]);
-        updateTokenHp(player);
-        refreshHud();
-        addLog(`${enemy.label} constricts ${CD.label} — ${dmg} dmg!`, "log-enemy");
-        if (player.hp <= 0) {
-          player.dead = true;
-          tokenEls.player?.classList.add("dead");
-        }
+    if (t === player) {
+      // Drag-overboard attempt (30%) or normal attack on player
+      if (Math.random() < 0.30) {
+        await doDragAttempt(enemy);
       } else {
-        addLog(`${enemy.label} lunges at ${CD.label} — deflected!`, "log-miss");
+        const hit = roll(playerHitChance * player.defense);
+        if (hit) {
+          const dmg = randRange(8, 19);
+          player.hp -= dmg;
+          showWaterEffect(tokenEls["player"]);
+          updateTokenHp(player);
+          refreshHud();
+          addLog(`${enemy.label} constricts ${CD.label} — ${dmg} dmg!`, "log-enemy");
+          if (player.hp <= 0) {
+            player.dead = true;
+            tokenEls.player?.classList.add("dead");
+          }
+        } else {
+          addLog(`${enemy.label} lunges at ${CD.label} — deflected!`, "log-miss");
+        }
+      }
+      player.defense = 1.0;
+    } else {
+      // Attack a crew member
+      const hit = roll(0.55);
+      if (hit) {
+        const dmg = randRange(7, 16);
+        t.hp -= dmg;
+        showWaterEffect(tokenEls[t.id]);
+        updateTokenHp(t);
+        addLog(`${enemy.label} slams into ${t.label} — ${dmg} dmg!`, "log-enemy");
+      } else {
+        addLog(`${enemy.label} surges at ${t.label} — ${t.label} holds their ground!`, "log-miss");
       }
     }
-    player.defense = 1.0;
   }
 
   /* ── DRAG OVERBOARD ── */
