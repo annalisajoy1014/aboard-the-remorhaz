@@ -1342,6 +1342,7 @@ function _navigateTo(url) {
         addLog(`${CD.label} blasts ${selectedTarget.label} — ${final} dmg!`, "log-hit");
         player.channelActive = false;
       } else {
+        showMissFloat(tokenEls[selectedTarget.id]);
         addLog(`${CD.label}'s spell arcs wide — miss.`, "log-miss");
       }
       return true;
@@ -1373,6 +1374,7 @@ function _navigateTo(url) {
         updateTokenHp(selectedTarget);
         addLog(`${CD.label} strikes ${selectedTarget.label} — ${dmg} dmg!`, "log-hit");
       } else {
+        showMissFloat(tokenEls[selectedTarget.id]);
         addLog(`${CD.label}'s strike deflects off the Revenant — miss.`, "log-miss");
         maybeHaldorTaunt();
       }
@@ -1388,6 +1390,7 @@ function _navigateTo(url) {
         selectedTarget.stunned = true;
         addLog(`${CD.label} stuns ${selectedTarget.label} — it loses its next action!`, "log-crit");
       } else {
+        showMissFloat(tokenEls[selectedTarget.id]);
         addLog(`${CD.label}'s stun attempt fails — the Revenant surges forward.`, "log-miss");
         maybeHaldorTaunt();
       }
@@ -1408,6 +1411,7 @@ function _navigateTo(url) {
         updateTokenHp(selectedTarget);
         addLog(`${CD.label} hammers ${selectedTarget.label} — ${dmg} dmg!`, "log-hit");
       } else {
+        showMissFloat(tokenEls[selectedTarget.id]);
         addLog(`${CD.label}'s swing crashes through water — miss.`, "log-miss");
         maybeHaldorTaunt();
       }
@@ -1550,6 +1554,15 @@ function _navigateTo(url) {
         setTimeout(() => r.remove(), 580);
       }, ms);
     });
+  }
+
+  function showMissFloat(el) {
+    if (!el) return;
+    const d = document.createElement("div");
+    d.style.cssText = "position:absolute;left:50%;top:-2px;font-family:'IM Fell English SC',serif;font-size:14px;font-style:italic;color:#ccc;text-shadow:0 1px 5px #000,0 0 10px rgba(0,0,0,0.8);pointer-events:none;z-index:400;white-space:nowrap;animation:float-dmg 1.1s ease forwards;";
+    d.textContent = "Miss!";
+    el.appendChild(d);
+    setTimeout(() => d.remove(), 1200);
   }
 
   /* ── URSULA STATE MACHINE ── */
