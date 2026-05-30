@@ -1388,7 +1388,8 @@ function _navigateTo(url) {
       const hit = roll(0.75 * trainingMult);
       if (hit) {
         selectedTarget.stunned = true;
-        addLog(`${CD.label} stuns ${selectedTarget.label} — it loses its next action!`, "log-crit");
+        selectedTarget.stunnedUntilRound = round + 1;
+        addLog(`${CD.label} locks down ${selectedTarget.label} — it cannot move or act until next round!`, "log-crit");
       } else {
         showMissFloat(tokenEls[selectedTarget.id]);
         addLog(`${CD.label}'s stun attempt fails — the Revenant surges forward.`, "log-miss");
@@ -1681,9 +1682,13 @@ function _navigateTo(url) {
     await delay(400);
     if (enemy.dead) return;
     if (enemy.stunned) {
+      if (round < (enemy.stunnedUntilRound || 0)) {
+        addLog(`${enemy.label} is held fast — cannot move or act!`, "log-miss");
+        return;
+      }
+      // Stun expired — clear and let it act
       enemy.stunned = false;
-      addLog(`${enemy.label} is stunned — misses its turn.`, "log-miss");
-      return;
+      enemy.stunnedUntilRound = undefined;
     }
     if (player.dead) return;
 
