@@ -138,7 +138,7 @@
 .battle-hud {
   position: fixed; bottom: 0; left: 0; right: 0;
   height: 190px;
-  background: linear-gradient(to top, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.45) 60%, transparent 100%);
+  background: linear-gradient(to top, rgba(0,0,0,0.38) 0%, rgba(0,0,0,0.12) 55%, transparent 100%);
   display: flex; align-items: flex-end;
   padding: 0 20px 14px;
   gap: 20px;
@@ -550,6 +550,81 @@
   40%       { filter: brightness(3.5) saturate(0) sepia(0.8); }
 }
 .token.bear-form .token-img { filter: brightness(1.75) grayscale(0.82); }
+
+/* ── ATTACK ALERT OVERLAY ── */
+.alert-overlay {
+  position: fixed; inset: 0; z-index: 195;
+  background: rgba(0,0,0,0.86);
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.6s ease;
+}
+.alert-overlay.visible { opacity: 1; pointer-events: auto; }
+.alert-card {
+  background: linear-gradient(155deg, oklch(0.13 0.045 18) 0%, oklch(0.09 0.03 15) 100%);
+  border: 1px solid color-mix(in oklch, var(--blood) 55%, transparent);
+  padding: 44px 52px;
+  max-width: 500px; width: 92%;
+  display: flex; flex-direction: column; align-items: center; gap: 14px;
+  text-align: center;
+}
+.alert-eyebrow {
+  font-family: "IM Fell English SC", serif;
+  font-size: 11px; letter-spacing: 0.26em;
+  color: var(--blood);
+}
+.alert-title {
+  font-family: "IM Fell English SC", serif;
+  font-size: 34px; letter-spacing: 0.1em; line-height: 1.1;
+  color: var(--paper);
+  text-shadow: 0 2px 18px rgba(180,40,40,0.65);
+}
+.alert-rule { width: 60px; height: 1px; background: var(--blood); }
+.alert-body {
+  font-family: "IM Fell English", serif;
+  font-style: italic;
+  font-size: 15px; line-height: 1.72;
+  color: var(--paper-dim);
+  max-width: 380px;
+}
+.alert-btn {
+  font-family: "IM Fell English SC", serif;
+  font-size: 12px; letter-spacing: 0.2em;
+  color: var(--paper);
+  background: transparent;
+  border: 1px solid var(--blood);
+  padding: 10px 26px;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+  margin-top: 6px;
+}
+.alert-btn:hover {
+  background: rgba(180,40,40,0.18);
+  border-color: color-mix(in oklch, var(--blood) 75%, var(--paper));
+}
+
+/* ── TUTORIAL ACTION PREVIEW ── */
+.tut-actions { display: flex; flex-direction: column; gap: 5px; margin: 10px 0 4px; }
+.tut-action-row {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 7px 12px;
+  background: rgba(0,0,0,0.35);
+  border: 1px solid color-mix(in oklch, var(--paper-deep) 30%, transparent);
+}
+.tut-action-row.glow-tutorial {
+  animation: tutorial-pulse 1.4s ease-in-out infinite;
+  border-color: var(--lamp);
+}
+.tut-action-name {
+  font-family: "IM Fell English", serif;
+  font-style: italic; font-size: 13px;
+  color: var(--paper);
+}
+.tut-action-tip {
+  font-family: "IM Fell English", serif;
+  font-style: italic; font-size: 11px;
+  color: var(--paper-deep);
+}
 </style>
 </head>
 <body>
@@ -581,11 +656,22 @@
   </div>
 </div>
 
+<!-- ATTACK ALERT -->
+<div id="alert-overlay" class="alert-overlay">
+  <div class="alert-card">
+    <div class="alert-eyebrow">— Day 6 · Open Sea —</div>
+    <div class="alert-title">You Are Under Attack!</div>
+    <div class="alert-rule"></div>
+    <p class="alert-body">You are under attack! During this combat, you will need to take actions to ensure your survival, and that of the crew. The Current Revenants will stop at nothing to drag you overboard.</p>
+    <button class="alert-btn" id="alert-next">Understood →</button>
+  </div>
+</div>
+
 <!-- TUTORIAL -->
 <div id="tutorial-overlay" class="tutorial-overlay">
   <div class="tutorial-card">
-    <div class="tutorial-title">Combat · First Turn</div>
-    <p class="tutorial-body" id="tutorial-text">Loading...</p>
+    <div class="tutorial-title">How to Fight</div>
+    <div class="tutorial-body" id="tutorial-text">Loading...</div>
     <button class="tutorial-close" id="tutorial-close">I'm Ready — Fight!</button>
   </div>
 </div>
@@ -1805,7 +1891,16 @@ function _navigateTo(url) {
 
   /* ── TUTORIAL ── */
   function showTutorial() {
-    document.getElementById("tutorial-text").innerHTML = CD.tutorialText;
+    const btns = CD.actions.map(a =>
+      `<div class="tut-action-row glow-tutorial">
+        <span class="tut-action-name">${a.label}</span>
+        <span class="tut-action-tip">${a.desc}</span>
+      </div>`
+    ).join("");
+    document.getElementById("tutorial-text").innerHTML =
+      `On your turn, <strong>drag your token</strong> to move across the deck — then choose <strong>one of these actions</strong>:
+      <div class="tut-actions">${btns}</div>
+      Click <em>End Turn →</em> when done. Your crew will act, then the Revenants.`;
     document.getElementById("tutorial-overlay").classList.add("visible");
   }
   document.getElementById("tutorial-close").addEventListener("click", () => {
@@ -1813,6 +1908,25 @@ function _navigateTo(url) {
     document.getElementById("tutorial-overlay").classList.remove("visible");
     startCombat();
   });
+
+  /* ── ATTACK ALERT ── */
+  function showAttackAlert() {
+    document.getElementById("alert-overlay").classList.add("visible");
+  }
+  document.getElementById("alert-next").addEventListener("click", () => {
+    const el = document.getElementById("alert-overlay");
+    el.style.transition = "opacity 0.5s ease";
+    el.style.opacity = "0";
+    setTimeout(() => {
+      el.classList.remove("visible");
+      el.style.cssText = "";
+      if (!tutorialShown) {
+        showTutorial();
+      } else {
+        startCombat();
+      }
+    }, 540);
+  }, { once: true });
 
   /* ── OPENING CINEMATICS ── */
   function startOpeningCinematic() {
@@ -1831,11 +1945,7 @@ function _navigateTo(url) {
           haldor.style.opacity = "0";
           setTimeout(() => {
             haldor.style.display = "none";
-            if (!tutorialShown) {
-              showTutorial();
-            } else {
-              startCombat();
-            }
+            showAttackAlert();
           }, 550);
         }, { once: true });
       }, 550);
