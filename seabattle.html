@@ -1334,7 +1334,7 @@ function _navigateTo(url) {
       const hit = roll(0.70 * trainingMult);
       if (!hit) maybeHaldorTaunt();
       if (hit) {
-        const dmg = randRange(20, 32);
+        const dmg = randRange(23, 37);
         const final = player.channelActive ? Math.round(dmg * 1.5) : dmg;
         selectedTarget.hp -= final;
         showSpellBlast(tokenEls[selectedTarget.id]);
@@ -1368,7 +1368,7 @@ function _navigateTo(url) {
       if (!selectedTarget || selectedTarget.dead) { addLog("Select an enemy to target first.", "log-miss"); return false; }
       const hit = roll(0.50 * trainingMult);
       if (hit) {
-        const dmg = randRange(16, 24);
+        const dmg = randRange(18, 28);
         selectedTarget.hp -= dmg;
         showSlashEffect(tokenEls[selectedTarget.id]);
         updateTokenHp(selectedTarget);
@@ -1404,7 +1404,7 @@ function _navigateTo(url) {
       if (!selectedTarget || selectedTarget.dead) { addLog("Select an enemy to target first.", "log-miss"); return false; }
       const hit = roll(0.50 * trainingMult);
       if (hit) {
-        let dmg = randRange(16, 24);
+        let dmg = randRange(18, 28);
         if (player.channelActive) { dmg = Math.round(dmg * 1.5); player.channelActive = false; }
         selectedTarget.hp -= dmg;
         showImpactEffect(tokenEls[selectedTarget.id]);
@@ -1592,7 +1592,7 @@ function _navigateTo(url) {
     await withMeleeMove(ursula, target, async () => {
       const hit = roll(0.70 + (ursula.hitBonus || 0));
       if (hit) {
-        let dmg = randRange(16, 26);
+        let dmg = randRange(18, 30);
         if (ursula.dmgBonus) dmg = Math.round(dmg * (1 + ursula.dmgBonus));
         target.hp -= dmg;
         showClawMarks(tokenEls[target.id]);
