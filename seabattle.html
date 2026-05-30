@@ -568,10 +568,15 @@
   100% { transform: scale(2.5);  opacity: 0;    }
 }
 @keyframes bear-flash {
-  0%, 100% { filter: brightness(1); }
-  40%       { filter: brightness(3.5) saturate(0) sepia(0.8); }
+  0%   { filter: brightness(1); }
+  30%  { filter: brightness(5) saturate(0); }
+  60%  { filter: brightness(3) saturate(0.2); }
+  100% { filter: brightness(1); }
 }
-.token.bear-form .token-img { filter: brightness(1.75) grayscale(0.82); }
+@keyframes bear-roar-ring {
+  0%   { transform: scale(0.5); opacity: 1; border-width: 4px; }
+  100% { transform: scale(2.8); opacity: 0; border-width: 1px; }
+}
 
 /* ── ATTACK ALERT OVERLAY ── */
 .alert-overlay {
@@ -1521,11 +1526,52 @@ function _navigateTo(url) {
     });
   }
 
-  function showBearTransformEffect(attackerEl) {
-    if (!attackerEl) return;
-    attackerEl.style.animation = "bear-flash 0.65s ease";
-    attackerEl.classList.add("bear-form");
-    setTimeout(() => { attackerEl.style.animation = ""; }, 700);
+  async function showBearTransformEffect(tokenEl) {
+    if (!tokenEl) return;
+    const img = tokenEl.querySelector(".token-img");
+
+    // Three staggered expanding rings
+    [0, 160, 320].forEach(ms => {
+      setTimeout(() => {
+        const ring = document.createElement("div");
+        ring.style.cssText = "position:absolute;inset:-14px;border-radius:50%;border:3px solid rgba(255,252,220,0.85);pointer-events:none;z-index:500;animation:bear-roar-ring 0.65s ease forwards;";
+        tokenEl.appendChild(ring);
+        setTimeout(() => ring.remove(), 700);
+      }, ms);
+    });
+
+    // Flash the token blazing white
+    tokenEl.style.animation = "bear-flash 0.55s ease";
+    await delay(260);
+
+    // Fade the human image out mid-flash
+    if (img) {
+      img.style.transition = "opacity 0.22s ease";
+      img.style.opacity = "0";
+    }
+    await delay(260);
+    tokenEl.style.animation = "";
+
+    // Swap to the polar bear token
+    if (img) img.src = "assets/token-ursula-bear.png";
+
+    // Fade the bear in with a brief bright bloom
+    if (img) {
+      img.style.filter = "brightness(3) saturate(0.3)";
+      img.style.transition = "opacity 0.35s ease, filter 0.5s ease";
+      img.style.opacity = "1";
+      await delay(80);
+      img.style.filter = "brightness(1)";
+      await delay(500);
+      img.style.transition = "";
+      img.style.filter = "";
+    }
+
+    // Final outward pulse
+    const pulse = document.createElement("div");
+    pulse.style.cssText = "position:absolute;inset:-18px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,210,0.35) 0%,transparent 65%);pointer-events:none;z-index:500;animation:water-ring 0.75s ease forwards;";
+    tokenEl.appendChild(pulse);
+    setTimeout(() => pulse.remove(), 800);
   }
 
   function showSpellBlast(targetEl) {
@@ -1586,9 +1632,8 @@ function _navigateTo(url) {
     const target = alive[Math.floor(Math.random() * alive.length)];
     if (ursula.ursulaState === "deck") {
       addLog("Ursula TRANSFORMS into a polar bear!", "log-crit");
-      if (el) showBearTransformEffect(el);
+      if (el) await showBearTransformEffect(el);
       ursula.ursulaState = "bear";
-      await delay(750);
     }
     await withMeleeMove(ursula, target, async () => {
       const hit = roll(0.70 + (ursula.hitBonus || 0));
