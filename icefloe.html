@@ -50,29 +50,29 @@
 .npc-role { font-family: "Caveat", cursive; font-size: 14px; color: var(--paper-deep); text-align: center; margin-top: -8px; }
 .sidebar-rule { width: 100%; height: 1px; flex-shrink: 0; background: linear-gradient(to right, transparent, var(--paper-deep), transparent); }
 .npc-dialogue { font-family: "IM Fell English", serif; font-style: italic; font-size: 15px; line-height: 1.6; color: var(--paper); flex: 1; min-height: 80px; transition: opacity 0.3s; }
-.phase-label { font-family: "IM Fell English SC", serif; font-size: 11px; letter-spacing: 0.2em; color: var(--blood); text-align: center; }
+.phase-label { font-family: "IM Fell English SC", serif; font-size: 12px; letter-spacing: 0.2em; color: var(--blood); text-align: center; }
 
 /* damage tracker */
 .damage-tracker { display: flex; flex-direction: column; gap: 6px; }
-.damage-row { display: flex; justify-content: space-between; align-items: center; font-family: "IM Fell English SC", serif; font-size: 11px; letter-spacing: 0.1em; color: var(--paper-deep); }
+.damage-row { display: flex; justify-content: space-between; align-items: center; font-family: "IM Fell English SC", serif; font-size: 12px; letter-spacing: 0.1em; color: var(--paper-deep); }
 .damage-pips { display: flex; gap: 6px; }
 .pip { width: 12px; height: 12px; border-radius: 50%; border: 1px solid var(--paper-deep); background: transparent; transition: background 0.3s; }
 .pip.hit { background: var(--blood); border-color: var(--blood); }
 
 /* check tally */
 .check-tally { display: flex; flex-direction: column; gap: 5px; }
-.check-row { display: flex; justify-content: space-between; border-bottom: 1px dotted color-mix(in oklch, var(--paper-deep) 35%, transparent); padding-bottom: 4px; font-family: "IM Fell English SC", serif; font-size: 11px; letter-spacing: 0.1em; color: var(--paper-deep); }
+.check-row { display: flex; justify-content: space-between; border-bottom: 1px dotted color-mix(in oklch, var(--paper-deep) 35%, transparent); padding-bottom: 4px; font-family: "IM Fell English SC", serif; font-size: 12px; letter-spacing: 0.1em; color: var(--paper-deep); }
 .check-row span:last-child { font-family: "IM Fell English", serif; font-style: italic; color: var(--paper); }
 
 /* ── INTRO ── */
 .intro-icon { font-size: 52px; margin-bottom: -4px; }
 .intro-title { font-family: "IM Fell English SC", serif; font-size: 22px; letter-spacing: 0.1em; color: var(--lamp); }
 .intro-body { font-family: "IM Fell English", serif; font-style: italic; font-size: 15.5px; line-height: 1.65; color: var(--paper-dim); text-align: center; max-width: 480px; }
-.mood-tag { font-family: "IM Fell English SC", serif; font-size: 10px; letter-spacing: 0.26em; color: var(--blood); }
+.mood-tag { font-family: "IM Fell English SC", serif; font-size: 11px; letter-spacing: 0.26em; color: var(--blood); }
 
 /* ── HAZARD SCREEN ── */
 .hazard-header { display: flex; flex-direction: column; align-items: center; gap: 6px; }
-.hazard-num { font-family: "IM Fell English SC", serif; font-size: 10px; letter-spacing: 0.28em; color: var(--paper-deep); }
+.hazard-num { font-family: "IM Fell English SC", serif; font-size: 11px; letter-spacing: 0.28em; color: var(--paper-deep); }
 .hazard-type { font-family: "IM Fell English SC", serif; font-size: 20px; letter-spacing: 0.14em; color: var(--lamp); }
 .hazard-glyph { font-size: 46px; filter: drop-shadow(0 0 16px rgba(160,230,255,0.5)); }
 .hazard-desc { font-family: "IM Fell English", serif; font-style: italic; font-size: 15.5px; line-height: 1.65; color: var(--paper-dim); text-align: center; max-width: 480px; }
@@ -84,14 +84,14 @@
   background: rgba(0,0,0,0.35); border: 1px solid color-mix(in oklch, var(--paper-deep) 30%, transparent);
   padding: 10px 20px; min-width: 80px;
 }
-.roll-stat-name { font-family:"IM Fell English SC",serif; font-size: 10px; letter-spacing:0.22em; color:var(--blood); }
+.roll-stat-name { font-family:"IM Fell English SC",serif; font-size: 11px; letter-spacing:0.22em; color:var(--blood); }
 .roll-stat-mod  { font-family:"IM Fell English SC",serif; font-size: 24px; color:var(--lamp); }
 .roll-dc-box {
   display: flex; flex-direction: column; align-items: center;
   background: rgba(0,0,0,0.25); border: 1px solid color-mix(in oklch, var(--paper-deep) 18%, transparent);
   padding: 10px 20px; min-width: 80px;
 }
-.roll-dc-label { font-family:"IM Fell English SC",serif; font-size: 10px; letter-spacing:0.22em; color:var(--paper-deep); }
+.roll-dc-label { font-family:"IM Fell English SC",serif; font-size: 11px; letter-spacing:0.22em; color:var(--paper-deep); }
 .roll-dc-val   { font-family:"IM Fell English SC",serif; font-size: 24px; color:var(--paper); }
 
 /* die */
@@ -122,7 +122,7 @@
 }
 .outcome-text.visible { opacity: 1; }
 .outcome-banner {
-  font-family: "IM Fell English SC", serif; font-size: 11px; letter-spacing: 0.28em;
+  font-family: "IM Fell English SC", serif; font-size: 12px; letter-spacing: 0.28em;
   min-height: 18px; text-align: center;
 }
 .outcome-banner.pass { color: var(--lamp); }
@@ -138,7 +138,7 @@
 .roll-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
 .next-btn {
-  font-family: "IM Fell English SC", serif; letter-spacing: 0.18em; font-size: 13px;
+  font-family: "IM Fell English SC", serif; letter-spacing: 0.18em; font-size: 14px;
   padding: 11px 28px; background: transparent;
   border: 1px solid color-mix(in oklch, var(--paper-deep) 55%, transparent); color: var(--paper-dim);
   cursor: pointer; opacity: 0; pointer-events: none; transition: opacity 0.4s, background 0.2s;
