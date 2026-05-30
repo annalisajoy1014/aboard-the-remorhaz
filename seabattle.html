@@ -114,8 +114,8 @@
   display: block;
 }
 .token-hp-bar {
-  width: 100%; height: 5px;
-  background: rgba(0,0,0,0.55);
+  width: 100%; height: 7px;
+  background: rgba(0,0,0,0.88);
   border-radius: 3px; overflow: hidden;
   margin-bottom: 2px;
   flex-shrink: 0;
@@ -127,7 +127,7 @@
 }
 .token-label {
   font-family: "IM Fell English SC", serif;
-  font-size: 10px; letter-spacing: 0.1em;
+  font-size: 11px; letter-spacing: 0.1em;
   color: var(--paper);
   text-shadow: 0 0 4px #000, 0 0 8px #000, 1px 1px 3px #000;
   margin-top: 2px;
@@ -170,8 +170,9 @@
 }
 .hud-hp-track {
   flex: 1; height: 11px;
-  background: rgba(255,255,255,0.2);
+  background: rgba(0,0,0,0.65);
   border-radius: 5px; overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.08);
 }
 .hud-hp-fill {
   height: 100%;
@@ -189,7 +190,7 @@
 }
 .hud-phase-label {
   font-family: "IM Fell English SC", serif;
-  font-size: 13px; letter-spacing: 0.26em;
+  font-size: 14px; letter-spacing: 0.26em;
   color: var(--blood);
   margin-bottom: 2px;
   text-shadow: 0 1px 5px #000;
@@ -224,7 +225,7 @@
 }
 .end-turn-btn {
   font-family: "IM Fell English SC", serif;
-  font-size: 13px; letter-spacing: 0.18em;
+  font-size: 14px; letter-spacing: 0.18em;
   color: var(--paper);
   background: rgba(0,0,0,0.72);
   border: 1px solid color-mix(in oklch, var(--paper-deep) 55%, transparent);
@@ -260,7 +261,7 @@
 }
 .hud-log-title {
   font-family: "IM Fell English SC", serif;
-  font-size: 12px; letter-spacing: 0.22em;
+  font-size: 13px; letter-spacing: 0.22em;
   color: var(--blood);
   margin-bottom: 4px;
   text-shadow: 0 1px 4px #000;
@@ -303,7 +304,7 @@
 }
 .init-title {
   font-family: "IM Fell English SC", serif;
-  font-size: 12px; letter-spacing: 0.22em;
+  font-size: 13px; letter-spacing: 0.22em;
   color: var(--blood);
   margin-bottom: 4px;
   text-align: center;
@@ -342,7 +343,7 @@
   color: var(--paper-dim);
   font-family: "IM Fell English", serif;
   font-style: italic;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.5;
   padding: 7px 12px;
   white-space: nowrap;
@@ -388,7 +389,7 @@
 }
 .cin-battle-eyebrow {
   font-family: "IM Fell English SC", serif;
-  font-size: 11px; letter-spacing: 0.26em;
+  font-size: 12px; letter-spacing: 0.26em;
   color: var(--blood);
 }
 .cin-battle-name {
@@ -412,7 +413,7 @@
 .cin-battle-btn {
   align-self: flex-start;
   font-family: "IM Fell English SC", serif;
-  font-size: 12px; letter-spacing: 0.2em;
+  font-size: 13px; letter-spacing: 0.2em;
   color: var(--paper);
   background: transparent;
   border: 1px solid var(--paper-deep);
@@ -462,7 +463,7 @@
 .tutorial-close {
   align-self: center;
   font-family: "IM Fell English SC", serif;
-  font-size: 11px; letter-spacing: 0.22em;
+  font-size: 12px; letter-spacing: 0.22em;
   color: var(--paper);
   background: transparent;
   border: 1px solid var(--paper-deep);
@@ -503,7 +504,7 @@
 }
 .end-tag {
   font-family: "IM Fell English SC", serif;
-  font-size: 10px; letter-spacing: 0.3em;
+  font-size: 11px; letter-spacing: 0.3em;
   color: var(--blood);
   margin-bottom: 8px;
 }
@@ -534,7 +535,7 @@
 }
 .end-btn {
   font-family: "IM Fell English SC", serif;
-  font-size: 12px; letter-spacing: 0.22em;
+  font-size: 13px; letter-spacing: 0.22em;
   color: var(--paper);
   background: var(--ink);
   border: none; padding: 14px 36px;
@@ -597,7 +598,7 @@
 }
 .alert-eyebrow {
   font-family: "IM Fell English SC", serif;
-  font-size: 11px; letter-spacing: 0.26em;
+  font-size: 12px; letter-spacing: 0.26em;
   color: var(--blood);
 }
 .alert-title {
@@ -616,7 +617,7 @@
 }
 .alert-btn {
   font-family: "IM Fell English SC", serif;
-  font-size: 12px; letter-spacing: 0.2em;
+  font-size: 13px; letter-spacing: 0.2em;
   color: var(--paper);
   background: transparent;
   border: 1px solid var(--blood);
@@ -644,12 +645,12 @@
 }
 .tut-action-name {
   font-family: "IM Fell English", serif;
-  font-style: italic; font-size: 13px;
+  font-style: italic; font-size: 14px;
   color: var(--paper);
 }
 .tut-action-tip {
   font-family: "IM Fell English", serif;
-  font-style: italic; font-size: 11px;
+  font-style: italic; font-size: 12px;
   color: var(--paper-deep);
 }
 </style>
@@ -885,10 +886,10 @@ function _navigateTo(url) {
   }
   const crew = [
     makeCrew("ingrid",   "Ingrid",  30,  5,  7, "assets/token-ingrid.png",   true,  null),
-    makeCrew("ursula",   "Ursula",  28,  5,  2, "assets/token-ursula.jpg",   false, null),
+    makeCrew("ursula",   "Ursula",  28,  5,  4, "assets/token-ursula.jpg",   false, "8%"),
     makeCrew("haldor",   "Haldor",  32,  5, 14, "assets/token-haldor.jpg",   false, null),
     makeCrew("kalt",     "Kalt",    34,  3, 14, "assets/token-kalt.jpg",     false, null),
-    makeCrew("thorgrim", "Captain", 40,  5, 20, "assets/token-thorgrim.png", false, null),
+    makeCrew("thorgrim", "Captain", 40,  5, 20, "assets/token-thorgrim.png", false, "10%"),
   ];
   crew.find(c => c.id === "ursula").ursulaState = "crow_nest";
 
@@ -1444,7 +1445,7 @@ function _navigateTo(url) {
     const el = tokenEls[entity.id];
     if (!el) return;
     const d = document.createElement("div");
-    d.style.cssText = "position:absolute;left:50%;top:-2px;font-family:'IM Fell English SC',serif;font-size:13px;font-weight:bold;color:#e07a28;text-shadow:0 1px 4px #000,0 0 8px rgba(220,100,20,0.65);pointer-events:none;z-index:400;white-space:nowrap;animation:float-dmg 1.3s ease forwards;";
+    d.style.cssText = "position:absolute;left:50%;top:-2px;font-family:'IM Fell English SC',serif;font-size:15px;font-weight:bold;color:#e07a28;text-shadow:0 1px 4px #000,0 0 8px rgba(220,100,20,0.65);pointer-events:none;z-index:400;white-space:nowrap;animation:float-dmg 1.3s ease forwards;";
     d.textContent = "−" + amount;
     el.appendChild(d);
     setTimeout(() => d.remove(), 1400);
@@ -1613,7 +1614,7 @@ function _navigateTo(url) {
   function showMissFloat(el) {
     if (!el) return;
     const d = document.createElement("div");
-    d.style.cssText = "position:absolute;left:50%;top:-2px;font-family:'IM Fell English SC',serif;font-size:14px;font-style:italic;color:#ccc;text-shadow:0 1px 5px #000,0 0 10px rgba(0,0,0,0.8);pointer-events:none;z-index:400;white-space:nowrap;animation:float-dmg 1.1s ease forwards;";
+    d.style.cssText = "position:absolute;left:50%;top:-2px;font-family:'IM Fell English SC',serif;font-size:15px;font-style:italic;color:#ccc;text-shadow:0 1px 5px #000,0 0 10px rgba(0,0,0,0.8);pointer-events:none;z-index:400;white-space:nowrap;animation:float-dmg 1.1s ease forwards;";
     d.textContent = "Miss!";
     el.appendChild(d);
     setTimeout(() => d.remove(), 1200);
