@@ -689,7 +689,7 @@ function _navigateTo(url) {
   const NUM_ENEMIES = 4 + Math.floor(Math.random() * 3); // 4-6
 
   /* Combat entities */
-  const _pc = cellCenter(6, 8);
+  const _pc = cellCenter(5, 10);
   const player = {
     id: "player", label: CD.label,
     hp: CD.hp, maxHp: CD.hp,
@@ -699,30 +699,38 @@ function _navigateTo(url) {
     channelActive: false, battleCryUsed: false
   };
 
-  function makeCrew(id, label, hp, col, row, token, isIngrid) {
+  function makeCrew(id, label, hp, col, row, token, isIngrid, tokenSize) {
     const pos = cellCenter(col, row);
     return { id, label, hp, maxHp:hp, x:pos.x, y:pos.y,
              dead:false, revived:false, stunned:false, hitBonus:0, dmgBonus:0,
-             token, isIngrid: !!isIngrid };
+             token, isIngrid: !!isIngrid, tokenSize: tokenSize || null };
   }
   const crew = [
-    makeCrew("ingrid",   "Ingrid",  30,  2,  9, "assets/token-ingrid.png",   true),
-    makeCrew("ursula",   "Ursula",  28,  5, 12, "assets/token-ursula.jpg",   false),
-    makeCrew("haldor",   "Haldor",  32,  7, 14, "assets/token-haldor.jpg",   false),
-    makeCrew("kalt",     "Kalt",    34,  2, 14, "assets/token-kalt.jpg",     false),
-    makeCrew("thorgrim", "Captain", 40,  5, 17, "assets/token-thorgrim.png", false),
+    makeCrew("ingrid",   "Ingrid",  30,  5,  7, "assets/token-ingrid.png",   true,  null),
+    makeCrew("ursula",   "Ursula",  28,  5,  2, "assets/token-ursula.jpg",   false, "7.5%"),
+    makeCrew("haldor",   "Haldor",  32,  5, 14, "assets/token-haldor.jpg",   false, null),
+    makeCrew("kalt",     "Kalt",    34,  3, 14, "assets/token-kalt.jpg",     false, null),
+    makeCrew("thorgrim", "Captain", 40,  5, 20, "assets/token-thorgrim.png", false, "12%"),
   ];
 
   const enemies = [];
   const _ep = [
-    cellCenter(4,  4),   // bow
-    cellCenter(0, 10),   // far-left water
-    cellCenter(1, 13),   // left water lower
-    cellCenter(10, 10),  // far-right water
-    cellCenter(9, 13),   // right water lower
-    cellCenter(5,  2),   // upper center bow
+    cellCenter(0,  8),   // far-left water, forward
+    cellCenter(0, 11),   // far-left water, mid
+    cellCenter(0, 15),   // far-left water, aft
+    cellCenter(10,  8),  // far-right water, forward
+    cellCenter(10, 11),  // far-right water, mid
+    cellCenter(10, 15),  // far-right water, aft
   ];
   const enemyStartPositions = _ep.map(p => [p.x, p.y]);
+  const boardingPositions = [
+    cellCenter(3,  8),
+    cellCenter(3, 11),
+    cellCenter(3, 15),
+    cellCenter(7,  8),
+    cellCenter(7, 11),
+    cellCenter(7, 15),
+  ];
   const countWords = ["four","five","six"];
   document.getElementById("enemy-count-text").textContent = countWords[NUM_ENEMIES - 4] || NUM_ENEMIES;
 
@@ -768,9 +776,15 @@ function _navigateTo(url) {
     div.style.left = entity.x + "%";
     div.style.top  = entity.y + "%";
 
-    // HP bar above the image
+    const sz = entity.tokenSize;
+    if (sz) {
+      div.style.width = sz;
+      div.style.height = "auto";
+    }
+
     const hpBar = document.createElement("div");
     hpBar.className = "token-hp-bar";
+    if (sz) hpBar.style.width = "100%";
     const hpFill = document.createElement("div");
     hpFill.className = "token-hp-fill";
     hpFill.style.width = "100%";
@@ -779,6 +793,11 @@ function _navigateTo(url) {
 
     const img = document.createElement("img");
     img.className = "token-img";
+    if (sz) {
+      img.style.width = "100%";
+      img.style.height = "auto";
+      img.style.aspectRatio = "1";
+    }
     img.src = isEnemy ? "assets/token-revenant.png"
               : isPlayer ? CD.token
               : (entity.token || "assets/token-ursula.jpg");
@@ -802,16 +821,89 @@ function _navigateTo(url) {
   /* Build all tokens */
   makeToken(player, true, false);
   crew.forEach(c => makeToken(c, false, false));
-  enemies.forEach(e => makeToken(e, false, true));
+  enemies.forEach(e => {
+    const el = makeToken(e, false, true);
+    el.style.opacity = "0";
+    el.style.pointerEvents = "none";
+  });
+
+  /* ── SHIP BOUNDARY ── */
+  const _shipZones = [
+    { y: 3,  xMin: 45, xMax: 55 },
+    { y: 8,  xMin: 38, xMax: 62 },
+    { y: 15, xMin: 28, xMax: 72 },
+    { y: 25, xMin: 21, xMax: 79 },
+    { y: 50, xMin: 18, xMax: 82 },
+    { y: 75, xMin: 19, xMax: 81 },
+    { y: 85, xMin: 23, xMax: 77 },
+    { y: 92, xMin: 33, xMax: 67 },
+    { y: 97, xMin: 43, xMax: 57 },
+  ];
+  function isOnShip(x, y) {
+    if (y < 3 || y > 97) return false;
+    let lower = _shipZones[0], upper = _shipZones[_shipZones.length - 1];
+    for (let i = 0; i < _shipZones.length - 1; i++) {
+      if (y >= _shipZones[i].y && y <= _shipZones[i + 1].y) {
+        lower = _shipZones[i]; upper = _shipZones[i + 1]; break;
+      }
+    }
+    const t = upper.y === lower.y ? 0 : (y - lower.y) / (upper.y - lower.y);
+    const xMin = lower.xMin + t * (upper.xMin - lower.xMin);
+    const xMax = lower.xMax + t * (upper.xMax - lower.xMax);
+    return x >= xMin && x <= xMax;
+  }
+
+  const OVERBOARD_QUIPS = {
+    thorgrim: [
+      "Get back on deck, NOW! We need ye alive, not feedin' the sea!",
+      "Captain's orders: STAY ON THIS SHIP!",
+    ],
+    ursula: [
+      "OI! FROM THE CROW'S NEST — GET BACK ON DECK THIS INSTANT!",
+      "If you go overboard I am NOT diving in after you!",
+    ],
+    haldor: [
+      "Ye'll drown and I'll have wasted a perfectly good training session on ye!",
+      "Back on the boards, ye daft land-leg! The sea isn't your friend right now!",
+    ],
+    kalt: [
+      "No, no, NO — get back! Are ye out of yer mind?!",
+      "The water is COLD and FULL OF MONSTERS. Back. On. The. Ship.",
+    ],
+    ingrid: [
+      "By the Allfather, I just healed ye — don't make me do it again five seconds later!",
+      "Get back on this ship RIGHT NOW or I'll let the Revenants have you!",
+    ],
+  };
+  function findNearestCrew(x, y) {
+    let nearest = null, minDist = Infinity;
+    crew.forEach(c => {
+      if (c.dead) return;
+      const dx = c.x - x, dy = c.y - y;
+      const d = dx * dx + dy * dy;
+      if (d < minDist) { minDist = d; nearest = c; }
+    });
+    return nearest;
+  }
+  function overboardYell(x, y) {
+    const c = findNearestCrew(x, y);
+    if (!c) return;
+    const quips = OVERBOARD_QUIPS[c.id] || OVERBOARD_QUIPS.haldor;
+    const quip = quips[Math.floor(Math.random() * quips.length)];
+    addLog(`${c.label}: "${quip}"`, "log-crit");
+  }
 
   /* ── PLAYER TOKEN DRAG ── */
   let dragging = false;
   let dragOffX = 0, dragOffY = 0;
+  let lastValidX = player.x, lastValidY = player.y;
   const playerTok = tokenEls.player;
 
   playerTok.addEventListener("mousedown", e => {
     if (!combatStarted) return;
     dragging = true;
+    lastValidX = player.x;
+    lastValidY = player.y;
     const rect = tokenLayer.getBoundingClientRect();
     dragOffX = (e.clientX - rect.left) / rect.width * 100 - player.x;
     dragOffY = (e.clientY - rect.top)  / rect.height * 100 - player.y;
@@ -829,8 +921,17 @@ function _navigateTo(url) {
     if (dragging) {
       dragging = false;
       const snapped = snapToGrid(player.x, player.y);
-      player.x = snapped.x;
-      player.y = snapped.y;
+      const snapX = snapped.x, snapY = snapped.y;
+      if (!isOnShip(snapX, snapY)) {
+        overboardYell(player.x, player.y);
+        player.x = lastValidX;
+        player.y = lastValidY;
+      } else {
+        player.x = snapX;
+        player.y = snapY;
+        lastValidX = player.x;
+        lastValidY = player.y;
+      }
       playerTok.style.left = player.x + "%";
       playerTok.style.top  = player.y + "%";
     }
@@ -881,10 +982,16 @@ function _navigateTo(url) {
     if (e.key === "ArrowUp")    row = Math.max(0, row - 1);
     if (e.key === "ArrowDown")  row = Math.min(GRID_ROWS - 1, row + 1);
     const snapped = cellCenter(col, row);
-    player.x = snapped.x;
-    player.y = snapped.y;
-    playerTok.style.left = player.x + "%";
-    playerTok.style.top  = player.y + "%";
+    if (isOnShip(snapped.x, snapped.y)) {
+      player.x = snapped.x;
+      player.y = snapped.y;
+      lastValidX = player.x;
+      lastValidY = player.y;
+      playerTok.style.left = player.x + "%";
+      playerTok.style.top  = player.y + "%";
+    } else {
+      overboardYell(snapped.x, snapped.y);
+    }
   });
 
   /* ── TARGET SELECTION ── */
@@ -1352,21 +1459,48 @@ function _navigateTo(url) {
   }
 
   function startCombat() {
-    combatStarted = true;
-    initOrder = buildInitOrder();
-    initIndex = -1;
-    renderInitiative();
     refreshHud();
-    addLog("The Current Revenants surge toward the ship!", "log-enemy");
+    // Scroll viewport to show mid-ship where enemies board
+    requestAnimationFrame(() => {
+      const wH = mapWorld.offsetHeight;
+      const vH = mapViewport.offsetHeight;
+      if (wH && vH) mapViewport.scrollTop = Math.max(0, wH * 0.42 - vH * 0.5);
+    });
+    addLog("Shapes rise from the deep — the Revenants are boarding!", "log-enemy");
 
-    // First turn is player
-    initIndex = 0; // player is index 0
-    setPhaseLabel("YOUR TURN");
-    playerTok.classList.add("active-turn");
-    actionUsed = false;
-    document.getElementById("end-turn-btn").disabled = true;
-    refreshActionBtns();
-    renderInitiative();
+    enemies.forEach((e, i) => {
+      const el = tokenEls[e.id];
+      if (!el) return;
+      setTimeout(() => {
+        el.style.transition = "opacity 0.8s ease";
+        el.style.opacity = "1";
+        setTimeout(() => {
+          const bp = boardingPositions[Math.min(i, boardingPositions.length - 1)];
+          e.x = bp.x; e.y = bp.y;
+          el.style.transition = "left 1.4s ease, top 1.4s ease";
+          el.style.left = e.x + "%";
+          el.style.top  = e.y + "%";
+        }, 900);
+      }, i * 350);
+    });
+
+    const animDuration = enemies.length * 350 + 2400;
+    setTimeout(() => {
+      enemies.forEach(e => {
+        const el = tokenEls[e.id];
+        if (el) el.style.pointerEvents = "";
+      });
+      combatStarted = true;
+      initOrder = buildInitOrder();
+      initIndex = 0;
+      renderInitiative();
+      setPhaseLabel("YOUR TURN");
+      playerTok.classList.add("active-turn");
+      actionUsed = false;
+      document.getElementById("end-turn-btn").disabled = true;
+      refreshActionBtns();
+      addLog("Battle begins — defend the Remorhaz!", "log-enemy");
+    }, animDuration);
   }
 
   /* Boot */
