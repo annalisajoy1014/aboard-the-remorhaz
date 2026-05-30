@@ -519,6 +519,36 @@
   transition: background 0.2s;
 }
 .end-btn:hover { background: oklch(0.22 0.04 45); }
+
+/* ── COMBAT VISUAL EFFECTS ── */
+@keyframes float-dmg {
+  0%   { opacity: 1; transform: translate(-50%, 0); }
+  100% { opacity: 0; transform: translate(-50%, -140%); }
+}
+@keyframes tok-flash {
+  0%, 100% { filter: brightness(1); }
+  35%       { filter: brightness(3) saturate(0.15); }
+}
+@keyframes axe-swing {
+  0%   { opacity: 0; transform: translate(-50%,-50%) rotate(-70deg) scale(0.5); }
+  25%  { opacity: 1; transform: translate(-50%,-50%) rotate(10deg)  scale(1.3); }
+  100% { opacity: 0; transform: translate(-50%,-50%) rotate(58deg)  scale(0.9); }
+}
+@keyframes claw-strike {
+  0%   { opacity: 0; transform: scale(0.75); }
+  15%  { opacity: 1; transform: scale(1.08); }
+  70%  { opacity: 1; transform: scale(1);    }
+  100% { opacity: 0; transform: scale(0.95); }
+}
+@keyframes water-ring {
+  0%   { transform: scale(0.35); opacity: 0.95; }
+  100% { transform: scale(2.5);  opacity: 0;    }
+}
+@keyframes bear-flash {
+  0%, 100% { filter: brightness(1); }
+  40%       { filter: brightness(3.5) saturate(0) sepia(0.8); }
+}
+.token.bear-form .token-img { filter: brightness(1.75) grayscale(0.82); }
 </style>
 </head>
 <body>
@@ -746,6 +776,7 @@ function _navigateTo(url) {
     makeCrew("kalt",     "Kalt",    34,  3, 14, "assets/token-kalt.jpg",     false, null),
     makeCrew("thorgrim", "Captain", 40,  5, 20, "assets/token-thorgrim.png", false, "12%"),
   ];
+  crew.find(c => c.id === "ursula").ursulaState = "crow_nest";
 
   const enemies = [];
   const _ep = [
@@ -1091,7 +1122,14 @@ function _navigateTo(url) {
     const el = tokenEls[entity.id];
     if (!el) return;
     const fill = el.querySelector(".token-hp-fill");
+    const prev = entity._prevHp !== undefined ? entity._prevHp : entity.maxHp;
+    const delta = prev - entity.hp;
+    entity._prevHp = entity.hp;
     if (fill) fill.style.width = Math.max(0, entity.hp / entity.maxHp * 100) + "%";
+    if (delta > 0) {
+      showDamageFloat(entity, delta);
+      flashToken(entity);
+    }
     if (entity.hp <= 0 && !entity.dead) {
       entity.dead = true;
       el.classList.add("dead");
@@ -1187,6 +1225,7 @@ function _navigateTo(url) {
         const dmg = randRange(20, 32);
         const final = player.channelActive ? Math.round(dmg * 1.5) : dmg;
         selectedTarget.hp -= final;
+        showSpellBlast(tokenEls[selectedTarget.id]);
         updateTokenHp(selectedTarget);
         addLog(`${CD.label} blasts ${selectedTarget.label} — ${final} dmg!`, "log-hit");
         player.channelActive = false;
@@ -1214,6 +1253,7 @@ function _navigateTo(url) {
       if (hit) {
         const dmg = randRange(16, 24);
         selectedTarget.hp -= dmg;
+        showSlashEffect(tokenEls[selectedTarget.id]);
         updateTokenHp(selectedTarget);
         addLog(`${CD.label} strikes ${selectedTarget.label} — ${dmg} dmg!`, "log-hit");
       } else {
@@ -1244,6 +1284,7 @@ function _navigateTo(url) {
         let dmg = randRange(16, 24);
         if (player.channelActive) { dmg = Math.round(dmg * 1.5); player.channelActive = false; }
         selectedTarget.hp -= dmg;
+        showImpactEffect(tokenEls[selectedTarget.id]);
         updateTokenHp(selectedTarget);
         addLog(`${CD.label} hammers ${selectedTarget.label} — ${dmg} dmg!`, "log-hit");
       } else {
@@ -1259,96 +1300,288 @@ function _navigateTo(url) {
     }
   }
 
-  /* ── CREW AUTO-ATTACK ── */
-  function doCrewTurn(crewMember) {
-    return new Promise(resolve => {
+  /* ── COMBAT VISUAL HELPERS ── */
+  function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+  function showDamageFloat(entity, amount) {
+    const el = tokenEls[entity.id];
+    if (!el) return;
+    const d = document.createElement("div");
+    d.style.cssText = "position:absolute;left:50%;top:-2px;font-family:'IM Fell English SC',serif;font-size:13px;font-weight:bold;color:#e07a28;text-shadow:0 1px 4px #000,0 0 8px rgba(220,100,20,0.65);pointer-events:none;z-index:400;white-space:nowrap;animation:float-dmg 1.3s ease forwards;";
+    d.textContent = "−" + amount;
+    el.appendChild(d);
+    setTimeout(() => d.remove(), 1400);
+  }
+
+  function flashToken(entity) {
+    const el = tokenEls[entity.id];
+    if (!el) return;
+    el.style.animation = "tok-flash 0.42s ease";
+    setTimeout(() => { el.style.animation = ""; }, 460);
+  }
+
+  async function withMeleeMove(mover, target, attackFn) {
+    const el = tokenEls[mover.id];
+    const origX = mover.x, origY = mover.y;
+    if (el) {
+      const dx = target.x - origX, dy = target.y - origY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist > 6) {
+        const nx = target.x - (dx / dist) * 5.5;
+        const ny = target.y - (dy / dist) * 5.5;
+        el.style.transition = "left 0.42s ease, top 0.42s ease";
+        el.style.left = nx + "%"; el.style.top = ny + "%";
+        await delay(460);
+      }
+    }
+    await attackFn();
+    if (el) {
+      el.style.transition = "left 0.38s ease, top 0.38s ease";
+      el.style.left = origX + "%"; el.style.top = origY + "%";
+      mover.x = origX; mover.y = origY;
+      await delay(420);
+    }
+  }
+
+  function showAxeEffect(targetEl) {
+    if (!targetEl) return;
+    const d = document.createElement("div");
+    d.style.cssText = "position:absolute;left:50%;top:50%;font-size:20px;line-height:1;pointer-events:none;z-index:400;animation:axe-swing 0.55s ease forwards;";
+    d.textContent = "⚔";
+    targetEl.appendChild(d);
+    setTimeout(() => d.remove(), 600);
+  }
+
+  async function showArrowFly(fromEl, toEl) {
+    if (!fromEl || !toEl) { await delay(240); return; }
+    const aR = fromEl.getBoundingClientRect();
+    const tR = toEl.getBoundingClientRect();
+    const x1 = aR.left + aR.width / 2,  y1 = aR.top  + aR.height / 2;
+    const x2 = tR.left + tR.width / 2,  y2 = tR.top  + tR.height / 2;
+    const angle = Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI;
+    const len   = Math.hypot(x2 - x1, y2 - y1);
+    const arrow = document.createElement("div");
+    arrow.style.cssText = `position:fixed;left:${x1}px;top:${y1}px;height:2px;width:2px;background:#c8a06a;transform-origin:0 50%;transform:rotate(${angle}deg);pointer-events:none;z-index:9999;border-radius:1px;`;
+    document.body.appendChild(arrow);
+    arrow.animate(
+      [{ width:"3px", opacity:1 }, { width:`${len * 0.82}px`, opacity:1 }, { width:`${len}px`, opacity:0 }],
+      { duration: 300, easing: "ease-in", fill: "forwards" }
+    );
+    await delay(340);
+    arrow.remove();
+  }
+
+  function showClawMarks(targetEl) {
+    if (!targetEl) return;
+    const d = document.createElement("div");
+    d.style.cssText = "position:absolute;inset:0;pointer-events:none;z-index:400;animation:claw-strike 1.05s ease forwards;";
+    d.innerHTML = `<svg width="100%" height="100%" viewBox="0 0 52 52" style="overflow:visible;"><line x1="13" y1="5" x2="21" y2="47" stroke="#cc1818" stroke-width="2.8" stroke-linecap="round"/><line x1="26" y1="3" x2="26" y2="49" stroke="#cc1818" stroke-width="2.8" stroke-linecap="round"/><line x1="39" y1="5" x2="31" y2="47" stroke="#cc1818" stroke-width="2.8" stroke-linecap="round"/></svg>`;
+    targetEl.appendChild(d);
+    setTimeout(() => d.remove(), 1100);
+  }
+
+  function showWaterEffect(targetEl) {
+    if (!targetEl) return;
+    [0, 210].forEach(ms => {
       setTimeout(() => {
-        if (crewMember.dead) { resolve(); return; }
-        if (crewMember.stunned) {
-          crewMember.stunned = false;
-          addLog(`${crewMember.label} is stunned — skips turn.`, "log-miss");
-          resolve(); return;
-        }
+        const r = document.createElement("div");
+        r.style.cssText = "position:absolute;inset:-8px;border-radius:50%;border:2.5px solid #5bbfdf;pointer-events:none;z-index:400;animation:water-ring 0.72s ease forwards;";
+        targetEl.appendChild(r);
+        setTimeout(() => r.remove(), 780);
+      }, ms);
+    });
+  }
 
-        // Ingrid: revive a fallen ally before attacking
-        if (crewMember.isIngrid) {
-          const fallen = [player, ...crew].find(e => e.dead && !e.revived);
-          if (fallen) {
-            fallen.dead = false;
-            fallen.revived = true;
-            fallen.hp = Math.ceil(fallen.maxHp * 0.10);
-            const el = tokenEls[fallen.id];
-            if (el) { el.classList.remove("dead"); }
-            updateTokenHp(fallen);
-            if (fallen === player) refreshHud();
-            addLog(`Ingrid channels healing — ${fallen.label} revived to ${fallen.hp} HP!`, "log-crit");
-            resolve(); return;
-          }
-        }
+  function showBearTransformEffect(attackerEl) {
+    if (!attackerEl) return;
+    attackerEl.style.animation = "bear-flash 0.65s ease";
+    attackerEl.classList.add("bear-form");
+    setTimeout(() => { attackerEl.style.animation = ""; }, 700);
+  }
 
-        const alive = enemies.filter(e => !e.dead);
-        if (alive.length === 0) { resolve(); return; }
-        const target = alive[Math.floor(Math.random() * alive.length)];
-        const hitChance = 0.50 + (crewMember.hitBonus || 0);
+  function showSpellBlast(targetEl) {
+    if (!targetEl) return;
+    const d = document.createElement("div");
+    d.style.cssText = "position:absolute;inset:-6px;border-radius:50%;background:radial-gradient(circle,rgba(130,50,220,0.75) 0%,transparent 68%);pointer-events:none;z-index:400;animation:water-ring 0.58s ease forwards;";
+    targetEl.appendChild(d);
+    setTimeout(() => d.remove(), 640);
+  }
+
+  function showSlashEffect(targetEl) {
+    if (!targetEl) return;
+    const d = document.createElement("div");
+    d.style.cssText = "position:absolute;inset:0;pointer-events:none;z-index:400;animation:claw-strike 0.65s ease forwards;";
+    d.innerHTML = `<svg width="100%" height="100%" viewBox="0 0 52 52" style="overflow:visible;"><line x1="8" y1="8" x2="44" y2="44" stroke="#c8a06a" stroke-width="2.5" stroke-linecap="round"/><line x1="8" y1="22" x2="38" y2="44" stroke="#c8a06a" stroke-width="2.5" stroke-linecap="round"/></svg>`;
+    targetEl.appendChild(d);
+    setTimeout(() => d.remove(), 700);
+  }
+
+  function showImpactEffect(targetEl) {
+    if (!targetEl) return;
+    [0, 120].forEach(ms => {
+      setTimeout(() => {
+        const r = document.createElement("div");
+        r.style.cssText = "position:absolute;inset:-6px;border-radius:50%;border:2.5px solid #e07a28;pointer-events:none;z-index:400;animation:water-ring 0.52s ease forwards;";
+        targetEl.appendChild(r);
+        setTimeout(() => r.remove(), 580);
+      }, ms);
+    });
+  }
+
+  /* ── URSULA STATE MACHINE ── */
+  async function doUrsulaAction(ursula) {
+    const el = tokenEls["ursula"];
+    if (ursula.ursulaState === "crow_nest") {
+      addLog("Ursula descends from the crow's nest!", "log-hit");
+      if (el) {
+        const deckPos = cellCenter(5, 8);
+        el.style.transition = "left 1.1s ease, top 1.1s ease";
+        el.style.left = deckPos.x + "%"; el.style.top = deckPos.y + "%";
+        ursula.x = deckPos.x; ursula.y = deckPos.y;
+      }
+      ursula.ursulaState = "deck";
+      await delay(1250);
+      return;
+    }
+    const alive = enemies.filter(e => !e.dead);
+    if (alive.length === 0) return;
+    const target = alive[Math.floor(Math.random() * alive.length)];
+    if (ursula.ursulaState === "deck") {
+      addLog("Ursula TRANSFORMS into a polar bear!", "log-crit");
+      if (el) showBearTransformEffect(el);
+      ursula.ursulaState = "bear";
+      await delay(750);
+    }
+    await withMeleeMove(ursula, target, async () => {
+      const hit = roll(0.70 + (ursula.hitBonus || 0));
+      if (hit) {
+        let dmg = randRange(16, 26);
+        if (ursula.dmgBonus) dmg = Math.round(dmg * (1 + ursula.dmgBonus));
+        target.hp -= dmg;
+        showClawMarks(tokenEls[target.id]);
+        updateTokenHp(target);
+        addLog(`Ursula's bear claws rend ${target.label} — ${dmg} dmg!`, "log-crit");
+      } else {
+        addLog(`Ursula's claws swipe through mist — miss.`, "log-miss");
+      }
+    });
+    ursula.hitBonus = 0; ursula.dmgBonus = 0;
+  }
+
+  /* ── CREW AUTO-ATTACK ── */
+  async function doCrewTurn(crewMember) {
+    await delay(400);
+    if (crewMember.dead) return;
+    if (crewMember.stunned) {
+      crewMember.stunned = false;
+      addLog(`${crewMember.label} is stunned — skips turn.`, "log-miss");
+      return;
+    }
+    if (crewMember.isIngrid) {
+      const fallen = [player, ...crew].find(e => e.dead && !e.revived);
+      if (fallen) {
+        fallen.dead = false; fallen.revived = true;
+        fallen.hp = Math.ceil(fallen.maxHp * 0.10);
+        const el = tokenEls[fallen.id];
+        if (el) el.classList.remove("dead");
+        updateTokenHp(fallen);
+        if (fallen === player) refreshHud();
+        addLog(`Ingrid channels healing — ${fallen.label} revived to ${fallen.hp} HP!`, "log-crit");
+        return;
+      }
+    }
+    if (crewMember.id === "ursula") { await doUrsulaAction(crewMember); return; }
+
+    const alive = enemies.filter(e => !e.dead);
+    if (alive.length === 0) return;
+    const target = alive[Math.floor(Math.random() * alive.length)];
+    const hitChance = 0.50 + (crewMember.hitBonus || 0);
+
+    if (crewMember.id === "haldor") {
+      await withMeleeMove(crewMember, target, async () => {
         const hit = roll(hitChance);
         if (hit) {
           let dmg = randRange(8, 16);
           if (crewMember.dmgBonus) dmg = Math.round(dmg * (1 + crewMember.dmgBonus));
           target.hp -= dmg;
+          showAxeEffect(tokenEls[target.id]);
           updateTokenHp(target);
-          addLog(`${crewMember.label} strikes ${target.label} — ${dmg} dmg.`, "log-hit");
+          addLog(`${crewMember.label} cleaves ${target.label} — ${dmg} dmg.`, "log-hit");
         } else {
-          addLog(`${crewMember.label} swings at ${target.label} — miss.`, "log-miss");
+          addLog(`${crewMember.label} swings — misses.`, "log-miss");
         }
-        crewMember.hitBonus = 0;
-        crewMember.dmgBonus = 0;
-        resolve();
-      }, 600);
-    });
+      });
+    } else if (crewMember.id === "kalt" || crewMember.id === "thorgrim") {
+      const hit = roll(hitChance);
+      if (hit) {
+        let dmg = randRange(8, 16);
+        if (crewMember.dmgBonus) dmg = Math.round(dmg * (1 + crewMember.dmgBonus));
+        target.hp -= dmg;
+        await showArrowFly(tokenEls[crewMember.id], tokenEls[target.id]);
+        updateTokenHp(target);
+        addLog(`${crewMember.label} fires at ${target.label} — ${dmg} dmg.`, "log-hit");
+      } else {
+        await showArrowFly(tokenEls[crewMember.id], tokenEls[target.id]);
+        addLog(`${crewMember.label} fires — wide of the mark.`, "log-miss");
+      }
+    } else {
+      const hit = roll(hitChance);
+      if (hit) {
+        let dmg = randRange(8, 16);
+        if (crewMember.dmgBonus) dmg = Math.round(dmg * (1 + crewMember.dmgBonus));
+        target.hp -= dmg;
+        updateTokenHp(target);
+        addLog(`${crewMember.label} strikes ${target.label} — ${dmg} dmg.`, "log-hit");
+      } else {
+        addLog(`${crewMember.label} swings at ${target.label} — miss.`, "log-miss");
+      }
+    }
+    crewMember.hitBonus = 0; crewMember.dmgBonus = 0;
   }
 
   /* ── ENEMY TURN ── */
-  function doEnemyTurn(enemy) {
-    return new Promise(resolve => {
-      setTimeout(() => {
-        if (enemy.dead) { resolve(); return; }
-        if (enemy.stunned) {
-          enemy.stunned = false;
-          addLog(`${enemy.label} is stunned — misses its turn.`, "log-miss");
-          resolve(); return;
-        }
-        if (player.dead) { resolve(); return; }
-        // Enemy moves toward player token (cosmetic)
-        const dx = player.x - enemy.x;
-        const dy = player.y - enemy.y;
-        const dist = Math.sqrt(dx*dx + dy*dy);
-        if (dist > 12) {
-          const step = Math.min(6, dist * 0.3);
-          enemy.x += (dx / dist) * step;
-          enemy.y += (dy / dist) * step;
-          const el = tokenEls[enemy.id];
-          if (el) { el.style.left = enemy.x + "%"; el.style.top = enemy.y + "%"; }
-        }
-        // Attack player
-        const baseHit = 0.60;
-        const hit = roll(baseHit * player.defense);
-        if (hit) {
-          const dmg = randRange(8, 19); // 3d6+3 = 6-21
-          player.hp -= dmg;
-          updateTokenHp(player);
-          refreshHud();
-          addLog(`${enemy.label} constricts ${CD.label} — ${dmg} dmg!`, "log-enemy");
-          if (player.hp <= 0) {
-            player.dead = true;
-            tokenEls.player?.classList.add("dead");
-          }
-        } else {
-          addLog(`${enemy.label} lunges at ${CD.label} — deflected!`, "log-miss");
-        }
-        player.defense = 1.0; // reset defend buff
-        resolve();
-      }, 700);
-    });
+  async function doEnemyTurn(enemy) {
+    await delay(400);
+    if (enemy.dead) return;
+    if (enemy.stunned) {
+      enemy.stunned = false;
+      addLog(`${enemy.label} is stunned — misses its turn.`, "log-miss");
+      return;
+    }
+    if (player.dead) return;
+
+    // Move toward player with smooth transition
+    const dx = player.x - enemy.x, dy = player.y - enemy.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist > 10) {
+      const step = Math.min(8, dist * 0.35);
+      enemy.x += (dx / dist) * step;
+      enemy.y += (dy / dist) * step;
+      const el = tokenEls[enemy.id];
+      if (el) {
+        el.style.transition = "left 0.52s ease, top 0.52s ease";
+        el.style.left = enemy.x + "%"; el.style.top = enemy.y + "%";
+      }
+      await delay(580);
+    }
+
+    // Attack
+    const hit = roll(0.60 * player.defense);
+    if (hit) {
+      const dmg = randRange(8, 19);
+      player.hp -= dmg;
+      showWaterEffect(tokenEls["player"]);
+      updateTokenHp(player);
+      refreshHud();
+      addLog(`${enemy.label} constricts ${CD.label} — ${dmg} dmg!`, "log-enemy");
+      if (player.hp <= 0) {
+        player.dead = true;
+        tokenEls.player?.classList.add("dead");
+      }
+    } else {
+      addLog(`${enemy.label} lunges at ${CD.label} — deflected!`, "log-miss");
+    }
+    player.defense = 1.0;
   }
 
   /* ── TURN MACHINE ── */
