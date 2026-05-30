@@ -15,8 +15,7 @@
 #map-viewport {
   position: absolute;
   left: 0; right: 0; top: 0; bottom: 210px;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: auto;
   scrollbar-width: none;
   cursor: grab;
   user-select: none;
@@ -29,7 +28,36 @@
   position: relative;
   width: 100%;
   aspect-ratio: 416 / 930;
+  transition: width 0.12s ease;
 }
+
+/* ── ZOOM CONTROLS ── */
+.zoom-controls {
+  position: fixed;
+  right: 16px;
+  bottom: 206px;
+  z-index: 15;
+  display: flex;
+  gap: 4px;
+}
+.zoom-btn {
+  font-family: "IM Fell English SC", serif;
+  font-size: 17px;
+  line-height: 1;
+  color: var(--paper);
+  background: rgba(0,0,0,0.62);
+  border: 1px solid color-mix(in oklch, var(--paper-deep) 40%, transparent);
+  width: 34px; height: 34px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  padding: 0;
+}
+.zoom-btn:hover:not(:disabled) {
+  background: rgba(0,0,0,0.88);
+  border-color: var(--paper-deep);
+}
+.zoom-btn:disabled { opacity: 0.28; cursor: not-allowed; }
 
 .battle-bg {
   position: absolute; inset: 0;
@@ -580,6 +608,12 @@
   </div>
 </div>
 
+<!-- ZOOM CONTROLS -->
+<div class="zoom-controls">
+  <button class="zoom-btn" id="zoom-out" title="Zoom out">−</button>
+  <button class="zoom-btn" id="zoom-in" title="Zoom in">+</button>
+</div>
+
 <!-- VICTORY -->
 <div id="screen-victory" class="end-screen">
   <div class="end-card">
@@ -969,6 +1003,43 @@ function _navigateTo(url) {
       mapViewport.scrollTop = Math.max(0, wH * 0.74 - vH * 0.5);
     }
   });
+
+  /* ── ZOOM ── */
+  let zoomLevel = 1.0;
+  const ZOOM_MIN = 0.5;
+  const ZOOM_MAX = 2.0;
+
+  function applyZoom(newZoom, pivotX, pivotY) {
+    const vpW = mapViewport.clientWidth;
+    const vpH = mapViewport.clientHeight;
+    const oldW = mapWorld.offsetWidth;
+    const oldH = mapWorld.offsetHeight;
+    const px = (pivotX !== undefined) ? pivotX : vpW / 2;
+    const py = (pivotY !== undefined) ? pivotY : vpH / 2;
+    const contentX = (mapViewport.scrollLeft + px) / oldW;
+    const contentY = (mapViewport.scrollTop  + py) / oldH;
+
+    zoomLevel = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, newZoom));
+    mapWorld.style.width = (zoomLevel * 100) + "%";
+
+    requestAnimationFrame(() => {
+      const newW = mapWorld.offsetWidth;
+      const newH = mapWorld.offsetHeight;
+      mapViewport.scrollLeft = newW > vpW ? contentX * newW - px : (vpW - newW) / 2;
+      mapViewport.scrollTop  = Math.max(0, contentY * newH - py);
+      document.getElementById("zoom-in").disabled  = zoomLevel >= ZOOM_MAX;
+      document.getElementById("zoom-out").disabled = zoomLevel <= ZOOM_MIN;
+    });
+  }
+
+  mapViewport.addEventListener("wheel", e => {
+    e.preventDefault();
+    const rect = mapViewport.getBoundingClientRect();
+    applyZoom(zoomLevel - Math.sign(e.deltaY) * 0.15, e.clientX - rect.left, e.clientY - rect.top);
+  }, { passive: false });
+
+  document.getElementById("zoom-in").addEventListener("click",  () => applyZoom(zoomLevel + 0.25));
+  document.getElementById("zoom-out").addEventListener("click", () => applyZoom(zoomLevel - 0.25));
 
   document.addEventListener("keydown", e => {
     if (!combatStarted || !isPlayerTurn()) return;
