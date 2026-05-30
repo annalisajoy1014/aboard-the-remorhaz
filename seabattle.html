@@ -935,6 +935,7 @@ function _navigateTo(url) {
   let selectedTarget = null;
   let actionUsed = false;
   let turnInProgress = false;
+  let enemyAttacksThisRound = 0;
   let logLines = [];
 
   function currentActor() { return initOrder[initIndex]; }
@@ -1312,11 +1313,13 @@ function _navigateTo(url) {
   function doPlayerAction(actionId) {
     if (!isPlayerTurn() || actionUsed || turnInProgress) return;
 
+    let acted = false;
     switch(charKey) {
-      case "relyt": doRelytAction(actionId); break;
-      case "lucy":  doLucyAction(actionId);  break;
-      case "irene": doIreneAction(actionId); break;
+      case "relyt": acted = doRelytAction(actionId); break;
+      case "lucy":  acted = doLucyAction(actionId);  break;
+      case "irene": acted = doIreneAction(actionId); break;
     }
+    if (!acted) return;
 
     actionUsed = true;
     refreshActionBtns();
@@ -1327,7 +1330,7 @@ function _navigateTo(url) {
 
   function doRelytAction(id) {
     if (id === "attack") {
-      if (!selectedTarget || selectedTarget.dead) { addLog("No target selected.", "log-miss"); actionUsed = false; return; }
+      if (!selectedTarget || selectedTarget.dead) { addLog("Select an enemy to target first.", "log-miss"); return false; }
       const hit = roll(0.70 * trainingMult);
       if (!hit) maybeHaldorTaunt();
       if (hit) {
@@ -1341,23 +1344,27 @@ function _navigateTo(url) {
       } else {
         addLog(`${CD.label}'s spell arcs wide — miss.`, "log-miss");
       }
+      return true;
     } else if (id === "buff") {
       const alive = crew.filter(c => !c.dead);
-      if (alive.length === 0) { addLog("No crew to buff.", "log-miss"); actionUsed = false; return; }
+      if (alive.length === 0) { addLog("No crew left to empower.", "log-miss"); return false; }
       const target = alive[Math.floor(Math.random() * alive.length)];
       target.dmgBonus = 0.5;
       addLog(`${CD.label} empowers ${target.label} — next strike hits harder!`, "log-hit");
+      return true;
     } else if (id === "heal") {
       const gain = randRange(14, 22);
       player.hp = Math.min(player.maxHp, player.hp + gain);
       updateTokenHp(player);
       addLog(`${CD.label} draws on healing magic — +${gain} HP.`, "log-hit");
+      return true;
     }
+    return false;
   }
 
   function doLucyAction(id) {
     if (id === "attack") {
-      if (!selectedTarget || selectedTarget.dead) { addLog("No target selected.", "log-miss"); actionUsed = false; return; }
+      if (!selectedTarget || selectedTarget.dead) { addLog("Select an enemy to target first.", "log-miss"); return false; }
       const hit = roll(0.50 * trainingMult);
       if (hit) {
         const dmg = randRange(16, 24);
@@ -1369,11 +1376,13 @@ function _navigateTo(url) {
         addLog(`${CD.label}'s strike deflects off the Revenant — miss.`, "log-miss");
         maybeHaldorTaunt();
       }
+      return true;
     } else if (id === "defend") {
       player.defense = 0.5;
       addLog(`${CD.label} braces — incoming damage halved this round.`, "log-hit");
+      return true;
     } else if (id === "stun") {
-      if (!selectedTarget || selectedTarget.dead) { addLog("No target selected.", "log-miss"); actionUsed = false; return; }
+      if (!selectedTarget || selectedTarget.dead) { addLog("Select an enemy to target first.", "log-miss"); return false; }
       const hit = roll(0.75 * trainingMult);
       if (hit) {
         selectedTarget.stunned = true;
@@ -1382,12 +1391,14 @@ function _navigateTo(url) {
         addLog(`${CD.label}'s stun attempt fails — the Revenant surges forward.`, "log-miss");
         maybeHaldorTaunt();
       }
+      return true;
     }
+    return false;
   }
 
   function doIreneAction(id) {
     if (id === "attack") {
-      if (!selectedTarget || selectedTarget.dead) { addLog("No target selected.", "log-miss"); actionUsed = false; return; }
+      if (!selectedTarget || selectedTarget.dead) { addLog("Select an enemy to target first.", "log-miss"); return false; }
       const hit = roll(0.50 * trainingMult);
       if (hit) {
         let dmg = randRange(16, 24);
@@ -1400,13 +1411,17 @@ function _navigateTo(url) {
         addLog(`${CD.label}'s swing crashes through water — miss.`, "log-miss");
         maybeHaldorTaunt();
       }
+      return true;
     } else if (id === "cry") {
       crew.filter(c => !c.dead).forEach(c => { c.hitBonus = 0.2; c.dmgBonus = 0.2; });
       addLog(`${CD.label} ROARS — all crew gain +hit and +dmg this round!`, "log-crit");
+      return true;
     } else if (id === "channel") {
       player.channelActive = true;
       addLog(`${CD.label} channels the storm — next attack deals +50% dmg!`, "log-hit");
+      return true;
     }
+    return false;
   }
 
   /* ── COMBAT VISUAL HELPERS ── */
@@ -1674,11 +1689,24 @@ function _navigateTo(url) {
       await delay(580);
     }
 
+    // Only one Revenant attacks per round; others stalk closer but hold back
+    if (enemyAttacksThisRound >= 1) {
+      addLog(`${enemy.label} circles, watching for an opening…`, "log-miss");
+      return;
+    }
+    enemyAttacksThisRound++;
+
+    // Player's DEX or STR reduces the enemy's chance to hit
+    const dexMod = char.stats ? (char.stats.DEX || 0) : 0;
+    const strMod = char.stats ? (char.stats.STR || 0) : 0;
+    const statDefense = Math.max(dexMod, strMod) * 0.08;
+    const baseHit = Math.max(0.20, 0.60 - statDefense);
+
     // 30% chance: drag overboard attempt instead of normal attack
     if (Math.random() < 0.30) {
       await doDragAttempt(enemy);
     } else {
-      const hit = roll(0.60 * player.defense);
+      const hit = roll(baseHit * player.defense);
       if (hit) {
         const dmg = randRange(8, 19);
         player.hp -= dmg;
@@ -1782,6 +1810,7 @@ function _navigateTo(url) {
       initIndex = (initIndex + 1) % initOrder.length;
       if (initIndex === 0) {
         round++;
+        enemyAttacksThisRound = 0;
         document.getElementById("hud-round").textContent = "Round " + round;
       }
       safety++;
@@ -1804,7 +1833,6 @@ function _navigateTo(url) {
       setPhaseLabel("CREW TURN");
       setActionEnabled(false);
       await doCrewTurn(actor);
-      checkVictory();
       if (!checkVictory()) {
         turnInProgress = false;
         advanceTurn();
@@ -2007,6 +2035,8 @@ function _navigateTo(url) {
         if (el) el.style.pointerEvents = "";
       });
       combatStarted = true;
+      turnInProgress = false;
+      enemyAttacksThisRound = 0;
       initOrder = buildInitOrder();
       initIndex = 0;
       renderInitiative();
