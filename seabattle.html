@@ -1565,23 +1565,102 @@ function _navigateTo(url) {
       await delay(580);
     }
 
-    // Attack
-    const hit = roll(0.60 * player.defense);
-    if (hit) {
-      const dmg = randRange(8, 19);
-      player.hp -= dmg;
-      showWaterEffect(tokenEls["player"]);
-      updateTokenHp(player);
-      refreshHud();
-      addLog(`${enemy.label} constricts ${CD.label} — ${dmg} dmg!`, "log-enemy");
-      if (player.hp <= 0) {
-        player.dead = true;
-        tokenEls.player?.classList.add("dead");
-      }
+    // 30% chance: drag overboard attempt instead of normal attack
+    if (Math.random() < 0.30) {
+      await doDragAttempt(enemy);
     } else {
-      addLog(`${enemy.label} lunges at ${CD.label} — deflected!`, "log-miss");
+      const hit = roll(0.60 * player.defense);
+      if (hit) {
+        const dmg = randRange(8, 19);
+        player.hp -= dmg;
+        showWaterEffect(tokenEls["player"]);
+        updateTokenHp(player);
+        refreshHud();
+        addLog(`${enemy.label} constricts ${CD.label} — ${dmg} dmg!`, "log-enemy");
+        if (player.hp <= 0) {
+          player.dead = true;
+          tokenEls.player?.classList.add("dead");
+        }
+      } else {
+        addLog(`${enemy.label} lunges at ${CD.label} — deflected!`, "log-miss");
+      }
     }
     player.defense = 1.0;
+  }
+
+  /* ── DRAG OVERBOARD ── */
+  async function doDragAttempt(enemy) {
+    addLog(`${enemy.label} surges — trying to drag ${CD.label} over the side!`, "log-enemy");
+    showWaterEffect(tokenEls["player"]);
+    await delay(680);
+
+    const strMod = char.stats ? (char.stats.STR || 0) : 0;
+    const dexMod = char.stats ? (char.stats.DEX || 0) : 0;
+    const DC = 5;
+    const strRoll = Math.floor(Math.random() * 10) + 1 + strMod;
+    const dexRoll = Math.floor(Math.random() * 10) + 1 + dexMod;
+    const strSave = strRoll >= DC;
+    const dexSave = dexRoll >= DC;
+
+    if (strSave || dexSave) {
+      // Player survives — nudge token toward enemy then snap back
+      const pEl = tokenEls["player"];
+      if (pEl) {
+        const edx = enemy.x - player.x, edy = enemy.y - player.y;
+        const ed = Math.sqrt(edx * edx + edy * edy);
+        if (ed > 0) {
+          pEl.style.transition = "left 0.22s ease, top 0.22s ease";
+          pEl.style.left = (player.x + (edx / ed) * 4) + "%";
+          pEl.style.top  = (player.y + (edy / ed) * 4) + "%";
+          await delay(250);
+          pEl.style.transition = "left 0.3s ease, top 0.3s ease";
+          pEl.style.left = player.x + "%";
+          pEl.style.top  = player.y + "%";
+          await delay(340);
+        }
+      }
+      // Narrate by whichever save succeeded (prefer STR if tied)
+      const usedStr = strSave && (!dexSave || strRoll >= dexRoll);
+      if (usedStr) {
+        const msgs = {
+          relyt: `Gritting teeth, ${CD.label} hauls against the pull — strength barely holds!`,
+          lucy:  `Wiry and desperate, ${CD.label} wrenches free against all odds!`,
+          irene: `${CD.label} TEARS loose — the Current grabbed the wrong sailor.`,
+        };
+        addLog(msgs[charKey] || `${CD.label} tears free — strength holds!`, "log-hit");
+      } else {
+        const msgs = {
+          relyt: `${CD.label} stumbles sideways at exactly the right instant — pure luck.`,
+          lucy:  `${CD.label} spins clear in one fluid motion, not even breaking stride.`,
+          irene: `${CD.label} ducks and pivots — not graceful, but effective.`,
+        };
+        addLog(msgs[charKey] || `${CD.label} twists free — too quick to catch!`, "log-hit");
+      }
+    } else {
+      // Both saves failed — overboard
+      const failMsgs = {
+        relyt: `${CD.label} is torn over the railing — the cold closes in.`,
+        lucy:  `${CD.label} is dragged over the side — too fast, too sudden to evade.`,
+        irene: `${CD.label} is hauled over the railing — even iron wasn't enough.`,
+      };
+      addLog(failMsgs[charKey] || `${CD.label} is dragged overboard!`, "log-enemy");
+      const pEl = tokenEls["player"];
+      if (pEl) {
+        const edx = enemy.x - player.x, edy = enemy.y - player.y;
+        const ed = Math.sqrt(edx * edx + edy * edy);
+        if (ed > 0) {
+          const overX = player.x + (edx / ed) * 28;
+          const overY = player.y + (edy / ed) * 28;
+          pEl.style.transition = "left 0.9s ease-in, top 0.9s ease-in, opacity 0.85s ease";
+          pEl.style.left    = overX + "%";
+          pEl.style.top     = overY + "%";
+          pEl.style.opacity = "0";
+        }
+      }
+      await delay(980);
+      player.dead = true;
+      tokenEls.player?.classList.add("dead");
+    }
   }
 
   /* ── TURN MACHINE ── */
