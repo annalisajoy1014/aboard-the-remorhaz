@@ -1629,6 +1629,17 @@ function _navigateTo(url) {
           mid:  "Storm damage needs addressing before we can sail. Kalt is running repairs — find her. If we are low on provisions, Haldor is back at the lines and Ingrid is in the galley. Sort it out.",
           high: "We took a beating last night. Kalt has already assessed the damage — find her and lend hands. If we are short on food, Haldor and Ingrid know what to do. Let us get the Remorhaz back in shape.",
         },
+        9: {
+          low:  "There. Syrinlya. Nine days, and we are still in one piece — more than I expected from this crossing. Get your things. When the gangplank drops, you are no longer my problem.",
+          mid:  "Nine days on this water and we brought her in clean. Syrinlya is ahead — the last outpost before Foren. Whatever brought you north, it is out there waiting for you now. Go meet it.",
+          high: "There she is. Nine days. I have made this crossing forty times and it does not get shorter, but this voyage — this one was something. You did well. Better than well. Syrinlya is just ahead. Whatever waits on Foren, I think you are ready for it. I am glad you were on this ship.",
+        },
+      },
+      day9: {
+        dayLabel: "DAY · 09 — LANDFALL",
+        approach: "Eiselcross fills the horizon — white cliffs, dark water, and a thin line of settlement hugging the coast. Nine days on the Remorhaz, and she has brought you here. Captain Thorgrim stands at the helm with his hands loose on the wheel for the first time since you left port, watching the dock come in. He doesn't look at you when he speaks.",
+        activityTitle: "DAY 9 · LANDFALL",
+        activityDesc: "Syrinlya is within sight. Speak with the Captain before the Remorhaz reaches the dock — and then make landfall.",
       },
     },
 
@@ -1932,7 +1943,7 @@ function _navigateTo(url) {
     { n: 6, label: "Sea Monster Attack", npcs: ["ursula"] },
     { n: 7, label: "Weather the Storm",  npcs: ["ursula"] },
     { n: 8, label: "Skirting the Shelf", npcs: [] },
-    { n: 9, label: "Landfall · Eiselcross", npcs: [] },
+    { n: 9, label: "Landfall · Eiselcross", npcs: ["thorgrim"] },
   ];
 
   /* ============== STATE ============== */
@@ -2295,16 +2306,28 @@ function _navigateTo(url) {
     if (npc.special) {
       // Captain: show daily briefing (or intro on first ever visit)
       let briefing;
-      if (!_raw.captainIntroSeen) {
+      if (state.currentDay === 9) {
+        const tier = influenceTier("thorgrim");
+        briefing = eff.dailyBriefing?.[9]?.[tier] || eff.dialogue;
+      } else if (!_raw.captainIntroSeen) {
         briefing = eff.dialogue;
       } else {
         const tier = influenceTier("thorgrim");
         briefing = eff.dailyBriefing?.[state.currentDay]?.[tier] || eff.dialogue;
       }
       cinNpcQuote.textContent = "“" + briefing + "”";
-      cinNpcEnter.style.display = "none";
-      cinNpcReturn.style.display = "";
-      cinNpcReturn.textContent = "RETURN TO DECK";
+
+      if (state.currentDay === 9) {
+        // Landfall — replace dismiss with a "Make Landfall" action
+        cinNpcEnter.style.display = "";
+        cinNpcEnter.textContent = "MAKE LANDFALL →";
+        cinNpcEnter.disabled = false;
+        cinNpcReturn.style.display = "none";
+      } else {
+        cinNpcEnter.style.display = "none";
+        cinNpcReturn.style.display = "";
+        cinNpcReturn.textContent = "RETURN TO DECK";
+      }
       cinNpcActions.style.display = "flex";
       cinNpc.classList.add("active");
       cinNpc.setAttribute("aria-hidden", "false");
@@ -2393,6 +2416,16 @@ function _navigateTo(url) {
     const zone = _pendingZone;
     const npc = NPCS[zone];
     if (!npc || cinNpcEnter.disabled) return;
+
+    // Day 9: Captain Thorgrim leads directly to the end cinematic
+    if (zone === "thorgrim" && state.currentDay === 9) {
+      state.completed.add("thorgrim");
+      state.completedDays.add(9);
+      save();
+      dismissNpcCinematic();
+      setTimeout(() => _navigateTo("end.html"), 50);
+      return;
+    }
 
     const routes = {
       haldor: (repairDayRequired && state.currentDay === 8) ? "fishing.html"
