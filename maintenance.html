@@ -532,7 +532,7 @@ const CFGS = {
     kaltFailD:  "...Don't make that a habit.",
     kaltGoodD:  "Aye. Good.",
     kaltGreatD: "...I'll say this. You work as well as you cook.",
-    kaltFinal:  ["You kept the ship sound. That's what matters.", "Good maintenance. The hull will hold.", "You've more than earned your place on this voyage.", "Aye. You're useful. I said it. Don't repeat it.", "Empire-born. Works like a dwarf. I'll tell no one."],
+    kaltFinal:  ["You kept the ship sound. That's what matters.", "Good maintenance. The hull will hold.", "The work is done. And done right.", "So, you prove not to be completely useless. That is fair weather for us.", "Empire-born. Works like a dwarf. I'll tell no one."],
   },
 };
 
@@ -715,7 +715,7 @@ function showDialogue(idx) {
   set.choices.forEach(choice => {
     const btn = document.createElement("button");
     btn.className = "dialogue-btn";
-    btn.innerHTML = `<span class="tone-tag">— ${choice.tone} —</span>${choice.text}`;
+    btn.textContent = choice.text;
     btn.addEventListener("click", () => {
       rapport = Math.max(-2, Math.min(2, rapport + choice.rapport));
       const reply = choice.kaltReply[kaltMood.toString()];
@@ -1643,7 +1643,7 @@ function showResult() {
 
   const TIERS = [
     { min:42, tag:"MASTERWORK",           verdict:`Every task completed with a standard that surprised even Kalt. The crew has noticed. They respect you now — and that respect is not easily given on the Remorhaz.` },
-    { min:35, tag:"COMPETENT CREW",       verdict:`The ropes are checked, the sail is stitched, and the hull holds water. You have done real work today. Kalt won't say it, but you've earned your place on this ship.` },
+    { min:35, tag:"COMPETENT CREW",       verdict:`The ropes are checked, the sail is stitched, and the hull holds water. You have done real work today. The ship is sound — and Kalt knows it.` },
     { min:27, tag:"ADEQUATE",             verdict:`The ship is in acceptable condition. You missed things — Kalt noticed every one — but the vessel will reach port. That has to be enough for now.` },
     { min:18, tag:"ROUGH EDGES",          verdict:`You completed the tasks, after a fashion. Kalt has quietly fixed most of what you missed. The crew watched. They are... withholding judgment.` },
     { min:0,  tag:"EMPIRE WEAKLING",      verdict:`Kalt fixed it. All of it. He said nothing. He didn't need to. The look said enough. Perhaps tomorrow will go better.` },
