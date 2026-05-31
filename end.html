@@ -1,0 +1,542 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Syrinlya — Aboard the Remorhaz</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+
+/* ── FULL-BLEED CINEMATIC ── */
+.cin {
+  position: fixed; inset: 0; z-index: 10;
+  display: flex; align-items: stretch;
+}
+
+.cin-bg {
+  position: absolute; inset: 0;
+  background: url('assets/syrinlya.jpg') center/cover no-repeat;
+  filter: brightness(0.62) saturate(0.88);
+  transform: scale(1.04);
+  animation: bgDrift 28s ease-in-out infinite alternate;
+}
+@keyframes bgDrift {
+  from { transform: scale(1.02) translateX(0); }
+  to   { transform: scale(1.07) translateX(-14px); }
+}
+
+/* Dark gradient — heaviest on left so text is legible */
+.cin-gradient {
+  position: absolute; inset: 0;
+  background: linear-gradient(
+    105deg,
+    rgba(2, 5, 12, 0.92) 0%,
+    rgba(2, 5, 12, 0.72) 36%,
+    rgba(2, 5, 12, 0.18) 62%,
+    rgba(2, 5, 12, 0.38) 100%
+  );
+}
+
+/* Bottom vignette to ground the scene */
+.cin-gradient::after {
+  content: "";
+  position: absolute; inset: 0;
+  background: linear-gradient(to top, rgba(2,5,12,0.75) 0%, transparent 40%);
+}
+
+/* ── TEXT PANEL ── */
+.cin-panel {
+  position: relative; z-index: 2;
+  width: 52%; max-width: 640px;
+  display: flex; flex-direction: column;
+  justify-content: center;
+  padding: 0 6% 0 8%;
+  pointer-events: none;
+}
+
+/* Individual beats — each replaces the last */
+.beat {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  display: flex; flex-direction: column;
+  justify-content: center;
+  padding: 0 6% 0 8%;
+  opacity: 0;
+  transition: opacity 0.9s ease;
+  pointer-events: none;
+}
+.beat.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.beat-tag {
+  font-family: "Caveat", cursive;
+  font-size: 20px;
+  letter-spacing: 0.12em;
+  color: rgba(200, 180, 140, 0.65);
+  margin-bottom: 10px;
+}
+.beat-title {
+  font-family: "IM Fell English SC", serif;
+  font-size: clamp(32px, 4.2vw, 58px);
+  color: rgba(228, 214, 178, 0.96);
+  letter-spacing: 0.1em;
+  line-height: 1.08;
+  text-shadow: 0 2px 28px rgba(0,0,0,0.9);
+  margin-bottom: 16px;
+}
+.beat-rule {
+  width: 180px; height: 1px;
+  background: linear-gradient(90deg, rgba(210,172,100,0.5), transparent);
+  margin-bottom: 22px;
+}
+.beat-body {
+  font-family: "IM Fell English", serif;
+  font-style: italic;
+  font-size: 19px;
+  line-height: 1.78;
+  color: rgba(210, 194, 162, 0.88);
+  max-width: 520px;
+  margin-bottom: 18px;
+}
+.beat-body + .beat-body {
+  margin-top: -8px;
+}
+.beat-speaker {
+  font-family: "IM Fell English SC", serif;
+  font-size: 13px;
+  letter-spacing: 0.26em;
+  color: rgba(180, 100, 80, 0.82);
+  margin-bottom: 8px;
+  margin-top: 14px;
+}
+.beat-quote {
+  font-family: "IM Fell English", serif;
+  font-style: italic;
+  font-size: 20px;
+  line-height: 1.72;
+  color: rgba(228, 208, 170, 0.94);
+  max-width: 500px;
+  padding-left: 20px;
+  border-left: 2px solid rgba(210,172,100,0.35);
+}
+
+/* ── CLIFFHANGER BEAT — darker overlay ── */
+.beat-dark .cin-veil {
+  position: absolute; inset: 0; z-index: 0;
+  background: rgba(2, 5, 12, 0.42);
+  pointer-events: none;
+}
+.beat.beat-dark .beat-body,
+.beat.beat-dark .beat-quote {
+  color: rgba(215, 195, 158, 0.92);
+}
+.beat.beat-dark .beat-title {
+  color: rgba(210, 170, 110, 0.98);
+}
+
+/* ── END CARD ── */
+.beat-end .beat-title {
+  font-size: clamp(26px, 3.2vw, 44px);
+  color: rgba(228, 214, 178, 0.96);
+}
+.stats-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 18px 0 24px;
+  max-width: 420px;
+}
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px dotted rgba(200,172,120,0.25);
+  padding-bottom: 5px;
+  font-family: "IM Fell English SC", serif;
+  font-size: 14px;
+  letter-spacing: 0.14em;
+  color: rgba(190,168,128,0.7);
+}
+.stat-row span:last-child {
+  font-family: "IM Fell English", serif;
+  font-style: italic;
+  color: rgba(222, 202, 158, 0.9);
+}
+.end-tagline {
+  font-family: "Caveat", cursive;
+  font-size: 22px;
+  color: rgba(200,172,120,0.72);
+  margin-bottom: 28px;
+  max-width: 440px;
+  line-height: 1.45;
+}
+
+/* ── CONTINUE BUTTON ── */
+.beat-continue {
+  margin-top: 28px;
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.btn-cin {
+  font-family: "IM Fell English SC", serif;
+  font-size: 14px;
+  letter-spacing: 0.24em;
+  color: rgba(224, 204, 162, 0.9);
+  background: transparent;
+  border: 1px solid rgba(200, 168, 102, 0.4);
+  padding: 13px 32px;
+  cursor: pointer;
+  transition: all 0.28s ease;
+  border-radius: 1px;
+}
+.btn-cin:hover {
+  border-color: rgba(200, 168, 102, 0.9);
+  background: rgba(200, 168, 102, 0.12);
+  color: #e4d8c2;
+}
+.btn-cin-sec {
+  font-family: "IM Fell English SC", serif;
+  font-size: 13px;
+  letter-spacing: 0.22em;
+  color: rgba(200, 180, 140, 0.5);
+  background: transparent;
+  border: 1px solid rgba(200, 168, 102, 0.2);
+  padding: 11px 26px;
+  cursor: pointer;
+  transition: all 0.28s ease;
+  border-radius: 1px;
+}
+.btn-cin-sec:hover {
+  color: rgba(224, 204, 162, 0.82);
+  border-color: rgba(200, 168, 102, 0.5);
+}
+
+/* ── CLICK HINT ── */
+.click-hint {
+  position: fixed;
+  bottom: 36px; right: 54px;
+  z-index: 20;
+  font-family: "Caveat", cursive;
+  font-size: 15px;
+  letter-spacing: 0.12em;
+  color: rgba(190, 168, 120, 0.45);
+  pointer-events: none;
+  animation: hintBlink 2.6s ease-in-out infinite 1.8s;
+  opacity: 0;
+}
+.click-hint.show { opacity: 0.45; }
+@keyframes hintBlink {
+  0%, 60%, 100% { opacity: 0.45; }
+  30% { opacity: 0.9; }
+}
+
+/* ── RIGHT EDGE — arrival rule ── */
+.arrival-stamp {
+  position: fixed;
+  right: 52px; top: 50%;
+  transform: translateY(-50%);
+  z-index: 20;
+  writing-mode: vertical-rl;
+  font-family: "IM Fell English SC", serif;
+  font-size: 12px;
+  letter-spacing: 0.28em;
+  color: rgba(190, 168, 120, 0.28);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 1.2s ease;
+}
+.arrival-stamp.show { opacity: 1; }
+
+</style>
+</head>
+<body>
+
+<div id="page-fade" class="page-fade in"></div>
+<div class="backdrop"></div>
+<div class="snow" id="snow"></div>
+<span class="corner tl"></span>
+<span class="corner tr"></span>
+<span class="corner bl"></span>
+<span class="corner br"></span>
+
+<div class="cin" id="cin">
+  <div class="cin-bg"></div>
+  <div class="cin-gradient"></div>
+
+  <!-- BEAT 1: Landfall -->
+  <div class="beat active" id="beat-1">
+    <div class="beat-tag">— Day Nine —</div>
+    <div class="beat-title">Land&shy;fall</div>
+    <div class="beat-rule"></div>
+    <p class="beat-body">
+      The Remorhaz comes through the last ice channel just before noon. Nobody says anything at first.
+      After nine days of grey water and grey sky and the creak of a hull you've learned to read like a voice,
+      the sight of something that isn't ocean stops every sound on the ship.
+    </p>
+    <p class="beat-body">
+      Syrinlya. The last outpost before the interior of Foren.
+      A handful of lights. Smoke from fires you can see from a mile out.
+      A dock that has been fighting the ice for decades and is still, just barely, winning.
+    </p>
+    <div class="beat-continue">
+      <button class="btn-cin" id="next-1">Continue →</button>
+    </div>
+  </div>
+
+  <!-- BEAT 2: The Crew -->
+  <div class="beat" id="beat-2">
+    <div class="beat-tag">— The Remorhaz Crew —</div>
+    <div class="beat-title">A Ship That Carried You</div>
+    <div class="beat-rule"></div>
+    <p class="beat-body">
+      Thorgrim brings the ship in with the quiet authority of someone who has done this a hundred times.
+      Kalt is at the lines before the gangplank drops, jaw set, eyes checking every rope as it goes.
+      Haldor leans on the rail and whistles at the size of the ice shelf to the north — appreciative, not afraid.
+    </p>
+    <p class="beat-body">
+      Ursula says nothing. She stands at the crow's nest long after she needs to, watching the dock come closer
+      with an expression you can't quite read from below. Something between relief and something else entirely.
+    </p>
+    <p class="beat-body">
+      You've earned your place on this ship. Every one of them knows it now.
+    </p>
+    <div class="beat-continue">
+      <button class="btn-cin" id="next-2">Continue →</button>
+    </div>
+  </div>
+
+  <!-- BEAT 3: The Settlement -->
+  <div class="beat" id="beat-3">
+    <div class="beat-tag">— Syrinlya —</div>
+    <div class="beat-title">The Edge of Everything</div>
+    <div class="beat-rule"></div>
+    <p class="beat-body">
+      The outpost is smaller than you expected. Twenty souls, maybe less. Furs, rope, fire, and a silence
+      that sits differently than the silence at sea — heavier, like the land itself is listening.
+    </p>
+    <p class="beat-body">
+      They come to the dock to watch the Remorhaz come in.
+      Their faces are the faces of people who have been waiting for news, though none of them say what kind.
+      Beyond them, past the settlement and the strange stone arch that stands alone at the edge of the ice
+      like a door to somewhere the world forgot to name — the mountains of Foren rise white and immense
+      and very, very old.
+    </p>
+    <div class="beat-continue">
+      <button class="btn-cin" id="next-3">Continue →</button>
+    </div>
+  </div>
+
+  <!-- BEAT 4: CLIFFHANGER -->
+  <div class="beat beat-dark" id="beat-4">
+    <div class="beat-tag">— Something Is Wrong —</div>
+    <div class="beat-title">The Woman at the Dock</div>
+    <div class="beat-rule"></div>
+    <p class="beat-body">
+      One of them pulls you aside before you've cleared the gangplank.
+      A woman with frost in her hair and a scar that crosses her jaw — someone who looks like she has
+      survived things she hasn't told anyone about. She speaks quietly.
+      The kind of quiet that means she doesn't want the others to hear.
+    </p>
+    <div class="beat-speaker">— SHE SAYS —</div>
+    <p class="beat-quote">
+      "The last expedition into Foren left thirteen days ago. Twenty people.
+      They should have returned in five."
+    </p>
+    <div class="beat-continue">
+      <button class="btn-cin" id="next-4">Continue →</button>
+    </div>
+  </div>
+
+  <!-- BEAT 5: DEEPER CLIFFHANGER -->
+  <div class="beat beat-dark" id="beat-5">
+    <div class="beat-tag">— What She Pressed Into Your Hand —</div>
+    <div class="beat-title">The Compass</div>
+    <div class="beat-rule"></div>
+    <p class="beat-body">
+      She presses something cold into your hand. A compass — old, brass-cased, good make.
+      The needle spins freely, pointing nowhere, as if north has simply stopped mattering here.
+    </p>
+    <p class="beat-body">
+      Then she looks past you toward the interior of the island, toward the ruins that wait beneath
+      two thousand years of ice, and her voice drops to almost nothing.
+    </p>
+    <div class="beat-speaker">— SHE SAYS —</div>
+    <p class="beat-quote">
+      "Something has woken up under the ice. Something in the old city.
+      We've heard it twice now, at night, when the wind drops.
+      It doesn't sound like the wind. It doesn't sound like anything that should be alive."
+    </p>
+    <p class="beat-quote" style="margin-top:14px;">
+      "It sounds like it's looking for something."
+    </p>
+    <div class="beat-continue">
+      <button class="btn-cin" id="next-5">Continue →</button>
+    </div>
+  </div>
+
+  <!-- BEAT 6: FINAL -->
+  <div class="beat beat-end" id="beat-6">
+    <div class="beat-tag">— Foren Awaits —</div>
+    <div class="beat-title">The Voyage Is Complete.<br>The Adventure Has Not Yet Begun.</div>
+    <div class="beat-rule"></div>
+    <p class="beat-body">
+      The Remorhaz creaks behind you at the dock, settling into the ice-cold water.
+      The fires of Syrinlya burn low in the grey afternoon light.
+      The broken stone arch stands silent at the edge of the settlement.
+    </p>
+    <p class="beat-body">
+      The mountains of Foren wait beyond it — vast, ancient, and keeping their own counsel.
+      Whatever is buried beneath them has been patient for a very long time.
+    </p>
+    <p class="beat-body">
+      The compass in your hand does not stop spinning.
+    </p>
+
+    <div class="stats-block" id="statsBlock"></div>
+
+    <div class="end-tagline">
+      A greater adventure awaits on the island of Foren — if you dare to follow the compass into the dark.
+    </div>
+
+    <div class="beat-continue">
+      <button class="btn-cin" id="playAgainBtn">↺ Set Sail Again</button>
+      <button class="btn-cin-sec" id="stayBtn">Remain at Syrinlya</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- Vertical stamp -->
+<div class="arrival-stamp" id="arrivalStamp">
+  SYRINLYA · FOREN · EISELCROSS
+</div>
+
+<!-- Click hint -->
+<div class="click-hint" id="clickHint">— click to continue —</div>
+
+<script>
+const _pf = document.getElementById("page-fade");
+setTimeout(() => { _pf && _pf.classList.remove("in"); }, 60);
+
+function _navigateTo(url) {
+  if (!_pf) { window.location.href = url; return; }
+  _pf.classList.add("in");
+  _pf.addEventListener("transitionend", () => { window.location.href = url; }, { once: true });
+}
+
+/* ── SNOW ── */
+const snowEl = document.getElementById("snow");
+for (let i = 0; i < 55; i++) {
+  const f = document.createElement("div"); f.className = "flake";
+  const sz = 1 + Math.random() * 2.5;
+  Object.assign(f.style, {
+    width: sz + "px", height: sz + "px",
+    left: Math.random() * 100 + "%",
+    top: Math.random() * 100 + "%",
+    animationDuration: (8 + Math.random() * 12) + "s",
+    animationDelay: (-Math.random() * 15) + "s",
+  });
+  snowEl.appendChild(f);
+}
+
+/* ── STATE ── */
+function loadState() {
+  try {
+    const s = JSON.parse(localStorage.getItem("remorhaz") || "{}");
+    return {
+      selectedCharacter: s.selectedCharacter || null,
+      completed:         Array.from(s.completed     || []),
+      completedDays:     Array.from(s.completedDays || []),
+      navigationScore:   s.navigationScore  || 0,
+      ursulaRapport:     s.ursulaRapport    || 0,
+      cookingScore:      s.cookingScore     || 0,
+      crewRespect:       s.crewRespect      || false,
+      himmselkSpotted:   s.himmselkSpotted  || false,
+      navigatorBonus:    s.navigatorBonus   || false,
+      kaltRapport:       s.kaltRapport      || 0,
+    };
+  } catch { return {}; }
+}
+const appState = loadState();
+
+/* ── BEAT SEQUENCER ── */
+const TOTAL_BEATS = 6;
+let currentBeat = 1;
+
+function goToBeat(n) {
+  document.getElementById("beat-" + currentBeat).classList.remove("active");
+  currentBeat = n;
+  const next = document.getElementById("beat-" + n);
+  next.classList.add("active");
+
+  const isLast = n === TOTAL_BEATS;
+  const hint = document.getElementById("clickHint");
+  hint.classList.toggle("show", !isLast);
+
+  if (isLast) {
+    document.getElementById("arrivalStamp").classList.add("show");
+    buildStats();
+  }
+}
+
+/* Wire up individual next buttons */
+for (let i = 1; i < TOTAL_BEATS; i++) {
+  document.getElementById("next-" + i).addEventListener("click", () => goToBeat(i + 1));
+}
+
+/* Click anywhere (except a button) advances through early beats */
+document.getElementById("cin").addEventListener("click", (e) => {
+  if (e.target.tagName === "BUTTON") return;
+  if (currentBeat < TOTAL_BEATS) goToBeat(currentBeat + 1);
+});
+
+/* Show hint after a moment */
+setTimeout(() => {
+  document.getElementById("clickHint").classList.add("show");
+}, 2200);
+
+/* ── STATS PANEL ── */
+function buildStats() {
+  const ch = appState.selectedCharacter;
+  const rows = [];
+
+  if (ch?.name) rows.push(["Voyager", ch.name]);
+
+  const daysCount = (appState.completedDays || []).length;
+  rows.push(["Days Completed", daysCount + " of 9"]);
+
+  const crewCount = (appState.completed || []).filter(
+    k => ["ursula","thorgrim","haldor","ingrid","kalt"].includes(k)
+  ).length;
+  rows.push(["Crew Relationships", crewCount + " formed"]);
+
+  if (appState.navigationScore) rows.push(["Navigation Score", appState.navigationScore + " / 30"]);
+  if (appState.himmselkSpotted) rows.push(["Rare Sighting", "Himmselk Isful — Omen of Fair Weather"]);
+  if (appState.navigatorBonus) rows.push(["Navigator's Favour", "Earned"]);
+
+  const rapLabel = r =>
+    r >= 2 ? "Trusted" : r >= 1 ? "Respectful" : r === 0 ? "Professional" : "Strained";
+  if (appState.ursulaRapport !== undefined)
+    rows.push(["Ursula's Regard", rapLabel(appState.ursulaRapport)]);
+  if (appState.kaltRapport !== undefined)
+    rows.push(["Kalt's Regard", rapLabel(appState.kaltRapport)]);
+
+  const block = document.getElementById("statsBlock");
+  block.innerHTML = rows.map(([k, v]) => `
+    <div class="stat-row"><span>${k}</span><span>${v}</span></div>
+  `).join("");
+}
+
+/* ── END BUTTONS ── */
+document.getElementById("playAgainBtn").addEventListener("click", () => {
+  try { localStorage.removeItem("remorhaz"); } catch {}
+  _navigateTo("character-select.html");
+});
+document.getElementById("stayBtn").addEventListener("click", () => {
+  _navigateTo("index.html");
+});
+</script>
+</body>
+</html>
