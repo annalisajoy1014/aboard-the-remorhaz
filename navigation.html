@@ -502,7 +502,7 @@ function showDialogue(idx) {
   set.choices.forEach(choice => {
     const btn = document.createElement("button");
     btn.className = "dialogue-btn";
-    btn.innerHTML = `<span class="tone-tag">— ${choice.tone} —</span>${choice.text}`;
+    btn.textContent = choice.text;
     btn.addEventListener("click", () => {
       rapport = Math.max(-2, Math.min(2, rapport + choice.rapport));
       setDialogue(choice.reply[ursulaMood.toString()]);
