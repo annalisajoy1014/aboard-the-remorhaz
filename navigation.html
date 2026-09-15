@@ -984,10 +984,13 @@ function startSpyglass() {
     if (hActive && !hHandled) hHandled = true;
 
     stage2Score = Math.round((spotsHit/OBJ.length)*15);
+    // Ursula names whichever sighting actually got away, not a fixed one.
+    const missed = OBJ.find(o => !o.spotted);
+    const missedName = {rocks:"the outcrop",ship:"the vessel",dolphins:"the pod",island:"the island",storm:"the storm"}[missed?.type] || "that one";
     let d;
     if (himmselkSpotted)   d = "...You saw the ice-bird. I'll want the full account later.";
     else if (spotsHit>=5)  d = "Every sighting. The crew needs to know about all of these. Well done.";
-    else if (spotsHit>=4)  d = "Nearly everything. One slipped past — the storm is the one you want to catch.";
+    else if (spotsHit>=4)  d = "Nearly everything. One slipped past — " + missedName + " is the one you want to catch.";
     else if (spotsHit>=2)  d = "You spotted the obvious ones. Hazards near the waterline are easy to miss in fog.";
     else                   d = "You need more time at the nest. The eye has to learn to distinguish shapes from noise.";
     setDialogue(d);
@@ -1034,15 +1037,25 @@ function showResult() {
     <div class="result-npc">"${final}"</div>
   `;
 
-  const s = appState;
-  s.completed       = [...new Set([...s.completed, "ursula"])];
-  s.navigationScore = total;
-  s.ursulaRapport   = rapport;
-  s.navigatorBonus  = earned;
-  s.himmselkSpotted = himmselkSpotted;
-  s.completedDays   = [...new Set([...s.completedDays, 3])];
-  if (s.currentDay < 4) s.currentDay = 4;
-  saveState(s);
+  // Progression advances unconditionally: even a worse retry leaves Day 3 done.
+  Remorhaz.markComplete("ursula", 3);
+  const saved = Remorhaz.load();
+  if ((saved.currentDay || 1) < 4) Remorhaz.patch({ currentDay: 4 });
+
+  // The Himmselk is a once-a-voyage sighting: once seen it must never be
+  // un-seen, so it is carried forward rather than overwritten by this run.
+  const sawHimmselk = himmselkSpotted || !!saved.himmselkSpotted;
+
+  // The whole run moves together, and only when this attempt is at least as good
+  // as the stored one — "Try Again" must not trade a 24 for a 9 (combat.html
+  // reads navigationScore for Ursula's mood).
+  const recorded = Remorhaz.recordRun("navigationScore", total, {
+    ursulaRapport:   rapport,
+    navigatorBonus:  earned,
+    himmselkSpotted: sawHimmselk,
+  });
+  // A run too poor to record still writes the sighting, on its own.
+  if (!recorded && himmselkSpotted) Remorhaz.patch({ himmselkSpotted: true });
 
   document.getElementById("toHubBtn").addEventListener("click", () => { _navigateTo("index.html"); });
   document.getElementById("retryBtn").addEventListener("click", () => { _navigateTo(window.location.href); });

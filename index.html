@@ -1962,7 +1962,10 @@ function _navigateTo(url) {
   const recookRequired    = !!_raw.recookRequired;
   const skipToSyrinlya    = !!_raw.skipToSyrinlya;
   const d8_initialized    = !!_raw.d8_initialized;
-  const _char = (_raw.character || "relyt").toLowerCase();
+  // Nothing ever wrote a top-level `character` key — character-select stores
+  // selectedCharacter.id — so this was permanently "relyt" and every Lucy and
+  // Irene response line was unreachable. charId() reads the real save.
+  const _char = Remorhaz.charId();
 
   function influenceTier(zone) {
     const v = state.influence[zone] ?? 2;
@@ -2283,6 +2286,41 @@ function _navigateTo(url) {
 
   let _pendingZone = null;
 
+  // Day-exact activity routing. Each minigame is scheduled for one specific day,
+  // so a route exists only on that day. The old >= comparisons let a late-day
+  // visit relaunch a finished minigame — Day 9 Ursula replayed the storm, which
+  // rewrites currentDay and skipToSyrinlya and corrupts the ending state.
+  // Returns null when this NPC has no work scheduled today.
+  function routeForToday(zone) {
+    const day = state.currentDay;
+    switch (zone) {
+      case "haldor":
+        if (day === 1) return "fishing.html";
+        if (day === 4) return "combat.html";
+        // Day 8 only sends him back to the lines if the storm actually took the stores.
+        if (day === 8 && repairDayRequired && refishRequired) return "fishing.html";
+        return null;
+      case "ingrid":
+        if (day === 1) return "cooking.html";
+        if (day === 8 && repairDayRequired && recookRequired) return "cooking.html";
+        return null;
+      case "kalt":
+        if (day === 2) return "maintenance.html";
+        // Days 5 and 8 are damage-driven: no damage, no repair shift.
+        if (day === 5 && d5KaltRequired) return "maintenance.html";
+        if (day === 8 && repairDayRequired) return "maintenance.html";
+        return null;
+      case "ursula":
+        if (day === 3) return "navigation.html";
+        if (day === 5) return "icefloe.html";
+        if (day === 6) return "seabattle.html";
+        if (day === 7) return "weatherstorm.html";
+        return null;
+      default:
+        return null;
+    }
+  }
+
   function showNpcCinematic(zone) {
     const npc = NPCS[zone];
     if (!npc) return;
@@ -2373,16 +2411,28 @@ function _navigateTo(url) {
           if (state.currentDay < npc.day && !isRequiredToday) {
             cinNpcEnter.textContent = "NOT YET AVAILABLE";
             cinNpcEnter.disabled = true;
-          } else {
+          } else if (routeForToday(zone)) {
             cinNpcEnter.textContent = "BEGIN ACTIVITY →";
             cinNpcEnter.disabled = false;
+          } else {
+            // No work scheduled with them today — this was a conversation, not a
+            // shift, so the button must not promise an activity it cannot start.
+            cinNpcEnter.textContent = "RETURN TO DECK";
+            cinNpcEnter.disabled = false;
+            cinNpcReturn.style.display = "none";
           }
           cinNpcActions.style.display = "flex";
         });
         cinNpcOptions.appendChild(btn);
       });
     } else {
-      cinNpcEnter.textContent = "BEGIN ACTIVITY →";
+      if (routeForToday(zone)) {
+        cinNpcEnter.textContent = "BEGIN ACTIVITY →";
+      } else {
+        // Same honesty rule as above: nothing to begin, so offer the way back.
+        cinNpcEnter.textContent = "RETURN TO DECK";
+        cinNpcReturn.style.display = "none";
+      }
       cinNpcActions.style.display = "flex";
     }
 
@@ -2428,33 +2478,17 @@ function _navigateTo(url) {
       return;
     }
 
-    const routes = {
-      haldor: (repairDayRequired && state.currentDay === 8) ? "fishing.html"
-              : state.currentDay >= 4 ? "combat.html" : "fishing.html",
-      ingrid:  "cooking.html",
-      kalt:    "maintenance.html",
-      ursula:  state.currentDay >= 7 ? "weatherstorm.html"
-               : state.currentDay >= 6 ? "seabattle.html"
-               : state.currentDay >= 5 ? "icefloe.html"
-               : "navigation.html",
-    };
+    const route = routeForToday(zone);
 
-    if (routes[zone]) {
+    if (route) {
       save();
       dismissNpcCinematic();
-      setTimeout(() => _navigateTo(routes[zone]), 50);
+      setTimeout(() => _navigateTo(route), 50);
       return;
     }
 
-    // Fallback: mark complete in-place
-    state.completed.add(zone);
-    const dayEntry = DAYS.find(d => d.n === state.currentDay);
-    if (dayEntry && dayEntry.npcs.every(k => state.completed.has(k))) {
-      state.completedDays.add(state.currentDay);
-      if (state.currentDay < 9) state.currentDay++;
-    }
-    save();
-    renderKnots();
+    // No activity for this NPC today. Never mark them complete or advance the
+    // day off the back of a chat — that used to credit work the player never did.
     dismissNpcCinematic();
   });
 

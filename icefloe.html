@@ -87,6 +87,8 @@
 }
 .roll-stat-name { font-family:"IM Fell English SC",serif; font-size: 13px; letter-spacing:0.22em; color:var(--blood); }
 .roll-stat-mod  { font-family:"IM Fell English SC",serif; font-size: 24px; color:var(--lamp); }
+.roll-stat-favour { font-family:"IM Fell English SC",serif; font-size: 10px; letter-spacing:0.14em; color:var(--lamp); margin-top: 3px; }
+.roll-stat-favour:empty { display: none; }   /* no favour earned — box sits exactly as it did before */
 .roll-dc-box {
   display: flex; flex-direction: column; align-items: center;
   background: rgba(0,0,0,0.25); border: 1px solid color-mix(in oklch, var(--paper-deep) 18%, transparent);
@@ -262,13 +264,14 @@
           <div class="roll-stat-box">
             <div class="roll-stat-name">INTELLIGENCE</div>
             <div class="roll-stat-mod" id="h1-mod">—</div>
+            <div class="roll-stat-favour" id="h1-favour"></div>
           </div>
           <div class="die-wrap">
             <div class="die-face" id="h1-die">d20</div>
           </div>
           <div class="roll-dc-box">
             <div class="roll-dc-label">DIFFICULTY</div>
-            <div class="roll-dc-val">DC 7</div>
+            <div class="roll-dc-val">DC —</div>
           </div>
         </div>
         <div class="roll-equation" id="h1-eq"></div>
@@ -291,13 +294,14 @@
           <div class="roll-stat-box">
             <div class="roll-stat-name">WISDOM</div>
             <div class="roll-stat-mod" id="h2-mod">—</div>
+            <div class="roll-stat-favour" id="h2-favour"></div>
           </div>
           <div class="die-wrap">
             <div class="die-face" id="h2-die">d20</div>
           </div>
           <div class="roll-dc-box">
             <div class="roll-dc-label">DIFFICULTY</div>
-            <div class="roll-dc-val">DC 7</div>
+            <div class="roll-dc-val">DC —</div>
           </div>
         </div>
         <div class="roll-equation" id="h2-eq"></div>
@@ -320,13 +324,14 @@
           <div class="roll-stat-box">
             <div class="roll-stat-name">INTELLIGENCE</div>
             <div class="roll-stat-mod" id="h3-mod">—</div>
+            <div class="roll-stat-favour" id="h3-favour"></div>
           </div>
           <div class="die-wrap">
             <div class="die-face" id="h3-die">d20</div>
           </div>
           <div class="roll-dc-box">
             <div class="roll-dc-label">DIFFICULTY</div>
-            <div class="roll-dc-val">DC 7</div>
+            <div class="roll-dc-val">DC —</div>
           </div>
         </div>
         <div class="roll-equation" id="h3-eq"></div>
@@ -416,14 +421,19 @@ function saveState(s) {
 
 /* ── MAIN GAME ── */
 (function() {
-  const raw  = JSON.parse(localStorage.getItem("remorhaz") || "{}");
-  const char = raw.selectedCharacter || { name: "Relyt Murcielago", stats: { STR:-2,DEX:0,INT:2,WIS:2,CHA:1,CON:-1 } };
-  const s    = char.stats || {};
-  const charKey = char.name.includes("Lucy") ? "lucy" : char.name.includes("Irene") ? "irene" : "relyt";
+  const charKey = Remorhaz.charId();
 
-  const INT = s.INT || 0;
-  const WIS = s.WIS || 0;
+  // character-select writes long-lowercase stat keys (intelligence, wisdom).
+  // The short-uppercase reads that used to sit here resolved to undefined and
+  // fell back to 0, so every character threaded the ice at a flat +0.
+  const INT = Remorhaz.stat("intelligence");
+  const WIS = Remorhaz.stat("wisdom");
   const DC  = 7;
+
+  // Ursula's Day 3 card — "+1 to future navigation & observation checks" — is
+  // spent right here. Kept as its own term everywhere it shows, because an
+  // unexplained +1 on the total reads as a bug rather than a reward.
+  const FAVOUR = Remorhaz.navigatorFavour();
 
   function fmtMod(n) { return n >= 0 ? "+" + n : "" + n; }
 
@@ -526,6 +536,12 @@ function saveState(s) {
   document.getElementById("h1-desc").textContent = C.h1Desc;
   document.getElementById("h2-desc").textContent = C.h2Desc;
   document.getElementById("h3-desc").textContent = C.h3Desc;
+  document.querySelectorAll(".roll-dc-val").forEach(el => { el.textContent = "DC " + DC; });
+  if (FAVOUR) {
+    ["h1","h2","h3"].forEach(h => {
+      document.getElementById(h + "-favour").textContent = "+" + FAVOUR + " FAVOUR";
+    });
+  }
 
   document.getElementById("intro-start-btn").addEventListener("click", () => goToScreen("screen-h1"));
 
@@ -547,7 +563,7 @@ function saveState(s) {
       rollBtn.disabled = true;
 
       const roll = Math.floor(Math.random() * 20) + 1;
-      const total = roll + modifier;
+      const total = roll + modifier + FAVOUR;
       const nat20 = roll === 20;
       const nat1  = roll === 1;
 
@@ -567,7 +583,10 @@ function saveState(s) {
       }, 55);
 
       setTimeout(() => {
-        eqEl.textContent = roll + (modifier !== 0 ? (modifier >= 0 ? " + " + modifier : " − " + Math.abs(modifier)) : "") + " = " + total;
+        eqEl.textContent = roll
+          + (modifier !== 0 ? (modifier >= 0 ? " + " + modifier : " − " + Math.abs(modifier)) : "")
+          + (FAVOUR ? " + " + FAVOUR + " (Navigator's Favour)" : "")
+          + " = " + total;
 
         const passed = total >= DC || nat20;
         let outcomeText, bannerText, bannerClass;
