@@ -69,6 +69,8 @@
   opacity: 1;
   pointer-events: auto;
 }
+/* Backs the inert attribute on hidden beats — they must not catch clicks */
+.beat:not(.active) { pointer-events: none; }
 
 .beat-tag {
   font-family: "Caveat", cursive;
@@ -228,6 +230,9 @@
   opacity: 0;
 }
 .click-hint.show { opacity: 0.45; }
+/* The blink animation has no fill-mode, so its keyframes outrank the opacity
+   .show sets — the hint must lose the animation too, or it blinks on the last beat */
+.click-hint:not(.show) { animation: none; opacity: 0; }
 @keyframes hintBlink {
   0%, 60%, 100% { opacity: 0.45; }
   30% { opacity: 0.9; }
@@ -287,7 +292,7 @@
   </div>
 
   <!-- BEAT 2: The Crew -->
-  <div class="beat" id="beat-2">
+  <div class="beat" id="beat-2" inert>
     <div class="beat-tag">— The Remorhaz Crew —</div>
     <div class="beat-title">A Ship That Carried You</div>
     <div class="beat-rule"></div>
@@ -309,7 +314,7 @@
   </div>
 
   <!-- BEAT 3: The Settlement -->
-  <div class="beat" id="beat-3">
+  <div class="beat" id="beat-3" inert>
     <div class="beat-tag">— Syrinlya —</div>
     <div class="beat-title">The Edge of Everything</div>
     <div class="beat-rule"></div>
@@ -330,7 +335,7 @@
   </div>
 
   <!-- BEAT 4: CLIFFHANGER -->
-  <div class="beat beat-dark" id="beat-4">
+  <div class="beat beat-dark" id="beat-4" inert>
     <div class="beat-tag">— Something Is Wrong —</div>
     <div class="beat-title">The Woman at the Dock</div>
     <div class="beat-rule"></div>
@@ -351,7 +356,7 @@
   </div>
 
   <!-- BEAT 5: DEEPER CLIFFHANGER -->
-  <div class="beat beat-dark" id="beat-5">
+  <div class="beat beat-dark" id="beat-5" inert>
     <div class="beat-tag">— What She Pressed Into Your Hand —</div>
     <div class="beat-title">The Compass</div>
     <div class="beat-rule"></div>
@@ -378,7 +383,7 @@
   </div>
 
   <!-- BEAT 6: FINAL -->
-  <div class="beat beat-end" id="beat-6">
+  <div class="beat beat-end" id="beat-6" inert>
     <div class="beat-tag">— Foren Awaits —</div>
     <div class="beat-title">The Voyage Is Complete.<br>The Adventure Has Not Yet Begun.</div>
     <div class="beat-rule"></div>
@@ -467,10 +472,15 @@ const TOTAL_BEATS = 6;
 let currentBeat = 1;
 
 function goToBeat(n) {
-  document.getElementById("beat-" + currentBeat).classList.remove("active");
+  const prev = document.getElementById("beat-" + currentBeat);
+  prev.classList.remove("active");
+  /* An invisible beat still holds its buttons in the tab order — a keyboard
+     player could reach the final beat's "Set Sail Again" and wipe the save */
+  prev.setAttribute("inert", "");
   currentBeat = n;
   const next = document.getElementById("beat-" + n);
   next.classList.add("active");
+  next.removeAttribute("inert");
 
   const isLast = n === TOTAL_BEATS;
   const hint = document.getElementById("clickHint");
@@ -493,8 +503,12 @@ document.getElementById("cin").addEventListener("click", (e) => {
   if (currentBeat < TOTAL_BEATS) goToBeat(currentBeat + 1);
 });
 
-/* Show hint after a moment */
+/* Show hint after a moment — but not if the reader has already clicked their way
+   to the final beat, where clicking does nothing. This timer used to fire
+   unconditionally, so racing through the first five beats inside 2.2s left the
+   hint blinking over the last card forever. */
 setTimeout(() => {
+  if (currentBeat >= TOTAL_BEATS) return;
   document.getElementById("clickHint").classList.add("show");
 }, 2200);
 
@@ -532,6 +546,7 @@ function buildStats() {
 
 /* ── END BUTTONS ── */
 document.getElementById("playAgainBtn").addEventListener("click", () => {
+  if (!confirm("Begin a new voyage?\n\nAll progress will be permanently lost.")) return;
   try { localStorage.removeItem("remorhaz"); } catch {}
   _navigateTo("character-select.html");
 });

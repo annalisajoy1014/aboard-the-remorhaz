@@ -1950,6 +1950,7 @@ function showReveal(success, reason) {
   setBannerAct3();
 
   let html;
+  let caught = null;   // the catch this reveal rendered, if any
   if (!success) {
     const msgs = {
       missed:   ["THE MOMENT PASSED",        "The moment passed unnoticed. The nets drifted up empty, the fish long scattered."],
@@ -1975,6 +1976,7 @@ function showReveal(success, reason) {
   } else {
     const roll = Math.ceil(Math.random() * 4);
     const c = CATCHES[roll - 1];
+    caught = c;
     setPhase("Act III — The Catch", `Roll ${roll} · ${c.quality}`);
     showTally(c);
     html = `
@@ -1995,14 +1997,18 @@ function showReveal(success, reason) {
   }
 
   scene.innerHTML = html;
+  // both exits must leave the same saved state; only the destination differs
+  const saveHaul = () => {
+    if (!caught) return;                     // empty nets finish nothing
+    Remorhaz.patch({ lastCatch: caught });   // the object in scope, not re-read from the rendered tag
+    Remorhaz.markComplete("haldor");         // idempotent, so a replay cannot duplicate the entry
+  };
   document.getElementById("revealBack")?.addEventListener("click", () => {
+    saveHaul();
     _navigateTo("index.html");
   });
   document.getElementById("goGalley")?.addEventListener("click", () => {
-    const state = loadState();
-    state.lastCatch = CATCHES.find(c => c.roll === parseInt(scene.querySelector(".catch-result-tag").textContent.match(/\d/)?.[0])) || null;
-    state.completed.push("haldor");
-    saveState(state);
+    saveHaul();
     _navigateTo("cooking.html");
   });
 }

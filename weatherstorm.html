@@ -525,9 +525,7 @@ function flashLightning(strong) {
 /* ── MAIN GAME ── */
 (function() {
   const raw  = JSON.parse(localStorage.getItem("remorhaz") || "{}");
-  const char = raw.selectedCharacter || { name: "Relyt Murcielago", stats: { STR:-2,DEX:0,INT:2,WIS:2,CHA:1,CON:-1 } };
-  const s    = char.stats || {};
-  const charKey = char.name.includes("Lucy") ? "lucy" : char.name.includes("Irene") ? "irene" : "relyt";
+  const charKey = Remorhaz.charId(); // prefers the stored id; name-matching is only its fallback
 
   /* Character-specific content */
   const CHAR = {
@@ -585,10 +583,13 @@ function flashLightning(strong) {
   };
   const C = CHAR[charKey];
 
-  /* Stat modifiers */
-  const STR = s.STR || 0;
-  const DEX = s.DEX || 0;
-  const WIS = s.WIS || 0;
+  /* Stat modifiers — each is the ability its own roll box names. Read via Remorhaz.stat():
+     character-select stores long-lowercase keys, so s.STR / s.DEX / s.WIS were always 0. */
+  const STR = Remorhaz.stat("strength");
+  const DEX = Remorhaz.stat("dexterity");
+  const WIS = Remorhaz.stat("wisdom");
+  // Ursula's Day 3 favour: +1 to observation — the helm is the check that reads the water.
+  const navFavour = Remorhaz.navigatorFavour();
   const himmselkSpotted = !!raw.himmselkSpotted;
   const DC  = himmselkSpotted ? 4 : 7; // Easier if Himmselk Isful was spotted on Day 3
 
@@ -612,6 +613,12 @@ function flashLightning(strong) {
   document.getElementById("cargo-mod").textContent = fmtMod(STR);
   document.getElementById("rig-mod").textContent   = fmtMod(DEX);
   document.getElementById("helm-mod").textContent  = fmtMod(WIS);
+
+  // The three DIFFICULTY boxes shipped hardcoded as "DC 5" while the real check
+  // is DC 7 — or DC 4 when the Himmselk Isful was sighted on Day 3. The player
+  // read "DC 5", rolled a 6, was told it failed, and reasonably concluded the
+  // dice were broken. Worse, it hid the one visible payoff of that Day 3 sighting.
+  document.querySelectorAll(".roll-dc-val").forEach(el => { el.textContent = "DC " + DC; });
   document.getElementById("cargo-desc").textContent = C.cargoDesc;
   document.getElementById("rig-desc").textContent   = C.rigDesc;
   document.getElementById("helm-desc").textContent  = C.helmDesc;
@@ -634,7 +641,7 @@ function flashLightning(strong) {
   });
 
   /* ── DICE ROLLER ── */
-  function rollCheck(stageId, modifier, onDone) {
+  function rollCheck(stageId, modifier, onDone, bonus, bonusLabel) {
     const dieEl    = document.getElementById(stageId + "-die");
     const numEl    = document.getElementById(stageId + "-die-num");
     const eqEl     = document.getElementById(stageId + "-eq");
@@ -660,7 +667,8 @@ function flashLightning(strong) {
       if (frame >= frames) {
         clearInterval(interval);
         const roll = Math.floor(Math.random() * 20) + 1;
-        const total = roll + modifier;
+        const extra = bonus || 0;
+        const total = roll + modifier + extra;
         const success = total >= DC;
         const natTwenty = roll === 20;
         const natOne    = roll === 1;
@@ -670,7 +678,9 @@ function flashLightning(strong) {
         if (natTwenty) dieEl.classList.add("nat20");
         if (natOne)    dieEl.classList.add("nat1");
 
-        eqEl.textContent = `${roll} ${modifier >= 0 ? "+" : ""}${modifier} = ${total} vs DC ${DC}`;
+        // An earned bonus gets its own term — it must never vanish into the stat modifier.
+        const extraTerm = extra ? ` +${extra} ${bonusLabel || ""}`.trimEnd() : "";
+        eqEl.textContent = `${roll} ${modifier >= 0 ? "+" : ""}${modifier}${extraTerm} = ${total} vs DC ${DC}`;
 
         setTimeout(() => {
           if (natTwenty) {
@@ -753,7 +763,7 @@ function flashLightning(strong) {
       score += pts;
       document.getElementById("tally-helm").textContent = results.helm;
       updateTotalTally();
-    });
+    }, navFavour, "(Navigator's Favour)");
   });
   document.getElementById("helm-next").addEventListener("click", () => {
     showResult();

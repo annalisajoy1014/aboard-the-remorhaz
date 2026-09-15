@@ -810,8 +810,11 @@ function _navigateTo(url) {
 
   /* ── STATE ── */
   const raw = JSON.parse(localStorage.getItem("remorhaz") || "{}");
-  const char = raw.selectedCharacter || { name: "Relyt Murcielago", stats: { STR:-2,DEX:0,INT:2,WIS:2,CHA:1,CON:-1 }, portrait:"assets/relyt.jpg" };
-  const charKey = char.name.includes("Lucy") ? "lucy" : char.name.includes("Irene") ? "irene" : "relyt";
+  // Identity and stats come from Remorhaz, never from the raw blob. character-select
+  // writes long-lowercase stat keys (dexterity), so reading char.stats.DEX here quietly
+  // handed every character +0 and switched the whole stat system off for this battle.
+  const charName = Remorhaz.charName();
+  const charKey = Remorhaz.charId();
   // If combat training was not passed (or not done), apply 30% hit penalty
   const trainingMult = raw.combatTrainingPassed ? 1.0 : 0.70;
   const trainingPenaltyActive = !raw.combatTrainingPassed;
@@ -1228,7 +1231,7 @@ function _navigateTo(url) {
 
   /* ── HUD ── */
   function refreshHud() {
-    document.getElementById("hud-char-name").textContent = char.name;
+    document.getElementById("hud-char-name").textContent = charName;
     const pct = Math.max(0, player.hp / player.maxHp * 100);
     document.getElementById("hud-hp-fill").style.width = pct + "%";
     document.getElementById("hud-hp-text").textContent = "HP: " + Math.max(0, player.hp) + "/" + player.maxHp;
@@ -1250,7 +1253,11 @@ function _navigateTo(url) {
     if (entity.hp <= 0 && !entity.dead) {
       entity.dead = true;
       el.classList.add("dead");
-      setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, 1200);
+      // Grey the token out, never delete it: Ingrid can revive the fallen, and a removed
+      // token left the revived entity a ghost — still acting, nowhere on the map. Enemy
+      // tokens carry an inline opacity:1 from the boarding fade-in, which would beat
+      // .token.dead, so clear it and let the class do the dimming.
+      el.style.opacity = "";
     }
   }
 
@@ -1676,7 +1683,14 @@ function _navigateTo(url) {
         fallen.dead = false; fallen.revived = true;
         fallen.hp = Math.ceil(fallen.maxHp * 0.10);
         const el = tokenEls[fallen.id];
-        if (el) el.classList.remove("dead");
+        if (el) {
+          el.classList.remove("dead");
+          // A player dragged overboard was faded out and slid past the rail, so put the
+          // token back on the entity's real square — a revived fighter must be visible.
+          el.style.opacity = "";
+          el.style.left = fallen.x + "%";
+          el.style.top  = fallen.y + "%";
+        }
         updateTokenHp(fallen);
         if (fallen === player) refreshHud();
         addLog(`Ingrid channels healing — ${fallen.label} revived to ${fallen.hp} HP!`, "log-crit");
@@ -1801,8 +1815,8 @@ function _navigateTo(url) {
     enemyAttacksThisRound++;
 
     // Player's DEX / STR reduces their personal hit chance
-    const dexMod = char.stats ? (char.stats.DEX || 0) : 0;
-    const strMod = char.stats ? (char.stats.STR || 0) : 0;
+    const dexMod = Remorhaz.stat("dexterity");
+    const strMod = Remorhaz.stat("strength");
     const statDefense = Math.max(dexMod, strMod) * 0.08;
     const playerHitChance = Math.max(0.20, 0.60 - statDefense);
 
@@ -1849,8 +1863,8 @@ function _navigateTo(url) {
     showWaterEffect(tokenEls["player"]);
     await delay(680);
 
-    const strMod = char.stats ? (char.stats.STR || 0) : 0;
-    const dexMod = char.stats ? (char.stats.DEX || 0) : 0;
+    const strMod = Remorhaz.stat("strength");
+    const dexMod = Remorhaz.stat("dexterity");
     const DC = 5;
     const strRoll = Math.floor(Math.random() * 10) + 1 + strMod;
     const dexRoll = Math.floor(Math.random() * 10) + 1 + dexMod;
@@ -1892,7 +1906,27 @@ function _navigateTo(url) {
         addLog(msgs[charKey] || `${CD.label} twists free — too quick to catch!`, "log-hit");
       }
     } else {
-      // Both saves failed — overboard
+      // Both saves failed — the Revenant gets a real grip. This used to kill outright
+      // whatever the player's HP, so a full-HP character could lose the whole battle to a
+      // turn-one coin flip. Now it spends HP instead: heavy damage, clearly above a normal
+      // 8-19 hit, but capped at 34 — under Relyt's 38 maximum — so nobody is one-shot from
+      // full, and the sea only takes you once you have nothing left to hold on with.
+      const dmg = randRange(22, 34);
+      player.hp -= dmg;
+      updateTokenHp(player);
+      refreshHud();
+      addLog(`${enemy.label} hauls ${CD.label} bodily to the rail — ${dmg} dmg!`, "log-enemy");
+
+      if (player.hp > 0) {
+        const heldMsgs = {
+          relyt: `${CD.label} strikes the railing, measures the drop to the water, and refuses it.`,
+          lucy:  `${CD.label} slams into the rail, spits salt, and hooks an elbow round the post.`,
+          irene: `${CD.label} is driven into the railing and stays there — battered, bleeding, immovable.`,
+        };
+        addLog(heldMsgs[charKey] || `${CD.label} is left at the rail, badly hurt — but aboard.`, "log-hit");
+        return;
+      }
+
       const failMsgs = {
         relyt: `${CD.label} is torn over the railing — the cold closes in.`,
         lucy:  `${CD.label} is dragged over the side — too fast, too sudden to evade.`,
@@ -1901,6 +1935,9 @@ function _navigateTo(url) {
       addLog(failMsgs[charKey] || `${CD.label} is dragged overboard!`, "log-enemy");
       const pEl = tokenEls["player"];
       if (pEl) {
+        // updateTokenHp has already greyed the token; strip that for the fall so the
+        // authored overboard animation still reads full-opacity to nothing.
+        pEl.classList.remove("dead");
         const edx = enemy.x - player.x, edy = enemy.y - player.y;
         const ed = Math.sqrt(edx * edx + edy * edy);
         if (ed > 0) {

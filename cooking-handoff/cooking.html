@@ -4,7 +4,6 @@
 <meta charset="utf-8"/>
 <title>Day 1 · Cooking — Aboard the Remorhaz</title>
 <link rel="stylesheet" href="shared.css">
-<script src="state.js"></script>
 <style>
 
 /* ── LAYOUT ── */
@@ -67,11 +66,11 @@
   flex: 1; min-height: 80px; transition: opacity 0.3s;
 }
 .phase-label {
-  font-family: "IM Fell English SC", serif; font-size: 14px;
+  font-family: "IM Fell English SC", serif; font-size: 11px;
   letter-spacing: 0.2em; color: var(--blood); text-align: center;
 }
 .instruction-label {
-  font-family: "Caveat", cursive; font-size: 14px;
+  font-family: "Caveat", cursive; font-size: 13px;
   color: var(--paper-deep); text-align: center; margin-top: -8px;
 }
 .score-tally {
@@ -81,7 +80,7 @@
   display: flex; justify-content: space-between;
   border-bottom: 1px dotted color-mix(in oklch, var(--paper-deep) 35%, transparent);
   padding-bottom: 4px;
-  font-family: "IM Fell English SC", serif; font-size: 14px;
+  font-family: "IM Fell English SC", serif; font-size: 11px;
   letter-spacing: 0.1em; color: var(--paper-deep);
 }
 .score-row span:last-child {
@@ -90,7 +89,7 @@
 .score-total-row {
   display: flex; justify-content: space-between;
   padding-top: 4px; margin-top: 2px;
-  font-family: "IM Fell English SC", serif; font-size: 15px;
+  font-family: "IM Fell English SC", serif; font-size: 12px;
   letter-spacing: 0.12em; color: var(--lamp);
 }
 
@@ -106,7 +105,7 @@
   text-align: center; max-width: 480px;
 }
 .difficulty-tag {
-  font-family: "IM Fell English SC", serif; font-size: 14px;
+  font-family: "IM Fell English SC", serif; font-size: 11px;
   letter-spacing: 0.24em; color: var(--blood);
 }
 
@@ -153,7 +152,7 @@ canvas#heatCanvas {
 .lift-btn:hover:not(:disabled) { background: var(--blood); border-color: var(--blood); transform: scale(1.03); }
 .lift-btn:disabled { opacity: 0.4; cursor: default; }
 .heat-result-label {
-  font-family: "IM Fell English SC", serif; font-size: 14px;
+  font-family: "IM Fell English SC", serif; font-size: 13px;
   letter-spacing: 0.22em; color: var(--lamp);
   min-height: 20px; text-align: center;
 }
@@ -171,7 +170,7 @@ canvas#heatCanvas {
   width: 90px;
 }
 .spice-label {
-  font-family: "IM Fell English SC", serif; font-size: 14px;
+  font-family: "IM Fell English SC", serif; font-size: 11px;
   letter-spacing: 0.2em; color: var(--paper-deep);
 }
 .spice-jar {
@@ -219,12 +218,12 @@ canvas#heatCanvas {
 .spice-meter-pct {
   position: absolute; top: -22px; left: 50%;
   transform: translateX(-50%);
-  font-family: "IM Fell English SC", serif; font-size: 13px;
+  font-family: "IM Fell English SC", serif; font-size: 10px;
   color: var(--paper-deep); white-space: nowrap;
 }
 
 .taste-btn {
-  font-family: "IM Fell English SC", serif; font-size: 14px;
+  font-family: "IM Fell English SC", serif; font-size: 11px;
   letter-spacing: 0.2em; color: var(--paper-deep); background: transparent;
   border: 1px solid var(--paper-deep); padding: 7px 18px; cursor: pointer;
   border-radius: 1px; transition: all 0.2s;
@@ -306,7 +305,7 @@ canvas#heatCanvas {
 }
 .plate-score-label {
   position: absolute; bottom: -28px; left: 50%; transform: translateX(-50%);
-  font-family: "IM Fell English SC", serif; font-size: 14px;
+  font-family: "IM Fell English SC", serif; font-size: 11px;
   letter-spacing: 0.2em; color: var(--paper-deep); white-space: nowrap;
 }
 
@@ -323,7 +322,7 @@ canvas#heatCanvas {
 .garnish-opt:hover { border-color: var(--lamp); background: color-mix(in oklch, var(--lamp) 8%, transparent); }
 .garnish-opt.chosen { border-color: var(--lamp); background: color-mix(in oklch, var(--lamp) 14%, transparent); }
 .garnish-opt .gem { font-size: 28px; }
-.garnish-opt .glbl { font-family: "IM Fell English SC", serif; font-size: 13px; letter-spacing: 0.18em; color: var(--paper-deep); }
+.garnish-opt .glbl { font-family: "IM Fell English SC", serif; font-size: 10px; letter-spacing: 0.18em; color: var(--paper-deep); }
 .garnish-prompt { font-family: "Caveat", cursive; font-size: 16px; color: var(--paper-dim); }
 
 /* ── RESULT CARD ── */
@@ -361,87 +360,15 @@ canvas#heatCanvas {
 }
 .transition-overlay.fade-in { opacity: 1; pointer-events: auto; }
 
-/* ── STAT ARROWS ── */
-.stat-arrow { font-style: normal; font-size: 14px; margin-right: 3px; }
-.stat-arrow.up { color: var(--lamp); }
-.stat-arrow.dn { color: var(--blood); }
-
 /* ── MISC SHARED ── */
 .screen-title {
   font-family: "IM Fell English SC", serif; font-size: 14px;
   letter-spacing: 0.24em; color: var(--blood); margin-bottom: -10px;
 }
-
-/* ── BG3 NARRATIVE SCENE + SKILL CHECK ── */
-.skill-check-card {
-  width:min(360px,90%);
-  background:
-    radial-gradient(60px 50px at 20% 20%,rgba(134,109,77,.07),transparent 70%),
-    linear-gradient(160deg,color-mix(in oklch,var(--paper) 7%,var(--ink)) 0%,color-mix(in oklch,var(--paper) 4%,var(--sea-deep)) 100%);
-  border:1px solid color-mix(in oklch,var(--lamp) 35%,transparent);
-  padding:14px 18px 16px; position:relative;
-  display:flex; flex-direction:column; align-items:center; gap:9px;
-  box-shadow:0 0 20px color-mix(in oklch,var(--lamp) 8%,transparent),0 8px 20px rgba(0,0,0,.4);
-}
-.skill-check-card::before {
-  content:""; position:absolute; inset:5px;
-  border:1px solid color-mix(in oklch,var(--lamp) 14%,transparent);
-  pointer-events:none;
-}
-.sck-name {
-  font-family:"IM Fell English SC",serif; font-size:10px;
-  letter-spacing:.32em; color:var(--blood);
-  display:flex; align-items:center; gap:10px;
-}
-.sck-name::before,.sck-name::after { content:""; width:22px; height:1px; background:var(--blood); opacity:.5; }
-.sck-dc { font-family:"Caveat",cursive; font-size:13px; color:var(--paper-deep); margin-top:-5px; }
-.sck-die-row { display:flex; align-items:center; gap:14px; min-height:44px; }
-.sck-die {
-  font-family:"IM Fell English SC",serif; font-size:34px; line-height:1;
-  color:var(--lamp); min-width:42px; text-align:center;
-  text-shadow:0 0 14px color-mix(in oklch,var(--lamp) 40%,transparent);
-  transition:color .3s,text-shadow .3s;
-}
-.sck-die.is-fail { color:var(--blood); text-shadow:0 0 14px color-mix(in oklch,var(--blood) 40%,transparent); }
-.sck-breakdown { font-family:"IM Fell English",serif; font-style:italic; font-size:12px; color:var(--paper-deep); line-height:1.4; }
-.sck-verdict { font-family:"IM Fell English SC",serif; font-style:normal; font-size:12px; letter-spacing:.08em; }
-.sck-verdict.pass { color:var(--lamp); }
-.sck-verdict.fail { color:var(--blood); }
-.btn-roll-check {
-  font-family:"IM Fell English SC",serif; font-size:12px;
-  letter-spacing:.2em; color:var(--paper);
-  background:color-mix(in oklch,var(--lamp) 10%,var(--ink));
-  border:1px solid color-mix(in oklch,var(--lamp) 40%,transparent);
-  padding:9px 22px; cursor:pointer; border-radius:1px;
-  transition:background .2s,border-color .2s,transform .1s;
-  box-shadow:0 0 10px color-mix(in oklch,var(--lamp) 10%,transparent),0 4px 10px rgba(0,0,0,.4);
-}
-.btn-roll-check:hover:not(:disabled) {
-  background:color-mix(in oklch,var(--lamp) 18%,var(--ink));
-  border-color:color-mix(in oklch,var(--lamp) 65%,transparent);
-}
-.btn-roll-check:active:not(:disabled) { transform:translateY(1px); }
-.btn-roll-check:disabled { opacity:.35; cursor:default; }
-.sck-result-prose {
-  font-family:"IM Fell English",serif; font-style:italic;
-  font-size:13.5px; line-height:1.6; color:var(--paper-dim);
-  text-align:center; max-width:340px;
-  margin:0; padding-top:9px;
-  border-top:1px solid color-mix(in oklch,var(--paper-deep) 25%,transparent);
-  opacity:0; transition:opacity .6s;
-}
-.sck-result-prose.show { opacity:1; }
-.sck-result-prose.pass { color:color-mix(in oklch,var(--lamp) 60%,var(--paper-dim)); }
-.intro-reveal { visibility:hidden; opacity:0; transition:opacity .5s; }
-.intro-reveal.show { visibility:visible; opacity:1; }
-.sck-prompt { font-family:"IM Fell English",serif; font-style:italic; font-size:14px; line-height:1.65; color:var(--paper-dim); text-align:center; max-width:320px; margin:0; }
-.sck-indicator { min-height:24px; display:flex; align-items:center; justify-content:center; }
-.sck-indicator .stat-arrow { font-size:20px; margin-right:0; }
 </style>
 </head>
 <body>
 
-<div id="page-fade" class="page-fade in"></div>
 <div class="backdrop"></div>
 <div class="snow" id="snow"></div>
 
@@ -451,7 +378,7 @@ canvas#heatCanvas {
 <span class="corner br"></span>
 
 <div class="page-header">
-  <div class="eyebrow">— Glassblade Charter Vessel —</div>
+  <div class="eyebrow">— Glassblade Trading Co., Charter Vessel —</div>
   <div class="title">Day 1 · Cooking</div>
   <div class="rule"></div>
 </div>
@@ -470,18 +397,9 @@ canvas#heatCanvas {
         <div class="screen-title">— THE GALLEY —</div>
         <div class="intro-catch-icon" id="introCatchIcon">🐠</div>
         <div class="intro-catch-name" id="introCatchName">Arctic Halibut</div>
-        <div class="intro-body" id="introBody">You carry the catch below deck.</div>
-
-        <!-- BG3 Wisdom / Insight check -->
-        <div class="skill-check-card">
-          <p class="sck-prompt">You try to gauge what Ingrid expects and how best to approach the work ahead.</p>
-          <div class="sck-indicator" id="wisArrow"></div>
-          <button class="btn-roll-check" id="btnRollInsight">Read the Room</button>
-          <p class="sck-result-prose" id="wisckResultProse"></p>
-        </div>
-
-        <div class="difficulty-tag intro-reveal" id="difficultyTag">STANDARD DIFFICULTY</div>
-        <button class="btn-primary intro-reveal" id="beginBtn">ENTER THE GALLEY</button>
+        <div class="intro-body" id="introBody">Ingrid examines your catch without expression. A long silence.</div>
+        <div class="difficulty-tag" id="difficultyTag">STANDARD DIFFICULTY</div>
+        <button class="btn-primary" id="beginBtn">ENTER THE GALLEY</button>
       </div>
 
       <!-- STAGE 0: EEL SUBDUE (eel catch only) -->
@@ -577,15 +495,6 @@ canvas#heatCanvas {
 </div>
 
 <script>
-/* ── PAGE TRANSITIONS ── */
-const _pf = document.getElementById("page-fade");
-setTimeout(() => { if (_pf) _pf.classList.remove("in"); }, 50);
-function _navigateTo(url) {
-  if (!_pf) { window.location.href = url; return; }
-  _pf.classList.add("in");
-  _pf.addEventListener("transitionend", () => { window.location.href = url; }, { once: true });
-}
-
 (function () {
 
 /* ══════════════════════════════════════════
@@ -613,7 +522,6 @@ function loadState() {
   try {
     const s = JSON.parse(localStorage.getItem("remorhaz") || "{}");
     return {
-      selectedCharacter: s.selectedCharacter || null,
       currentDay:    s.currentDay    || 1,
       completed:     Array.from(s.completed    || []),
       completedDays: Array.from(s.completedDays || []),
@@ -621,32 +529,11 @@ function loadState() {
     };
   } catch { return { currentDay: 1, completed: [], completedDays: [] }; }
 }
-function saveState(s) {
-  try {
-    const existing = JSON.parse(localStorage.getItem("remorhaz") || "{}");
-    localStorage.setItem("remorhaz", JSON.stringify({ ...existing, ...s }));
-  } catch { localStorage.setItem("remorhaz", JSON.stringify(s)); }
-}
+function saveState(s) { localStorage.setItem("remorhaz", JSON.stringify(s)); }
 
 const appState  = loadState();
 const lastCatch = appState.lastCatch;
 const catchRoll = lastCatch ? lastCatch.roll : 3;
-
-/* ── FISHING GATE ── */
-if (!lastCatch) {
-  document.getElementById("screen-intro").innerHTML = `
-    <div class="screen-title">— THE GALLEY —</div>
-    <img src="assets/ingrid-cin.jpg" style="width:110px;height:110px;object-fit:cover;border-radius:50%;border:2px solid #8b7355;margin-bottom:6px;" alt="Ingrid">
-    <div style="font-family:'IM Fell English',serif;font-style:italic;font-size:20px;color:var(--paper);line-height:1.7;text-align:center;max-width:520px;padding:0 12px;">
-      "You put ze cart before ze horse in life, I take it. That will not do for cooking.
-      What, you expect me to cook something up, out of ze air? Pah.
-      Even I am not zat good. I need sumsing to work wiz.
-      Go see if Haldor can teach you a thing or two!"
-    </div>
-    <button class="btn-primary" style="margin-top:18px;" onclick="window._navigateTo('index.html')">← Return to the Ship</button>
-  `;
-  window._navigateTo = _navigateTo;
-}
 
 // Per-catch difficulty config
 const CONFIGS = {
@@ -690,46 +577,6 @@ const CONFIGS = {
 
 const cfg = CONFIGS[catchRoll] || CONFIGS[3];
 
-/* ── APPLY STAT MODIFIERS ── */
-(function () {
-  try {
-    const s = JSON.parse(localStorage.getItem("remorhaz") || "{}");
-    const st = s.selectedCharacter?.stats;
-    if (!st) return;
-    window._cookStats = st;
-
-    function factor(k) {
-      const m = st[k] || 0;
-      return m === 2 ? 1.35 : m === 1 ? 1.17 : m === -1 ? 0.82 : m === -2 ? 0.65 : 1.0;
-    }
-
-    // DEX → heat window
-    cfg.heatWindowMs = Math.round(cfg.heatWindowMs * factor('dexterity'));
-
-    // WIS → spice target zone width
-    const wisAdj = (st.wisdom || 0) * 0.04;
-    Object.keys(cfg.spiceTargets).forEach(k => {
-      const [lo, hi] = cfg.spiceTargets[k];
-      const center  = (lo + hi) / 2;
-      const newHalf = Math.max(4, ((hi - lo) / 2) * (1 + wisAdj));
-      cfg.spiceTargets[k] = [
-        Math.max(5,  Math.round(center - newHalf)),
-        Math.min(95, Math.round(center + newHalf)),
-      ];
-    });
-
-    // CHA → plate tolerance
-    cfg.plateTolerance = Math.max(18, Math.round(cfg.plateTolerance + (st.charisma || 0) * 8));
-  } catch {}
-})();
-
-function _cookArrow(k) {
-  const m = (window._cookStats || {})[k] || 0;
-  if (m >= 1)  return '<span class="stat-arrow up">▲</span> ';
-  if (m <= -1) return '<span class="stat-arrow dn">▼</span> ';
-  return '';
-}
-
 const CATCH_ICONS = { 1:"🐟", 2:"🐍", 3:"🐠", 4:"🐡" };
 const CATCH_NAMES = {
   1:"Silver Fish", 2:"Giant Sea Eel", 3:"Arctic Halibut", 4:"Arctic Char"
@@ -750,9 +597,9 @@ function setDialogue(text) {
   el.style.opacity = "0";
   setTimeout(() => { el.textContent = '"' + text + '"'; el.style.opacity = "1"; }, 260);
 }
-function setPhase(p, instHtml) {
-  document.getElementById("phaseLabel").textContent     = p;
-  document.getElementById("instructionLabel").innerHTML = instHtml;
+function setPhase(p, inst) {
+  document.getElementById("phaseLabel").textContent       = p;
+  document.getElementById("instructionLabel").textContent = inst;
 }
 function showScoreTally() {
   document.getElementById("scoreTally").style.display = "flex";
@@ -782,56 +629,11 @@ function goToScreen(id, delay = 0) {
 /* ══════════════════════════════════════════
    INTRO SCREEN
 ══════════════════════════════════════════ */
-document.getElementById("introCatchIcon").textContent = CATCH_ICONS[catchRoll] || "🐠";
-document.getElementById("introCatchName").textContent = CATCH_NAMES[catchRoll] || "Your Catch";
-document.getElementById("difficultyTag").textContent  = cfg.label;
+document.getElementById("introCatchIcon").textContent  = CATCH_ICONS[catchRoll] || "🐠";
+document.getElementById("introCatchName").textContent  = CATCH_NAMES[catchRoll] || "Your Catch";
+document.getElementById("introBody").textContent       = cfg.ingridIntro;
+document.getElementById("difficultyTag").textContent   = cfg.label;
 setDialogue(cfg.ingridIntro);
-
-// 2nd-person narrative per catch type
-const CATCH_NARRATIVES = {
-  1: "You carry the meagre haul below deck, the silver fish barely filling the bucket. Ingrid looks at them for a long moment. She does not look at you.",
-  2: "You carry the writhing catch below deck, drawing alarmed looks from every crewmember you pass. In the galley, Ingrid's expression does not change. She reaches for a very large pan.",
-  3: "You carry the halibut below deck. The galley smells of wood smoke and rendered fat. Ingrid stands at the central worksurface with a knife already in her hand.",
-  4: "You carry the char below deck. For once the galley almost feels welcoming. Ingrid looks at the catch and, briefly, almost smiles.",
-};
-document.getElementById("introBody").textContent = CATCH_NARRATIVES[catchRoll] || CATCH_NARRATIVES[3];
-
-// Wisdom / Insight check
-(function () {
-  const wisMod  = (window._cookStats || {}).wisdom || 0;
-  const wisEl   = document.getElementById("wisArrow");
-  if (wisMod >= 1)       wisEl.innerHTML = '<span class="stat-arrow up">▲</span>';
-  else if (wisMod <= -1) wisEl.innerHTML = '<span class="stat-arrow dn">▼</span>';
-
-  const DC = 8;
-  const WISDOM_SUCCESS = {
-    1: "You read the situation quickly. Ingrid expects precision and restraint — she's making do, and so will you.",
-    2: "You gauge the challenge immediately. The eel demands high heat and bold seasoning. Miss either and it becomes inedible.",
-    3: "You've watched enough kitchens to know the shape of this. Timing, balanced seasoning, clean presentation.",
-    4: "Fine ingredients reward patience. Let each stage breathe and the char will do most of the work for you.",
-  };
-  const WISDOM_FAILURE = {
-    1: "Ingrid doesn't explain what she wants. She never does. You'll have to interpret her movements and hope you're guessing right.",
-    2: "You've never cooked an eel before. Ingrid offers no guidance. You'll have to improvise.",
-    3: "You have no particular read on what Ingrid expects. Good fish, prepared badly — it would be a real waste.",
-    4: "Even fine char can be ruined. You're not quite sure what makes the difference. Ingrid's expression offers no clues.",
-  };
-
-  document.getElementById("btnRollInsight").addEventListener("click", function () {
-    this.disabled = true;
-    const pass  = (Math.ceil(Math.random() * 10) + wisMod) >= DC;
-    const resEl = document.getElementById("wisckResultProse");
-
-    setTimeout(() => {
-      resEl.textContent = (pass ? WISDOM_SUCCESS : WISDOM_FAILURE)[catchRoll] || (pass ? WISDOM_SUCCESS[3] : WISDOM_FAILURE[3]);
-      resEl.classList.add("show", pass ? "pass" : "fail");
-
-      setTimeout(() => {
-        document.querySelectorAll(".intro-reveal").forEach(el => el.classList.add("show"));
-      }, 900);
-    }, 500);
-  });
-})();
 
 document.getElementById("beginBtn").addEventListener("click", () => {
   setDialogue(cfg.ingridPre);
@@ -844,7 +646,7 @@ document.getElementById("beginBtn").addEventListener("click", () => {
   }
 });
 document.getElementById("backBtn").addEventListener("click", () => {
-  _navigateTo("index.html");
+  window.location.href = "index.html";
 });
 
 /* ══════════════════════════════════════════
@@ -918,7 +720,7 @@ let perfectStart  = 0;
 let perfectEnd    = 0;
 
 function startHeat() {
-  setPhase("Stage I — The Heat", _cookArrow('dexterity') + "Dexterity Check · Pull at the right moment");
+  setPhase("Stage I — The Heat", "Sleight of Hand · Pull at the right moment");
   setDialogue("Knowing how long to leave the fish on the stove is key. Pull it off too soon — it is raw. Leave it too long — it is coal.");
 
   // Perfect window position based on difficulty
@@ -1035,7 +837,16 @@ function drawFishInPan(c, cx, cy, heat) {
     r = lerp(180, 210, t); g = lerp(155, 170, t); b = lerp(110, 90, t);
   } else if (heat <= perfectEnd) {
     const t = (heat - perfectStart) / (perfectEnd - perfectStart);
+    const glow = Math.sin(t * Math.PI);
     r = lerp(210, 230, t); g = lerp(170, 165, t); b = lerp(90, 60, t);
+    // golden shimmer overlay
+    c.save();
+    c.globalAlpha = glow * 0.35;
+    const shimmer = c.createRadialGradient(cx, cy, 0, cx, cy, 60);
+    shimmer.addColorStop(0, "rgba(243,195,118,1)");
+    shimmer.addColorStop(1, "transparent");
+    c.fillStyle = shimmer; c.fillRect(cx-80, cy-30, 160, 60);
+    c.restore();
   } else {
     const t = Math.min(1, (heat - perfectEnd) / (100 - perfectEnd));
     r = lerp(200, 60, t); g = lerp(150, 35, t); b = lerp(60, 20, t);
@@ -1097,6 +908,22 @@ function drawThermometer(c, x, y, w, h) {
   c.fillStyle = "#0e0a06";
   c.beginPath(); c.roundRect(x, y, w, h, 12); c.fill();
 
+  // Perfect zone band
+  const pStartY = y + h * (1 - perfectEnd/100);
+  const pEndY   = y + h * (1 - perfectStart/100);
+  c.save();
+  c.beginPath(); c.roundRect(x, y, w, h, 12); c.clip();
+  c.fillStyle = "rgba(243,195,118,0.22)";
+  c.fillRect(x, pStartY, w, pEndY - pStartY);
+  // pulse border on perfect zone
+  const inPerfect = heatLevel >= perfectStart && heatLevel <= perfectEnd;
+  if (inPerfect) {
+    c.strokeStyle = `rgba(243,195,118,${0.6 + 0.4*Math.sin(Date.now()*0.01)})`;
+    c.lineWidth = 2;
+    c.strokeRect(x, pStartY, w, pEndY - pStartY);
+  }
+  c.restore();
+
   // Fill
   const fillY = y + h * (1 - fillPct);
   const fillGrad = c.createLinearGradient(0, y+h, 0, y);
@@ -1113,6 +940,17 @@ function drawThermometer(c, x, y, w, h) {
   // Bulb at bottom
   c.fillStyle = heatLevel > 80 ? "#c03010" : heatLevel > 50 ? "#e07030" : "#2a8eff";
   c.beginPath(); c.arc(x + w/2, y + h + 10, 14, 0, Math.PI*2); c.fill();
+
+  // "PERFECT" label
+  const labelY = (pStartY + pEndY) / 2;
+  c.save();
+  c.translate(x - 6, labelY);
+  c.rotate(-Math.PI/2);
+  c.fillStyle = inPerfect ? "#f3c376" : "rgba(243,195,118,0.45)";
+  c.font = `bold 9px "IM Fell English SC", serif`;
+  c.textAlign = "center";
+  c.fillText("PERFECT", 0, 0);
+  c.restore();
 }
 
 function lerp(a, b, t) { return a + (b - a) * Math.max(0, Math.min(1, t)); }
@@ -1180,7 +1018,7 @@ let tasteUsed      = false;
 let seasoningDone  = false;
 
 function startSeasoning() {
-  setPhase("Stage II — The Seasoning", _cookArrow('wisdom') + "Wisdom Check · Apply salt, pepper, and herbs");
+  setPhase("Stage II — The Seasoning", "Medicine · Apply salt, pepper, and herbs");
   setDialogue("The size of the fish determines how much it needs. Too much salt and you are seasoning the ocean. Too little and it is flavorless — and you will answer for it.");
   document.getElementById("seasonFishPreview").textContent = CATCH_ICONS[catchRoll] || "🐠";
   buildSpiceRow();
@@ -1191,13 +1029,17 @@ function buildSpiceRow() {
   const row = document.getElementById("spiceRow");
   row.innerHTML = "";
   SPICES.forEach(sp => {
+    const target = cfg.spiceTargets[sp.key];
     const col = document.createElement("div");
     col.className = "spice-col";
     col.innerHTML = `
       <div class="spice-label">${sp.label}</div>
       <div class="spice-jar" id="jar-${sp.key}" data-key="${sp.key}">${sp.icon}</div>
       <div class="spice-meter-wrap" id="wrap-${sp.key}">
+        <div class="spice-target" id="target-${sp.key}"
+          style="bottom:${target[0]}%; height:${target[1]-target[0]}%"></div>
         <div class="spice-meter-fill" id="fill-${sp.key}" style="height:0%"></div>
+        <div class="spice-meter-pct" id="pct-${sp.key}">0%</div>
       </div>
     `;
     row.appendChild(col);
@@ -1231,7 +1073,15 @@ function stopPour() {
 
 function updateSpiceMeter(key) {
   const lvl = spiceLevels[key];
-  document.getElementById("fill-" + key).style.height = lvl + "%";
+  document.getElementById("fill-" + key).style.height  = lvl + "%";
+  document.getElementById("pct-"  + key).textContent   = Math.round(lvl) + "%";
+  const target = cfg.spiceTargets[key];
+  const inZone = lvl >= target[0] && lvl <= target[1];
+  document.getElementById("fill-" + key).style.background =
+    inZone ? "linear-gradient(to top, var(--lamp-warm), var(--lamp))"
+           : lvl > target[1]
+             ? "linear-gradient(to top, var(--blood), oklch(0.6 0.18 30))"
+             : "linear-gradient(to top, var(--sea-light), var(--ice-dim))";
 }
 
 function updateSeasonSubmit() {
@@ -1243,23 +1093,21 @@ document.getElementById("tasteBtn").addEventListener("click", () => {
   tasteUsed = true;
   document.getElementById("tasteBtn").disabled = true;
 
-  let offCount = 0;
+  const hints = [];
   SPICES.forEach(sp => {
     const t = cfg.spiceTargets[sp.key];
     const lvl = spiceLevels[sp.key];
-    if (lvl < t[0] - 8 || lvl > t[1] + 8) offCount++;
+    if (lvl < t[0] - 8)       hints.push("more " + sp.label.toLowerCase());
+    else if (lvl > t[1] + 8)  hints.push("less "  + sp.label.toLowerCase());
   });
 
   let fb, dialogue;
-  if (offCount === 0) {
-    fb = "The balance feels right.";
+  if (hints.length === 0) {
+    fb = "The balance is right. Finish it.";
     dialogue = "...Hmm. Taste it yourself. It is almost correct. Continue.";
-  } else if (offCount === 1) {
-    fb = "Something is slightly off.";
-    dialogue = "One of these is not right. I can taste it. You should be able to as well.";
   } else {
-    fb = "The flavours are fighting each other.";
-    dialogue = "It needs work. Keep adjusting — but do not overdo it. That makes things worse.";
+    fb = hints.join(", ") + ".";
+    dialogue = "You need " + hints.join(", ") + ". Pay attention to the amounts.";
   }
   document.getElementById("tasteFeedback").textContent = fb;
   setDialogue(dialogue);
@@ -1334,10 +1182,9 @@ let placedItems   = {};   // id → {x,y} on plate (0-1 coords)
 let draggingItem  = null;
 let plateDone     = false;
 let chosenGarnish = null;
-let plateWidthPx  = 0;    // plate width in px, cached while the plate is still laid out
 
 function startPlating() {
-  setPhase("Stage III — The Plate", _cookArrow('charisma') + "Charisma Check · Arrange the dish properly");
+  setPhase("Stage III — The Plate", "Performance · Arrange the dish properly");
   setDialogue("Proper presentation requires knowing what people will want to see. Place the fish first — it is the centrepiece. Everything else supports it.");
   buildPlate();
 }
@@ -1346,26 +1193,6 @@ function buildPlate() {
   const plateArea = document.getElementById("plateArea");
   const tray      = document.getElementById("foodTray");
   tray.innerHTML  = "";
-
-  // Show where each element belongs. The markup has always reserved a slot for
-  // "zone hints injected by JS" and .plate-zone-hint has always been styled, but
-  // nothing ever injected them — so the player was aiming at invisible marks.
-  // That was survivable only because plating was scoring a flat 15/15 regardless.
-  // Now that it scores honestly, the target has to be visible to be fair.
-  // The ring is drawn at the full-credit radius, so it widens with Charisma.
-  plateArea.querySelectorAll(".plate-zone-hint").forEach(n => n.remove());
-  const scoreLabel = document.getElementById("plateScoreLabel");
-  FOOD_ITEMS.forEach(item => {
-    const hint = document.createElement("div");
-    hint.className = "plate-zone-hint";
-    hint.dataset.zone = item.id;
-    const d = cfg.plateTolerance * 2;
-    hint.style.width  = d + "px";
-    hint.style.height = d + "px";
-    hint.style.left   = (item.targetX * 100) + "%";
-    hint.style.top    = (item.targetY * 100) + "%";
-    plateArea.insertBefore(hint, scoreLabel);
-  });
 
   FOOD_ITEMS.forEach(item => {
     const trayItem = document.createElement("div");
@@ -1386,6 +1213,19 @@ function buildPlate() {
     token.addEventListener("pointerdown", (e) => startDrag(e, item));
   });
 
+  // Zone hints on plate (invisible until dragging)
+  FOOD_ITEMS.forEach(item => {
+    const hint = document.createElement("div");
+    hint.className = "plate-zone-hint";
+    hint.id = "hint-" + item.id;
+    hint.style.cssText = `
+      width: 48px; height: 48px;
+      left: ${item.targetX * 100}%;
+      top:  ${item.targetY * 100}%;
+      opacity: 0;
+    `;
+    plateArea.appendChild(hint);
+  });
 }
 
 function startDrag(e, item) {
@@ -1407,6 +1247,8 @@ function startDrag(e, item) {
   const moveFloater = (clientX, clientY) => {
     floater.style.left = clientX + "px";
     floater.style.top  = clientY + "px";
+    // Show zone hints while dragging
+    document.querySelectorAll(".plate-zone-hint").forEach(h => h.style.opacity = "0.35");
   };
 
   const getCoords = (ev) => ev.touches ? [ev.touches[0].clientX, ev.touches[0].clientY] : [ev.clientX, ev.clientY];
@@ -1417,6 +1259,7 @@ function startDrag(e, item) {
     document.body.removeEventListener("pointermove", onMove);
     document.body.removeEventListener("pointerup",   onUp);
     document.body.removeChild(floater);
+    document.querySelectorAll(".plate-zone-hint").forEach(h => h.style.opacity = "0");
 
     // Check if dropped on plate
     const plateArea = document.getElementById("plateArea");
@@ -1443,10 +1286,6 @@ function startDrag(e, item) {
 function placeOnPlate(item, relX, relY, plateRect) {
   placedItems[item.id] = { x: relX, y: relY };
 
-  // Remember how wide the plate was while it was still on screen — scoring happens
-  // after the garnish step has hidden it, and a hidden plate measures 0.
-  plateWidthPx = plateRect.width || plateWidthPx;
-
   const plateArea = document.getElementById("plateArea");
   const token = document.createElement("div");
   token.className = "food-token placed";
@@ -1454,13 +1293,11 @@ function placeOnPlate(item, relX, relY, plateRect) {
   token.style.left = (relX * 100) + "%";
   token.style.top  = (relY * 100) + "%";
 
+  // Accuracy check
   const dist = Math.hypot(relX - item.targetX, relY - item.targetY) * plateRect.width;
+  if (dist < cfg.plateTolerance) token.classList.add("accurate");
 
   plateArea.appendChild(token);
-
-  // This element has found its place — retire its target ring.
-  const hint = plateArea.querySelector('.plate-zone-hint[data-zone="' + item.id + '"]');
-  if (hint) hint.style.opacity = "0";
 
   // React with Ingrid dialogue after each item
   const placed = Object.keys(placedItems).length;
@@ -1519,15 +1356,12 @@ document.getElementById("garnishSubmitBtn").addEventListener("click", () => {
 function resolvePlating() {
   let score = 0;
   const plateArea = document.getElementById("plateArea");
-  // showGarnishStep() hides the plate workspace, so measuring it now returns 0 —
-  // every distance would collapse to zero and every dish would plate perfectly.
-  // Cached width first; computed style is the fallback, as it survives display:none.
-  const plateW = plateWidthPx || parseFloat(getComputedStyle(plateArea).width) || 260;
+  const pr = plateArea.getBoundingClientRect();
 
   FOOD_ITEMS.forEach(item => {
     const p = placedItems[item.id];
     if (!p) return;
-    const dist = Math.hypot(p.x - item.targetX, p.y - item.targetY) * plateW;
+    const dist = Math.hypot(p.x - item.targetX, p.y - item.targetY) * pr.width;
     if (dist < cfg.plateTolerance * 0.5)         score += 5;
     else if (dist < cfg.plateTolerance)           score += 3;
     else if (dist < cfg.plateTolerance * 1.8)     score += 1;
@@ -1606,10 +1440,10 @@ function showResult() {
   saveState(s);
 
   document.getElementById("toHubBtn").addEventListener("click", () => {
-    _navigateTo("index.html");
+    window.location.href = "index.html";
   });
   document.getElementById("retryBtn").addEventListener("click", () => {
-    _navigateTo(window.location.href);
+    window.location.reload();
   });
 }
 
