@@ -390,6 +390,20 @@
       return s.standing[npc];
     },
 
+    // The arrow that goes beside a stage's skill label. Up if this character is
+    // better than most at it, down if worse, nothing if it makes no difference.
+    //
+    // It is the only thing the player is ever told about their own numbers, so
+    // it has to appear everywhere a check does. It lived in two minigames out of
+    // eight, which meant the other six tested abilities the player had no way of
+    // knowing they were weak at.
+    arrow: function (name) {
+      var m = this.stat(name);
+      if (m >= 1)  return '<span class="stat-arrow up">\u25B2</span> ';
+      if (m <= -1) return '<span class="stat-arrow dn">\u25BC</span> ';
+      return "";
+    },
+
     /* Bonuses ------------------------------------------------------ */
 
     // Ursula's Navigator's Favour: +1 to later navigation and observation

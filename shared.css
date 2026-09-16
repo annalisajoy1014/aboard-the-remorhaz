@@ -153,6 +153,15 @@ body {
 }
 .btn-secondary:hover { background: color-mix(in oklch, var(--ink) 10%, transparent); }
 
+/* ── STAT AFFORDANCE ──
+   The one cue the player gets about their own ability before a check: an arrow
+   beside the skill a stage tests. Up means this character is better than most
+   at it, down means worse, nothing means it makes no difference. The numbers
+   stay hidden — this is the whole of what the player is told. */
+.stat-arrow { font-style: normal; font-size: 14px; margin-right: 3px; }
+.stat-arrow.up { color: var(--lamp); }
+.stat-arrow.dn { color: var(--blood); }
+
 /* ── SCROLLBAR ── */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-thumb { background: color-mix(in oklch, var(--ink) 40%, transparent); }

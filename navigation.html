@@ -463,9 +463,9 @@ function setDialogue(text) {
   el.style.opacity = "0";
   setTimeout(() => { el.textContent = "“" + text + "”"; el.style.opacity = "1"; }, 260);
 }
-function setPhase(p, inst) {
+function setPhase(p, instHtml) {
   document.getElementById("phaseLabel").textContent = p;
-  document.getElementById("instructionLabel").textContent = inst;
+  document.getElementById("instructionLabel").innerHTML = instHtml;
 }
 function showScoreTally() { document.getElementById("scoreTally").style.display = "flex"; }
 function updateTally(s1, s2) {
@@ -646,7 +646,7 @@ function startChartReading() {
   const TOTAL_T  = CHART_TARGETS.length * TIME_PER;
 
   let current = 0, hits = 0, elapsed = 0, done = false, animId = null;
-  setPhase("Stage I — Chart Reading", "Intelligence (Navigation) · DC 4 · Follow Ursula's instruction");
+  setPhase("Stage I — Chart Reading", Remorhaz.arrow("intelligence") + "Intelligence (Navigation) · DC 4 · Follow Ursula's instruction");
   document.getElementById("chartPrompt").textContent = CHART_TARGETS[0].prompt;
 
   const ticker = setInterval(() => {
@@ -776,7 +776,7 @@ function startSpyglass() {
   const FOG = Math.max(0.1, cfg.spyFog - _stat("wisdom")*0.06);
   const STAGE_T = 28000;
 
-  setPhase("Stage II — Crow's Nest", "Wisdom (Perception) · DC 5 · Spot hazards and wonders");
+  setPhase("Stage II — Crow's Nest", Remorhaz.arrow("wisdom") + "Wisdom (Perception) · DC 5 · Spot hazards and wonders");
 
   // Five regular sighting objects
   const OBJ = [
