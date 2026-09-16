@@ -59,11 +59,22 @@
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
   display: flex; flex-direction: column;
-  justify-content: center;
-  padding: 0 6% 0 8%;
+  /* `safe` matters: with plain centring, content taller than the beat overflows
+     equally in both directions and the first paragraph is clipped off the top
+     with no way to reach it. The crew farewell can run to six paragraphs. */
+  justify-content: safe center;
+  padding: 24px 6% 24px 8%;
   opacity: 0;
   transition: opacity 0.9s ease;
   pointer-events: none;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+/* Long beats need room to breathe on short viewports before they need to scroll. */
+@media (max-height: 760px) {
+  .beat-body  { font-size: 17px; line-height: 1.62; margin-bottom: 14px; }
+  .beat-title { font-size: clamp(26px, 3.4vw, 42px); margin-bottom: 12px; }
+  .beat-rule  { margin-bottom: 16px; }
 }
 .beat.active {
   opacity: 1;
@@ -296,18 +307,8 @@
     <div class="beat-tag">— The Remorhaz Crew —</div>
     <div class="beat-title">A Ship That Carried You</div>
     <div class="beat-rule"></div>
-    <p class="beat-body">
-      Thorgrim brings the ship in with the quiet authority of someone who has done this a hundred times.
-      Kalt is at the lines before the gangplank drops, jaw set, eyes checking every rope as it goes.
-      Haldor leans on the rail and whistles at the size of the ice shelf to the north — appreciative, not afraid.
-    </p>
-    <p class="beat-body">
-      Ursula says nothing. She stands at the crow's nest long after she needs to, watching the dock come closer
-      with an expression you can't quite read from below. Something between relief and something else entirely.
-    </p>
-    <p class="beat-body">
-      You've earned your place on this ship. Every one of them knows it now.
-    </p>
+    <!-- Assembled at load from how each of them came to regard you. See CREW_FAREWELL. -->
+    <div id="crewFarewell"></div>
     <div class="beat-continue">
       <button class="btn-cin" id="next-2">Continue →</button>
     </div>
@@ -464,6 +465,108 @@ function loadState() {
   } catch { return {}; }
 }
 const appState = loadState();
+
+/* ── THE CREW'S FAREWELL ──────────────────────────────────────────────
+   Beat 2 used to be fixed, and it ended by telling the player "You've earned
+   your place on this ship. Every one of them knows it now" — whether or not
+   they had, and whether or not they did. Ingrid was not in it at all.
+
+   Each crew member now says goodbye the way nine days actually left them.
+   The opening image of each fragment is the one the beat always had; what
+   changes is whether they look up. The closing line is the voyage's verdict,
+   and the original line survives as what the best of them is: earned. */
+
+const CREW_FAREWELL = {
+  thorgrim: {
+    low:  `Thorgrim brings the ship in with the quiet authority of someone who has done this a
+           hundred times. He does not look for you on the deck. The passage is finished, and he
+           never once pretended it was anything else.`,
+    mid:  `Thorgrim brings the ship in with the quiet authority of someone who has done this a
+           hundred times. When the gangplank drops he finds you among the others and gives you a
+           single nod. From him, that is a paragraph.`,
+    high: `Thorgrim brings the ship in with the quiet authority of someone who has done this a
+           hundred times. He finds you before you reach the gangplank. "You worked," he says,
+           which is the whole of it. Then, after a moment: "You come north again, you come to my
+           ship first."`,
+  },
+  kalt: {
+    low:  `Kalt is at the lines before the gangplank drops, jaw set, eyes checking every rope as
+           it goes. She does not check on you.`,
+    mid:  `Kalt is at the lines before the gangplank drops, jaw set, eyes checking every rope as
+           it goes. She looks up once as you pass, and then back at the rope. From Kalt, being
+           looked up at is not nothing.`,
+    high: `Kalt is at the lines before the gangplank drops, jaw set, eyes checking every rope as
+           it goes. She stops you on the way past. "Your splices held," she says. "All of them.
+           I checked." She does not say things to make people feel better. That is exactly what
+           makes it worth something.`,
+  },
+  haldor: {
+    low:  `Haldor leans on the rail and whistles at the size of the ice shelf to the north —
+           appreciative, not afraid. He does not turn round.`,
+    mid:  `Haldor leans on the rail and whistles at the size of the ice shelf to the north —
+           appreciative, not afraid. "Made it, then," he says, to the ice more than to you.`,
+    high: `Haldor leans on the rail and whistles at the size of the ice shelf to the north —
+           appreciative, not afraid. "Ye'll do," he says, and claps a hand on your shoulder hard
+           enough to move you. "Come back when ye've had yer fill o' the land. There's always a
+           line wants pullin'."`,
+  },
+  ingrid: {
+    low:  `The galley is already cold. Ingrid does not come up.`,
+    mid:  `Ingrid comes up from the galley with a bundle wrapped in waxed cloth and puts it in
+           your hands without ceremony. "You will be hungry later," she says, and goes back down.`,
+    high: `Ingrid comes up from the galley with a bundle wrapped in waxed cloth — bread, salt
+           fish, something spiced that is somehow still warm. "Syrinlya will feed you badly," she
+           says. "I know this. I built the kitchen." She holds the bundle a moment longer than
+           she needs to before she lets you take it.`,
+  },
+};
+
+/* Ursula's paragraph is doing plot work, not relationship work — the thing she
+   is watching the dock with is a thread, and it belongs in every ending. Only
+   what she does about YOU changes. */
+const URSULA_CONSTANT =
+  `Ursula says nothing. She stands at the crow's nest long after she needs to, watching the dock
+   come closer with an expression you can't quite read from below. Something between relief and
+   something else entirely.`;
+
+const URSULA_FAREWELL = {
+  low:  `When she finally comes down, she goes past you without stopping.`,
+  mid:  `When she comes down she touches your arm on the way past, and says your name, and
+         nothing else.`,
+  high: `When she comes down she stops in front of you and looks at you a moment, as if deciding
+         something. Then: "Whatever you're going to Foren for — be careful who you tell." Her
+         hand is at her throat, on the chain, and she doesn't seem to know it is there.`,
+};
+
+/* The verdict on nine days. The original line is the best outcome rather than
+   the only one, so a player who earns it is being told something true. */
+const VOYAGE_VERDICT = {
+  low:  `Nine days. You did the work, or enough of it. The Remorhaz owes you nothing and you owe
+         it nothing back, and there is a kind of cleanness in that.`,
+  mid:  `Nine days. You are not crew — nobody becomes crew in nine days — but you are no longer
+         only cargo either. On a ship this small, that is a real distance to have crossed.`,
+  high: `You've earned your place on this ship. Every one of them knows it now.`,
+};
+
+function buildCrewFarewell() {
+  const tier = npc => Remorhaz.standingTier(npc);
+  // A paragraph each, in the order you meet them coming ashore. They get their
+  // own line whether or not they use it — at low standing the short paragraphs
+  // and the white space between them are the point.
+  const paras = [
+    CREW_FAREWELL.thorgrim[tier('thorgrim')],
+    CREW_FAREWELL.kalt[tier('kalt')],
+    CREW_FAREWELL.haldor[tier('haldor')],
+    CREW_FAREWELL.ingrid[tier('ingrid')],
+    URSULA_CONSTANT + ' ' + URSULA_FAREWELL[tier('ursula')],
+    VOYAGE_VERDICT[Remorhaz.tierOf(Math.round(Remorhaz.crewStandingAvg()))],
+  ];
+
+  document.getElementById('crewFarewell').innerHTML = paras
+    .map(t => `<p class="beat-body">${t.replace(/\s+/g, ' ').trim()}</p>`)
+    .join('');
+}
+buildCrewFarewell();
 
 /* ── BEAT SEQUENCER ── */
 const TOTAL_BEATS = 6;

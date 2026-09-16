@@ -102,6 +102,15 @@
   font-size: 15.5px; line-height: 1.6; color: var(--paper-dim);
   text-align: center; max-width: 460px;
 }
+/* The player's own read on the day — set apart from Kalt's briefing below it,
+   and a shade dimmer, because it is thought rather than speech. */
+.char-intro {
+  font-family: "IM Fell English", serif;
+  font-size: 15px; line-height: 1.62; color: var(--paper-deep);
+  text-align: center; max-width: 470px;
+  padding-bottom: 12px; margin-bottom: 2px;
+  border-bottom: 1px solid color-mix(in oklch, var(--paper-deep) 22%, transparent);
+}
 .mood-tag {
   font-family: "IM Fell English SC", serif; font-size: 10px;
   letter-spacing: 0.26em; color: var(--blood);
@@ -194,6 +203,12 @@
 }
 
 /* ── RESULT CARD ── */
+.result-charclose {
+  font-family: "IM Fell English", serif; font-style: italic;
+  font-size: 14px; line-height: 1.55; color: var(--hull-dark);
+  margin-top: 14px; padding-top: 12px;
+  border-top: 1px solid color-mix(in oklch, var(--paper-deep) 45%, transparent);
+}
 .result-card {
   background: linear-gradient(135deg, var(--paper) 0%, var(--paper-dim) 100%);
   color: var(--ink); padding: 32px 44px; max-width: 500px; width: 92%;
@@ -302,6 +317,7 @@
         <div class="screen-title">— THE FORWARD DECK —</div>
         <div class="intro-icon">⚒️</div>
         <div class="intro-title">Ship Maintenance &amp; Repairs</div>
+        <div class="char-intro" id="charIntro">&nbsp;</div>
         <div class="intro-body" id="introBody">&nbsp;</div>
         <div class="prior-results" id="priorResults"></div>
         <div class="mood-tag" id="moodTag">&nbsp;</div>
@@ -544,6 +560,72 @@ const CFGS = {
 };
 
 const cfg = CFGS[kaltMood.toString()];
+/* ── WHOSE HANDS ──────────────────────────────────────────────────────
+   Day 2 was the only day that read identically for all three characters.
+   Every other day frames its work through whoever is doing it; this one just
+   described the work.
+
+   It is a good day to differentiate, because it cuts three different ways:
+   ropes and stitching are Dexterity, and the hull breach is Strength, so each
+   character walks in strong at one end of the day and weak at the other. */
+const CHAR = {
+  relyt: {
+    intro: `Rope is a solved problem, and you know the solution — load paths,
+      failure modes, why a splice holds where a knot slips. You could draw this
+      whole rig as a diagram of forces and be right about every line of it. None
+      of that lives in your hands. Kalt puts a length of cold hemp into them and
+      the theory stops being any use at all.`,
+    closing: `You come up from the hull work with your arms shaking. You
+      understood every part of today. That turned out to be about a third of
+      the job.`,
+  },
+  lucy: {
+    intro: `You have spent your life being good with your hands and better with
+      your balance, and a ship's rigging is only a very cold, very wet apparatus.
+      The ropes you can read. The needle you can drive. It is the hull that
+      worries you — down in the dark, holding something shut by main force, with
+      nothing to be clever with.`,
+    closing: `Your fingers are raw from the hemp and there is tar in your hair
+      that will still be there next week. You have rarely enjoyed a day's work
+      more, and you would prefer Kalt never found that out.`,
+  },
+  irene: {
+    intro: `Ropes are fiddly and sails are worse, and it is not that you cannot
+      do it — it is that you have never once had the patience for it. But
+      somewhere below the waterline there is a crack that needs a body to hold
+      it closed until it seals, and that is a problem shaped exactly like you.
+      You can wait.`,
+    closing: `You surface from the hull with your shoulders burning and
+      something close to contentment. Ropes and needles can keep. Holding a ship
+      together with your back — that part you understood.`,
+  },
+};
+const C = CHAR[Remorhaz.charId()] || CHAR.relyt;
+const tidy = t => t.replace(/\s+/g, " ").trim();
+
+/* ── APPLY STAT MODIFIERS ──
+   Day 2 was the only day of the voyage that played identically for all three
+   characters, while its own stage labels promised a Dexterity check, a second
+   Dexterity check and a Strength check. Same shape as cooking.html: a modifier
+   widens or narrows the window rather than changing what the stage asks of you.
+   Kalt's difficulty tier still sets the baseline; this bends it. */
+(function () {
+  function factor(k) {
+    const m = Remorhaz.stat(k);
+    return m === 2 ? 1.35 : m === 1 ? 1.17 : m === -1 ? 0.82 : m === -2 ? 0.65 : 1.0;
+  }
+  const dex = factor("dexterity");
+  const str = factor("strength");
+
+  // I & II — steady hands: longer on the ropes, and a wider window per stitch.
+  cfg.stage1Time      = Math.round(cfg.stage1Time      * dex);
+  cfg.stage2DotWindow = Math.round(cfg.stage2DotWindow * dex);
+
+  // III — holding a breach shut is strength: cracks come slower and hold longer.
+  cfg.stage3Rate      = Math.round(cfg.stage3Rate      * str);
+  cfg.crackLife       = Math.round(cfg.crackLife       * str);
+})();
+
 let stage1Score = 0, stage2Score = 0, stage3Score = 0;
 let rapport = 0;  // -2 to +2, shaped by player's dialogue choices
 
@@ -680,9 +762,9 @@ function setDialogue(text) {
   el.style.opacity = "0";
   setTimeout(() => { el.textContent = '"' + text + '"'; el.style.opacity = "1"; }, 260);
 }
-function setPhase(p, inst) {
+function setPhase(p, instHtml) {
   document.getElementById("phaseLabel").textContent       = p;
-  document.getElementById("instructionLabel").textContent = inst;
+  document.getElementById("instructionLabel").innerHTML = instHtml;
 }
 function showScoreTally() { document.getElementById("scoreTally").style.display = "flex"; }
 function updateTally(s1, s2, s3) {
@@ -751,6 +833,8 @@ function showDialogue(idx) {
 const CATCH_NAMES = { 1:"Silver Fish", 2:"Sea Eel", 3:"Arctic Halibut", 4:"Arctic Char" };
 const MOOD_LABELS = ["Contemptuous","Dismissive","Watching","Reserved","Grudgingly Impressed"];
 
+// Your read on the day first, then hers.
+document.getElementById("charIntro").textContent = tidy(C.intro);
 document.getElementById("introBody").textContent = cfg.kaltIntro;
 document.getElementById("moodTag").textContent   = cfg.label;
 setDialogue(cfg.kaltIntro);
@@ -863,7 +947,7 @@ function startRopeInspection() {
   let done        = false;
   let nextSpawn   = 1100;
 
-  setPhase("Stage I — Rope Inspection", "Dexterity (Crafting) · DC 10 · Find every wear point");
+  setPhase("Stage I — Rope Inspection", Remorhaz.arrow("dexterity") + "Dexterity (Crafting) · DC 10 · Find every wear point");
 
   const timerInterval = setInterval(() => {
     timeLeft = Math.max(0, timeLeft - 100);
@@ -1023,7 +1107,7 @@ function startSailRepair() {
   const ctx    = canvas.getContext("2d");
   const CW = canvas.width, CH = canvas.height;
 
-  setPhase("Stage II — Sail Repair", "Dexterity (Crafting) · DC 10 · Click each stitch dot");
+  setPhase("Stage II — Sail Repair", Remorhaz.arrow("dexterity") + "Dexterity (Crafting) · DC 10 · Click each stitch dot");
   setDialogue(cfg.kaltPre2);
 
   // Three tears: each defined as a line across the sail with a list of stitch points
@@ -1299,7 +1383,7 @@ function startHullRepair() {
   const ctx    = canvas.getContext("2d");
   const CW = canvas.width, CH = canvas.height;
 
-  setPhase("Stage III — Hull Repair", "Strength (Repair) · DC 12 · Seal before breach");
+  setPhase("Stage III — Hull Repair", Remorhaz.arrow("strength") + "Strength (Repair) · DC 12 · Seal before breach");
   setDialogue(cfg.kaltPre3);
 
   const PLANK_H = 38;
@@ -1672,6 +1756,7 @@ function showResult() {
     ${earned ? `<div class="result-bonus">⚒ Crew Respect Earned · +1 to future ship-related checks</div>` : ""}
     <div class="result-verdict">${tier.verdict}</div>
     <div class="result-kalt">"${kaltFinal}"</div>
+    <div class="result-charclose">${tidy(C.closing)}</div>
   `;
 
   // Save to state

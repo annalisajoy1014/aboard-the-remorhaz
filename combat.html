@@ -463,9 +463,9 @@ function setDialogue(text) {
   el.style.opacity = "0";
   setTimeout(() => { el.textContent = "“" + text + "”"; el.style.opacity = "1"; }, 260);
 }
-function setPhase(p, inst) {
+function setPhase(p, instHtml) {
   document.getElementById("phaseLabel").textContent = p;
-  document.getElementById("instructionLabel").textContent = inst;
+  document.getElementById("instructionLabel").innerHTML = instHtml;
 }
 function showScoreTally() { document.getElementById("scoreTally").style.display = "flex"; }
 function updateTally(s1, s2) {
@@ -608,7 +608,7 @@ function startDrills() {
   const TOTAL_T = cfg.drillTime;
   const TOTAL_TARGETS = cfg.drillTargetCount;
 
-  setPhase("Stage I — Weapon Drills", "Dexterity (Weapons) · DC 6 · Hit every target Haldor calls");
+  setPhase("Stage I — Weapon Drills", Remorhaz.arrow("dexterity") + "Dexterity (Weapons) · DC 6 · Hit every target Haldor calls");
 
   // Targets
   let targets = [];      // { x, y, vx, vy, type, hit, born, life }
@@ -756,7 +756,9 @@ function pickApproach(approach) {
   setDialogue(approach==="str"
     ? "Strength. Aye — come at me hard then. Don't flinch."
     : "Footwork. Smart. Read me. When ye see the opening — take it.");
-  setPhase("Stage II — Boarding", approach==="str" ? "Strength (Contested) · Push through Haldor's defence" : "Dexterity (Contested) · Counter Haldor's feints");
+  setPhase("Stage II — Boarding", approach==="str"
+    ? Remorhaz.arrow("strength")  + "Strength (Contested) · Push through Haldor's defence"
+    : Remorhaz.arrow("dexterity") + "Dexterity (Contested) · Counter Haldor's feints");
   document.getElementById("tugWrap").style.display            = approach==="str" ? "flex" : "none";
   document.getElementById("boardingTimerWrap").style.display  = approach==="dex" ? "block" : "none";
   goToScreen("screen-boarding");
