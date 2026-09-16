@@ -778,13 +778,15 @@ function startSpyglass() {
 
   setPhase("Stage II — Crow's Nest", Remorhaz.arrow("wisdom") + "Wisdom (Perception) · DC 5 · Spot hazards and wonders");
 
-  // Five regular sighting objects
+  // Five regular sighting objects. x,y is the anchor drawObj paints from; w,h the click
+  // target. hitDX/hitDY shift that target where the shape spills past the anchor — the
+  // storm's cloud bulges left and above it, the fins ride above the dolphins' row.
   const OBJ = [
     { type:"rocks",   x:68,  y:HY+24, w:56, h:26, spawn:2500,  spotted:false },
     { type:"ship",    x:232, y:HY-14, w:38, h:44, spawn:6200,  spotted:false },
-    { type:"dolphins",x:164, y:HY+34, w:62, h:22, spawn:10200, spotted:false },
+    { type:"dolphins",x:164, y:HY+34, w:56, h:29, spawn:10200, spotted:false, hitDX:2,   hitDY:-11 },
     { type:"island",  x:348, y:HY-8,  w:70, h:20, spawn:14800, spotted:false },
-    { type:"storm",   x:118, y:22,    w:84, h:48, spawn:19500, spotted:false },
+    { type:"storm",   x:118, y:22,    w:99, h:66, spawn:19500, spotted:false, hitDX:-18, hitDY:-14 },
   ];
   const HIMMSELK_SPAWN = 11800;
   const HIMMSELK_DUR   = Math.max(1100, 2000 + _stat("wisdom")*450);
@@ -826,7 +828,8 @@ function startSpyglass() {
       if (o.spotted) continue;
       const age = elapsed - o.spawn;
       if (age < 0 || age > VIS) continue;
-      if (mx >= o.x && mx <= o.x+o.w && my >= o.y && my <= o.y+o.h) {
+      const hx = o.x + (o.hitDX||0), hy = o.y + (o.hitDY||0);
+      if (mx >= hx && mx <= hx+o.w && my >= hy && my <= hy+o.h) {
         o.spotted = true; spotsHit++;
         const lbl = {rocks:"Rocky outcrop",ship:"Distant vessel",dolphins:"Pod of dolphins",island:"Island on the horizon",storm:"Storm gathering to the north"}[o.type];
         setDialogue(spotsHit >= 4 ? cfg.greatD + " " + lbl + ". Log it." : lbl + ". Log it.");
@@ -977,6 +980,11 @@ function startSpyglass() {
     const vig = ctx.createRadialGradient(CW/2,CH/2,CW*0.27,CW/2,CH/2,CW*0.57);
     vig.addColorStop(0,"transparent"); vig.addColorStop(0.68,"rgba(0,0,0,0.18)"); vig.addColorStop(1,"rgba(0,0,0,0.86)");
     ctx.fillStyle = vig; ctx.fillRect(0,0,CW,CH);
+
+    // A clean sweep ends the stage rather than draining the clock over empty water.
+    // The last sighting opens long after the ice-bird has gone, so hHandled is already
+    // true by then; the guard only matters if the bird is somehow still in the air.
+    if (spotsHit >= OBJ.length && hHandled) { endSpyglass(); return; }
 
     animId = requestAnimationFrame(draw);
   }

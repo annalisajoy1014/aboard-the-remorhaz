@@ -141,6 +141,14 @@
   background: rgba(2, 5, 12, 0.42);
   pointer-events: none;
 }
+/* The veil is the beat's only positioned child, so it would otherwise paint over
+   the beat's own text as well as the scene behind it — and the brighter colours
+   below only make sense on words the veil is under. The drop belongs to the
+   picture; the text stays a layer up. */
+.beat-dark > *:not(.cin-veil) {
+  position: relative;
+  z-index: 1;
+}
 .beat.beat-dark .beat-body,
 .beat.beat-dark .beat-quote {
   color: rgba(215, 195, 158, 0.92);
@@ -337,6 +345,7 @@
 
   <!-- BEAT 4: CLIFFHANGER -->
   <div class="beat beat-dark" id="beat-4" inert>
+    <div class="cin-veil"></div>
     <div class="beat-tag">— Something Is Wrong —</div>
     <div class="beat-title">The Woman at the Dock</div>
     <div class="beat-rule"></div>
@@ -358,6 +367,7 @@
 
   <!-- BEAT 5: DEEPER CLIFFHANGER -->
   <div class="beat beat-dark" id="beat-5" inert>
+    <div class="cin-veil"></div>
     <div class="beat-tag">— What She Pressed Into Your Hand —</div>
     <div class="beat-title">The Compass</div>
     <div class="beat-rule"></div>
@@ -628,8 +638,14 @@ function buildStats() {
   ).length;
   rows.push(["Crew Relationships", crewCount + " formed"]);
 
-  if (appState.cookingScore) rows.push(["Cooking Score", appState.cookingScore + " / 45"]);
-  if (appState.navigationScore) rows.push(["Navigation Score", appState.navigationScore + " / 30"]);
+  /* A score of nothing is still a score. These two rows used to be gated on the
+     number being truthy, so a run that finished on 0 read exactly like a day the
+     player never sailed — while the crew rows below went on reporting it. The
+     day ledger says which runs happened; the number only says how they went.
+     Day 1 is Ingrid's galley shift, Day 3 is Ursula's chart lesson. */
+  const dayPlayed = d => (appState.completedDays || []).some(n => Number(n) === d);
+  if (dayPlayed(1)) rows.push(["Cooking Score", appState.cookingScore + " / 45"]);
+  if (dayPlayed(3)) rows.push(["Navigation Score", appState.navigationScore + " / 30"]);
   if (appState.himmselkSpotted) rows.push(["Rare Sighting", "Himmselk Isful — Omen of Fair Weather"]);
   if (appState.crewRespect) rows.push(["Crew Respect", "Earned"]);
   if (appState.navigatorBonus) rows.push(["Navigator's Favour", "Earned"]);

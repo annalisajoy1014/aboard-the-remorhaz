@@ -163,5 +163,49 @@ function codeLines(file) {
   check('response deltas agree and every crew member can be won over', problems.length === 0, problems.join('\n'));
 }
 
+/* ── 8. No authored prose that nothing renders ────────────────────────
+   This game kept losing writing. Thorgrim had sixteen response lines and a
+   branch that returned before reaching them. combat.html defined four
+   `preSpy` lines and referenced them nowhere. seabattle.html had three
+   per-character tutorial blocks no code path read. cooking.html set an
+   `ingridMood` in all four configs and never looked at it.
+
+   Every one of those was silent: the prose existed, the game ran fine, and
+   the player simply never saw it. This finds the shape of that mistake —
+   a key whose value is a long string, appearing only where it is defined. */
+{
+  // Keys reached through a computed lookup (obj[tier], r[charId]) look unread
+  // to a text scan, because the call site never spells them out.
+  const DYNAMIC = new Set([
+    'low', 'mid', 'high',            // standing / mood tiers
+    'relyt', 'lucy', 'irene',        // per-character variants
+    'thorgrim', 'haldor', 'ingrid', 'kalt', 'ursula',
+    'cold', 'terse', 'neutral', 'warmer',
+  ]);
+
+  const DEF = /(^|[\s{,])([a-zA-Z_][a-zA-Z0-9_]*)\s*:\s*(["'`])((?:\\.|(?!\3)[\s\S]){45,}?)\3/g;
+  const dead = [];
+
+  PAGES.forEach(f => {
+    const src = codeLines(f).join('\n');
+    const defs = {};
+    let m;
+    DEF.lastIndex = 0;
+    while ((m = DEF.exec(src))) {
+      if (DYNAMIC.has(m[2]) || /^\d+$/.test(m[2])) continue;
+      defs[m[2]] = (defs[m[2]] || 0) + 1;
+    }
+    Object.keys(defs).forEach(k => {
+      const uses = (src.match(new RegExp('\\b' + k + '\\b', 'g')) || []).length;
+      // Only ever mentioned where it is defined: nothing reads it.
+      if (uses <= defs[k]) {
+        dead.push(`${f}: "${k}" — ${defs[k]} authored value${defs[k] > 1 ? 's' : ''}, never read`);
+      }
+    });
+  });
+
+  check('no authored prose is defined and never rendered', dead.length === 0, dead.join('\n'));
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

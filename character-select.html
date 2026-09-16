@@ -85,6 +85,15 @@
   pointer-events: none;
 }
 .char-card:hover .char-label-strip { opacity: 0; }
+/* The one-line hook each character was given. It had never been rendered — and
+   since the fuller blurb only appears on hover, a touch user saw nothing at all
+   about who they were choosing. */
+.char-desc {
+  font-family: "IM Fell English", serif; font-style: italic;
+  font-size: 13.5px; line-height: 1.5; color: rgba(214, 198, 166, 0.82);
+  text-align: center; margin-top: 8px;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.95);
+}
 .char-name {
   font-family: "IM Fell English SC", serif; font-size: 20px;
   letter-spacing: 0.1em; color: var(--paper); text-align: center;
@@ -499,6 +508,11 @@ function buildStatPips(stats) {
   }).join("");
 }
 
+/* Irene's name contains literal quote marks ("Eye"), which closed the alt
+   attribute early and left screen readers with just "Irene ". */
+const esc = t => String(t).replace(/&/g, "&amp;").replace(/"/g, "&quot;")
+                          .replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
 /* ── RENDER CARDS ── */
 let selectedId = null;
 const container = document.getElementById("cards");
@@ -509,10 +523,11 @@ CHARACTERS.forEach(ch => {
   card.dataset.id = ch.id;
   card.innerHTML = `
     <div class="check-badge">✓</div>
-    <img class="char-portrait" src="assets/${ch.id}.jpg" alt="${ch.name}">
+    <img class="char-portrait" src="assets/${ch.id}.jpg" alt="${esc(ch.name)}">
     <div class="char-label-strip">
       <div class="char-name">${ch.name}</div>
       <div class="char-class">${ch.classLabel}</div>
+      <div class="char-desc">${ch.desc}</div>
     </div>
     <div class="char-hover-panel">
       <div class="char-hover-name">${ch.name}</div>

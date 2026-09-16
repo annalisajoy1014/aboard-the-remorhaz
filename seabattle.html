@@ -255,7 +255,7 @@
   width: 300px; flex-shrink: 0;
   display: flex; flex-direction: column; gap: 4px;
   max-height: 180px;
-  overflow: hidden;
+  overflow-y: auto; scrollbar-width: thin;
   background: rgba(0,0,0,0.72);
   padding: 10px 14px;
   border-radius: 3px;
@@ -278,6 +278,12 @@
 .log-line.log-miss { color: var(--paper-deep); }
 .log-line.log-crit { color: #e07d3a; }
 .log-line.log-enemy { color: color-mix(in oklch, var(--blood) 85%, var(--paper)); }
+.log-line.log-haldor {
+  color: #f0a040;
+  border-left: 3px solid #f0a040;
+  padding-left: 6px;
+  margin: 4px 0;
+}
 
 /* Round counter */
 .hud-round {
@@ -446,6 +452,7 @@
   padding: 40px 48px;
   max-width: 560px; width: 92%;
   display: flex; flex-direction: column; gap: 16px;
+  max-height: calc(100vh - 64px); overflow-y: auto; scrollbar-width: thin;
 }
 .tutorial-title {
   font-family: "IM Fell English SC", serif;
@@ -818,6 +825,14 @@ function _navigateTo(url) {
   // If combat training was not passed (or not done), apply 30% hit penalty
   const trainingMult = raw.combatTrainingPassed ? 1.0 : 0.70;
   const trainingPenaltyActive = !raw.combatTrainingPassed;
+  // Every action tooltip below quotes the odds the player actually rolls, not the
+  // ability's paper chance: with training failed each roll is 30% worse, and a tooltip
+  // that quoted the paper number was asking for tactical decisions on a number the code
+  // never uses. When training was passed the two are the same and no note is shown.
+  function hitPct(base) {
+    const eff = Math.round(base * trainingMult * 100);
+    return trainingPenaltyActive ? eff + "% hit (training penalty)" : eff + "% hit";
+  }
   const HALDOR_TAUNTS = [
     "I was hopin' ye were jus' havin' an off day when we were trainin'! This isn't poking at a mark on the deck, this is life or death! If I have to come over there 'n save ye, I'm going ta skelp yer wee behind!",
     "Ye missed! I showed ye that exact move in training — now USE IT!",
@@ -826,16 +841,12 @@ function _navigateTo(url) {
   let _tauntIdx = 0;
   function maybeHaldorTaunt() {
     if (!trainingPenaltyActive) return;
-    const logEl = document.getElementById("log");
-    if (logEl) {
-      const div = document.createElement("div");
-      div.className = "log-entry log-miss";
-      div.style.cssText = "color:#f0a040;font-style:italic;border-left:3px solid #f0a040;padding-left:6px;margin:4px 0;";
-      div.textContent = "Haldor: \"" + HALDOR_TAUNTS[_tauntIdx % HALDOR_TAUNTS.length] + "\"";
-      logEl.appendChild(div);
-      logEl.scrollTop = logEl.scrollHeight;
-      _tauntIdx++;
-    }
+    // These lines were written to explain the 30% penalty and were appended to a #log
+    // element this page has never had, so the player ate the penalty in silence for the
+    // whole battle. The battle log is the real container — go through addLog like every
+    // other line, and keep the authored colour on .log-haldor.
+    addLog("Haldor: \"" + HALDOR_TAUNTS[_tauntIdx % HALDOR_TAUNTS.length] + "\"", "log-haldor");
+    _tauntIdx++;
   }
 
   const CHAR_DATA = {
@@ -843,25 +854,25 @@ function _navigateTo(url) {
       hp: 38, token: "assets/token-relyt.png", label: "Relyt",
       tutorialText: `<strong>Movement:</strong> Use <strong>arrow keys</strong> or <strong>click and drag</strong> your token to move — each square = 5 feet. Move as much as you like before acting.<br><br><strong>Your Action:</strong> Click an enemy token to target it, then choose one of the <strong>glowing actions</strong> below. <strong>Attack Spell</strong> blasts an enemy. <strong>Buff Ally</strong> empowers a crew member. <strong>Healing Spell</strong> restores your HP. One action per turn — then click <em>End Turn</em>.`,
       actions: [
-        { id:"attack", label:"⚡ Attack Spell",    desc:"70% hit · 20–32 damage to a targeted enemy. Channels into +50% damage if boosted.", needsEnemy: true },
+        { id:"attack", label:"⚡ Attack Spell",    desc:`${hitPct(0.70)} · 23–37 damage to a targeted enemy.`, needsEnemy: true },
         { id:"buff",   label:"✨ Buff Ally",        desc:"Empower a random living crew member — their next attack deals +50% damage.", needsEnemy: false },
         { id:"heal",   label:"💊 Healing Spell",    desc:"Restore 14–22 HP to yourself from arcane energy.", needsEnemy: false },
       ]
     },
     lucy: {
       hp: 45, token: "assets/token-lucy.png", label: "Lucy",
-      tutorialText: `<strong>Movement:</strong> Use <strong>arrow keys</strong> or <strong>click and drag</strong> your token — each square = 5 feet.<br><br><strong>Your Action:</strong> Click an enemy token to target it, then choose a <strong>glowing action</strong>. <strong>Attack</strong> strikes hard and fast. <strong>Defend</strong> halves incoming damage this round. <strong>Stun</strong> (75% hit) removes an enemy's next action entirely. One action per turn, then <em>End Turn</em>.`,
+      tutorialText: `<strong>Movement:</strong> Use <strong>arrow keys</strong> or <strong>click and drag</strong> your token — each square = 5 feet.<br><br><strong>Your Action:</strong> Click an enemy token to target it, then choose a <strong>glowing action</strong>. <strong>Attack</strong> strikes hard and fast. <strong>Defend</strong> halves incoming damage this round. <strong>Stun</strong> removes an enemy's next action entirely. One action per turn, then <em>End Turn</em>.`,
       actions: [
-        { id:"attack",  label:"⚔ Attack",           desc:"50% hit · 16–24 damage to a targeted enemy. Fast and precise.", needsEnemy: true },
+        { id:"attack",  label:"⚔ Attack",           desc:`${hitPct(0.50)} · 18–28 damage to a targeted enemy. Fast and precise.`, needsEnemy: true },
         { id:"defend",  label:"🛡 Defend",           desc:"Brace for impact — incoming damage is halved for the rest of this round.", needsEnemy: false },
-        { id:"stun",    label:"💥 Stun",             desc:"75% hit — disrupt a targeted enemy, causing them to lose their next action entirely.", needsEnemy: true },
+        { id:"stun",    label:"💥 Stun",             desc:`${hitPct(0.75)} — disrupt a targeted enemy, causing them to lose their next action entirely.`, needsEnemy: true },
       ]
     },
     irene: {
       hp: 52, token: "assets/token-irene.png", label: "Irene",
       tutorialText: `<strong>Movement:</strong> Use <strong>arrow keys</strong> or <strong>click and drag</strong> your token — each square = 5 feet.<br><br><strong>Your Action:</strong> Click an enemy to target, then choose a <strong>glowing action</strong>. <strong>Attack</strong> leads from the front. <strong>Battle Cry</strong> boosts all crew for one round. <strong>Channel the Storm</strong> charges your next attack for +50% damage. One action per turn, then <em>End Turn</em>.`,
       actions: [
-        { id:"attack",  label:"⚔ Attack",             desc:"50% hit · 16–24 damage. Deals +50% if Storm Channeled.", needsEnemy: true },
+        { id:"attack",  label:"⚔ Attack",             desc:`${hitPct(0.50)} · 18–28 damage. Deals +50% if Storm Channeled.`, needsEnemy: true },
         { id:"cry",     label:"📣 Battle Cry",          desc:"Inspire the crew — all living allies gain +20% hit chance and +20% damage until their next attack.", needsEnemy: false },
         { id:"channel", label:"⚡ Channel the Storm",   desc:"Charge your next Attack for +50% extra damage. No damage now, devastating damage next.", needsEnemy: false },
       ]
@@ -879,6 +890,7 @@ function _navigateTo(url) {
     x: _pc.x, y: _pc.y,
     dead: false, revived: false, stunned: false,
     defense: 1.0, dmgMult: 1.0,
+    hitBonus: 0, dmgBonus: 0,
     channelActive: false, battleCryUsed: false
   };
 
@@ -1085,7 +1097,9 @@ function _navigateTo(url) {
   const playerTok = tokenEls.player;
 
   playerTok.addEventListener("mousedown", e => {
-    if (!combatStarted) return;
+    // Movement is part of your turn. Ungated, the player could slide out of a Revenant's
+    // reach mid-enemy-turn, or wander the deck all through the crew's turns.
+    if (!combatStarted || !isPlayerTurn() || turnInProgress) return;
     dragging = true;
     lastValidX = player.x;
     lastValidY = player.y;
@@ -1346,7 +1360,6 @@ function _navigateTo(url) {
     if (id === "attack") {
       if (!selectedTarget || selectedTarget.dead) { addLog("Select an enemy to target first.", "log-miss"); return false; }
       const hit = roll(0.70 * trainingMult);
-      if (!hit) maybeHaldorTaunt();
       if (hit) {
         const dmg = randRange(23, 37);
         const final = player.channelActive ? Math.round(dmg * 1.5) : dmg;
@@ -1359,6 +1372,7 @@ function _navigateTo(url) {
       } else {
         showMissFloat(tokenEls[selectedTarget.id]);
         addLog(`${CD.label}'s spell arcs wide — miss.`, "log-miss");
+        maybeHaldorTaunt();
       }
       return true;
     } else if (id === "buff") {
@@ -1396,6 +1410,8 @@ function _navigateTo(url) {
       }
       return true;
     } else if (id === "defend") {
+      // A multiplier on the damage taken — it used to halve the enemy's hit chance
+      // instead, which is a dodge, and a dodge does nothing about the drag overboard.
       player.defense = 0.5;
       addLog(`${CD.label} braces — incoming damage halved this round.`, "log-hit");
       return true;
@@ -1419,10 +1435,11 @@ function _navigateTo(url) {
   function doIreneAction(id) {
     if (id === "attack") {
       if (!selectedTarget || selectedTarget.dead) { addLog("Select an enemy to target first.", "log-miss"); return false; }
-      const hit = roll(0.50 * trainingMult);
+      const hit = roll(0.50 * trainingMult + player.hitBonus);
       if (hit) {
         let dmg = randRange(18, 28);
         if (player.channelActive) { dmg = Math.round(dmg * 1.5); player.channelActive = false; }
+        if (player.dmgBonus) dmg = Math.round(dmg * (1 + player.dmgBonus));
         selectedTarget.hp -= dmg;
         trackDamage(selectedTarget, "player", dmg);
         showImpactEffect(tokenEls[selectedTarget.id]);
@@ -1433,9 +1450,12 @@ function _navigateTo(url) {
         addLog(`${CD.label}'s swing crashes through water — miss.`, "log-miss");
         maybeHaldorTaunt();
       }
+      // Spent on the swing, hit or miss — the same way the crew spend theirs.
+      player.hitBonus = 0; player.dmgBonus = 0;
       return true;
     } else if (id === "cry") {
-      crew.filter(c => !c.dead).forEach(c => { c.hitBonus = 0.2; c.dmgBonus = 0.2; });
+      // "all living allies" has to include the one doing the shouting.
+      [player, ...crew].filter(c => !c.dead).forEach(c => { c.hitBonus = 0.2; c.dmgBonus = 0.2; });
       addLog(`${CD.label} ROARS — all crew gain +hit and +dmg this round!`, "log-crit");
       return true;
     } else if (id === "channel") {
@@ -1825,9 +1845,9 @@ function _navigateTo(url) {
       if (Math.random() < 0.30) {
         await doDragAttempt(enemy);
       } else {
-        const hit = roll(playerHitChance * player.defense);
+        const hit = roll(playerHitChance);
         if (hit) {
-          const dmg = randRange(8, 19);
+          const dmg = Math.round(randRange(8, 19) * player.defense);
           player.hp -= dmg;
           showWaterEffect(tokenEls["player"]);
           updateTokenHp(player);
@@ -1841,7 +1861,6 @@ function _navigateTo(url) {
           addLog(`${enemy.label} lunges at ${CD.label} — deflected!`, "log-miss");
         }
       }
-      player.defense = 1.0;
     } else {
       // Attack a crew member
       const hit = roll(0.55);
@@ -1911,7 +1930,7 @@ function _navigateTo(url) {
       // turn-one coin flip. Now it spends HP instead: heavy damage, clearly above a normal
       // 8-19 hit, but capped at 34 — under Relyt's 38 maximum — so nobody is one-shot from
       // full, and the sea only takes you once you have nothing left to hold on with.
-      const dmg = randRange(22, 34);
+      const dmg = Math.round(randRange(22, 34) * player.defense);
       player.hp -= dmg;
       updateTokenHp(player);
       refreshHud();
@@ -1996,6 +2015,9 @@ function _navigateTo(url) {
       // Player turn
       setPhaseLabel("YOUR TURN");
       actionUsed = false;
+      // Defend lasts "the rest of this round" — the player acts first in initiative, so
+      // clearing it here is exactly that, and it cannot outlive the round any more.
+      player.defense = 1.0;
       turnInProgress = false;
       playerTok.classList.add("active-turn");
       setActionEnabled(true);
@@ -2022,6 +2044,7 @@ function _navigateTo(url) {
   });
 
   function setActionEnabled(on) {
+    playerTok.classList.toggle("draggable", on);   // grab cursor only while you may move
     document.getElementById("action-btns").querySelectorAll(".action-btn").forEach(b => b.disabled = !on);
     document.getElementById("end-turn-btn").disabled = !on || !actionUsed;
   }
@@ -2110,8 +2133,10 @@ function _navigateTo(url) {
         <span class="tut-action-tip">${a.desc}</span>
       </div>`
     ).join("");
+    // Each character has an authored tutorialText covering their own three actions; the
+    // card used to open with one generic line and the prose was never read by anything.
     document.getElementById("tutorial-text").innerHTML =
-      `On your turn, <strong>drag your token</strong> to move across the deck — then choose <strong>one of these actions</strong>:
+      `${CD.tutorialText}
       <div class="tut-actions">${btns}</div>
       Click <em>End Turn →</em> when done. Your crew will act, then the Revenants.`;
     document.getElementById("tutorial-overlay").classList.add("visible");
