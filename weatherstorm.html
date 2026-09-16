@@ -573,7 +573,7 @@ function flashLightning(strong) {
       cargoNat1:  "The deck pitches hard as you brace — your footing fails and the cannon pins your arm briefly against the bulkhead. You break free before it does real damage, but it's loose and the hold is a wreck.",
       rigFail:   "Brute force on an ice-coated rope over a thirty-foot drop is exactly what it sounds like. You tear the reef point free of the line trying to pull it, and the sail shreds another three feet.",
       rigSucc:   "Slow and methodical is not your style, but you find it here — hand over hand, deliberate, until the canvas comes down and you've tied it off. Not elegant. Done.",
-      rigNat20:  "You haul the sail down as if it insulted your mother. It's reefed, it's tight, and you did it in forty seconds. Kalt looks like he wants to cry with relief.",
+      rigNat20:  "You haul the sail down as if it insulted your mother. It's reefed, it's tight, and you did it in forty seconds. Kalt looks like she wants to cry with relief.",
       rigNat1:   "The rigging fights back. You pull when you should slack, and a yard-arm swings around and catches you across the shoulders. You make it down — the sail does not come with you.",
       helmFail:  "You fight the wheel like an opponent — it's a bad strategy against the ocean. You force the rudder when it needs to be guided, and the ship takes a wave badly on the quarter.",
       helmSucc:  "Raw instinct: you feel the monster wave a breath before it crests, and you throw your whole body into the turn. The Remorhaz climbs it bow-first, straight and true.",
@@ -820,6 +820,9 @@ function flashLightning(strong) {
     const verdict = VERDICTS.find(v => clampedScore >= v.minScore) || VERDICTS[VERDICTS.length - 1];
     const isHighScore = clampedScore >= 9;
     const isPoorScore = clampedScore <= 3;
+    // Ursula's read on the night's work, off the same ladder the verdict uses:
+    // the two upright tiers strong, "A Costly Storm" adequate, the last two poor.
+    const workDelta = verdict.minScore >= 7 ? 1 : verdict.minScore >= 4 ? 0 : -1;
 
     // Read existing state before computing consequences
     let ex = {};
@@ -854,20 +857,25 @@ function flashLightning(strong) {
         stormSuccesses: successes,
         completedDays: [...new Set([...(ex.completedDays || []), 7])],
         completed: [...new Set([...(ex.completed || []), "ursula"])],
+        // All four branch flags describe THIS attempt, so they are written as one
+        // group after the spread — a better retry must clear what a worse one set,
+        // or the hub keeps forcing repairs the new result no longer calls for.
+        skipToSyrinlya: isHighScore,
+        repairDayRequired: isPoorScore,
+        refishRequired: refishRequired,
+        recookRequired: recookRequired,
       };
       if (isHighScore) {
-        saveObj.skipToSyrinlya = true;
         saveObj.currentDay = 9;
         saveObj.completedDays = [...new Set([...saveObj.completedDays, 8])];
-      } else if (isPoorScore) {
-        saveObj.repairDayRequired = true;
-        saveObj.refishRequired = refishRequired;
-        saveObj.recookRequired = recookRequired;
-        saveObj.currentDay = Math.max(ex.currentDay || 7, 8);
       } else {
         saveObj.currentDay = Math.max(ex.currentDay || 7, 8);
       }
       localStorage.setItem("remorhaz", JSON.stringify(saveObj));
+      // Credit after that write: saveObj was built from a read taken above, so
+      // crediting first would be overwritten. Day 7 stays literal — the work
+      // belongs to the storm, and a retry re-scores that slot rather than a new one.
+      Remorhaz.recordWork("ursula", 7, workDelta);
     } catch(e) {}
 
     const sidebarMsg = isHighScore

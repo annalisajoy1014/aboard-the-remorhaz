@@ -1535,7 +1535,13 @@ function _navigateTo(url) {
   const RESP_DELTAS = {
     thorgrim: { amicable: 0, argumentative: -1, placating: 1, complimentary: 1 },
     haldor:   { amicable: 0, argumentative:  1, placating: -1, complimentary: 1 },
-    ingrid:   { amicable: 0, argumentative: -1, placating: -1, complimentary: 0 },
+    // Ingrid had no positive path at all — every option cost her regard or cost
+    // nothing — so her standing could only ever fall and her warmer dialogue was
+    // unreachable. Her own written replies disagree: offering to work earns
+    // "Bon. Pick up ze knife", and praise that shows you know what she built at
+    // Syrinlya earns "Ha — I like zis one. You — stay close." She rewards
+    // willingness and informed respect; she punishes idleness and empty flattery.
+    ingrid:   { amicable: 1, argumentative: -1, placating: -1, complimentary: 1 },
     kalt:     { amicable: 0, argumentative: -1, placating:  1, complimentary: 1 },
     ursula:   { amicable: 0, argumentative:  0, placating:  1, complimentary: 1 },
   };
@@ -1762,7 +1768,7 @@ function _navigateTo(url) {
           lucy:  "Smells incredible down here. Tell me what to do and I'll do it.",
           irene: "I'd love to learn this. Where should I start?",
           npc:   "Bon. Pick up ze knife. We start wiz ze fish.",
-          delta: 0,
+          delta: 1,
         },
         argumentative: {
           relyt: "I'm more of a 'eat what's in front of me' kind of person. Do you really need help?",
@@ -1783,7 +1789,7 @@ function _navigateTo(url) {
           lucy:  "Six feet tall and you've never dropped a knife. I want to be you when I grow up.",
           irene: "You were one of the first to establish a proper kitchen at the edge of the world. That history is remarkable.",
           npc:   "Ha — I like zis one. You — stay close. You will learn something today.",
-          delta: 0,
+          delta: 1,
         },
       },
       day8: {
@@ -1948,11 +1954,14 @@ function _navigateTo(url) {
   ];
 
   /* ============== STATE ============== */
+  // Standing is no longer kept here. It used to live in this object as
+  // `influence`, written by hub dialogue and read by nothing but the captain's
+  // briefing tier — which never moved, because he had no dialogue to move it.
+  // It belongs to Remorhaz now, where the minigames can reach it too.
   const state = {
     currentDay: 1,
     completed: new Set(),
     completedDays: new Set(),
-    influence: { thorgrim: 2, haldor: 2, ingrid: 2, kalt: 2, ursula: 2 },
   };
 
   // Load raw flags from storm outcome
@@ -1967,11 +1976,11 @@ function _navigateTo(url) {
   // Irene response line was unreachable. charId() reads the real save.
   const _char = Remorhaz.charId();
 
-  function influenceTier(zone) {
-    const v = state.influence[zone] ?? 2;
-    if (v <= 3) return "low";
-    if (v <= 6) return "mid";
-    return "high";
+  // "low" | "mid" | "high" — the keys the authored dialogue is written against.
+  // The captain is a special case: he weighs his own dealings with you most, but
+  // he also watches how his crew take to you. He never asks to be liked; he notices.
+  function standingTier(zone) {
+    return zone === "thorgrim" ? Remorhaz.thorgrimTier() : Remorhaz.standingTier(zone);
   }
 
   // Persist base state
@@ -1979,9 +1988,6 @@ function _navigateTo(url) {
     if (_raw.currentDay) state.currentDay = _raw.currentDay;
     if (Array.isArray(_raw.completed)) state.completed = new Set(_raw.completed);
     if (Array.isArray(_raw.completedDays)) state.completedDays = new Set(_raw.completedDays);
-    if (_raw.influence && typeof _raw.influence === "object") {
-      state.influence = { ...state.influence, ..._raw.influence };
-    }
   } catch (e) { /* ignore */ }
 
   // Day 8 repair: first-visit setup — clear required NPCs so they must be re-done
@@ -2053,14 +2059,12 @@ function _navigateTo(url) {
         currentDay: state.currentDay,
         completed: [...state.completed],
         completedDays: [...state.completedDays],
-        influence: state.influence,
       }));
     } catch {
       localStorage.setItem("remorhaz", JSON.stringify({
         currentDay: state.currentDay,
         completed: [...state.completed],
         completedDays: [...state.completedDays],
-        influence: state.influence,
       }));
     }
   }
@@ -2321,6 +2325,67 @@ function _navigateTo(url) {
     }
   }
 
+  // How the crew are named when they react to you. Surnames read like a ledger
+  // entry — "Rapport with Stormchaser +1" — which is the wrong register for a
+  // relationship beat, and the captain's surname ("Isskegg") is not what anyone
+  // aboard would call him.
+  const SHORT_NAME = {
+    thorgrim: "The Captain",
+    haldor:   "Haldor",
+    ingrid:   "Ingrid",
+    kalt:     "Kalt",
+    ursula:   "Ursula",
+  };
+
+  // Renders the four response options. Shared by the crew and by the captain —
+  // he had an authored response block from the start, but the branch that showed
+  // his briefing returned before reaching this code, so all sixteen of his lines
+  // were unreachable and his standing could never move off its starting value.
+  // onChosen() decides what the buttons offer once the player has answered.
+  function renderResponses(zone, npc, responses, onChosen) {
+    // You get one exchange with each of them a day. Reopening the panel afterwards
+    // still shows what they said, but the options are gone — offering choices that
+    // silently do nothing reads as a broken game rather than a spent conversation.
+    if (Remorhaz.hasSpokenTo(zone, state.currentDay)) {
+      onChosen();
+      return;
+    }
+
+    const RESP_ORDER = ["amicable", "argumentative", "placating", "complimentary"];
+    RESP_ORDER.forEach(type => {
+      const r = responses[type];
+      if (!r) return;
+      const btn = document.createElement("button");
+      btn.className = "cin-opt-btn";
+      btn.textContent = r[_char] || r.relyt || r.npc;
+      btn.addEventListener("click", () => {
+        // Options only render when the day's exchange is still unspent (see the
+        // guard at the top of this function), so this runs at most once a day.
+        const baseDelta = RESP_DELTAS[zone]?.[type] ?? 0;
+        if (baseDelta) Remorhaz.adjustStanding(zone, baseDelta);
+        Remorhaz.markSpokenTo(zone, state.currentDay);
+
+        cinNpcOptions.innerHTML = "";
+        cinNpcReaction.textContent = "“" + (r.npc || "") + "”";
+        cinNpcReaction.style.display = "block";
+
+        // Name the feeling, not the arithmetic. The player is owed the signal
+        // that a line landed; they are not owed a running total.
+        const who = SHORT_NAME[zone] || npc.name.split(" ")[0];
+        if (baseDelta > 0) {
+          cinNpcInfluenceEl.textContent = who + " approves";
+          cinNpcInfluenceEl.className = "cin-npc-influence visible pos";
+        } else if (baseDelta < 0) {
+          cinNpcInfluenceEl.textContent = who + " disapproves";
+          cinNpcInfluenceEl.className = "cin-npc-influence visible neg";
+        }
+
+        onChosen();
+      });
+      cinNpcOptions.appendChild(btn);
+    });
+  }
+
   function showNpcCinematic(zone) {
     const npc = NPCS[zone];
     if (!npc) return;
@@ -2346,28 +2411,42 @@ function _navigateTo(url) {
       // Captain: show daily briefing (or intro on first ever visit)
       let briefing;
       if (state.currentDay === 9) {
-        const tier = influenceTier("thorgrim");
+        const tier = standingTier("thorgrim");
         briefing = eff.dailyBriefing?.[9]?.[tier] || eff.dialogue;
       } else if (!_raw.captainIntroSeen) {
         briefing = eff.dialogue;
       } else {
-        const tier = influenceTier("thorgrim");
+        const tier = standingTier("thorgrim");
         briefing = eff.dailyBriefing?.[state.currentDay]?.[tier] || eff.dialogue;
       }
       cinNpcQuote.textContent = "“" + briefing + "”";
 
-      if (state.currentDay === 9) {
-        // Landfall — replace dismiss with a "Make Landfall" action
-        cinNpcEnter.style.display = "";
-        cinNpcEnter.textContent = "MAKE LANDFALL →";
-        cinNpcEnter.disabled = false;
-        cinNpcReturn.style.display = "none";
+      const isLandfall = state.currentDay === 9;
+      const showCaptainActions = () => {
+        if (isLandfall) {
+          // Landfall — replace dismiss with a "Make Landfall" action
+          cinNpcEnter.style.display = "";
+          cinNpcEnter.textContent = "MAKE LANDFALL →";
+          cinNpcEnter.disabled = false;
+          cinNpcReturn.style.display = "none";
+        } else {
+          cinNpcEnter.style.display = "none";
+          cinNpcReturn.style.display = "";
+          cinNpcReturn.textContent = "RETURN TO DECK";
+        }
+        cinNpcActions.style.display = "flex";
+      };
+
+      // You answer the captain like anyone else — this is what moves his regard,
+      // and what makes the mid and high briefings reachable at all. The exception
+      // is Day 9: he is saying goodbye, and a goodbye is not a negotiation.
+      const capResponses = isLandfall ? null : (eff.responses || npc.responses);
+      if (capResponses) {
+        renderResponses(zone, npc, capResponses, showCaptainActions);
       } else {
-        cinNpcEnter.style.display = "none";
-        cinNpcReturn.style.display = "";
-        cinNpcReturn.textContent = "RETURN TO DECK";
+        showCaptainActions();
       }
-      cinNpcActions.style.display = "flex";
+
       cinNpc.classList.add("active");
       cinNpc.setAttribute("aria-hidden", "false");
       return;
@@ -2380,50 +2459,23 @@ function _navigateTo(url) {
 
     const responses = eff.responses || npc.responses;
     if (responses) {
-      const RESP_ORDER = ["amicable", "argumentative", "placating", "complimentary"];
-      RESP_ORDER.forEach(type => {
-        const r = responses[type];
-        if (!r) return;
-        const btn = document.createElement("button");
-        btn.className = "cin-opt-btn";
-        btn.textContent = r[_char] || r.relyt || r.npc;
-        btn.addEventListener("click", () => {
-          // Compute delta
-          const baseDelta = RESP_DELTAS[zone]?.[type] ?? 0;
-          if (typeof baseDelta === "number" && baseDelta !== 0) {
-            state.influence[zone] = Math.max(0, Math.min(10, (state.influence[zone] ?? 2) + baseDelta));
-            save();
-          }
-          // Hide options, show reaction
-          cinNpcOptions.innerHTML = "";
-          cinNpcReaction.textContent = "“" + (r.npc || "") + "”";
-          cinNpcReaction.style.display = "block";
-          if (baseDelta > 0) {
-            cinNpcInfluenceEl.textContent = "▲ Rapport with " + npc.name.split(" ").slice(-1)[0] + " +" + baseDelta;
-            cinNpcInfluenceEl.className = "cin-npc-influence visible pos";
-          } else if (baseDelta < 0) {
-            cinNpcInfluenceEl.textContent = "▼ Rapport with " + npc.name.split(" ").slice(-1)[0] + " " + baseDelta;
-            cinNpcInfluenceEl.className = "cin-npc-influence visible neg";
-          }
-          // Show actions
-          const dayEntry = DAYS.find(d => d.n === state.currentDay);
-          const isRequiredToday = dayEntry?.npcs.includes(zone);
-          if (state.currentDay < npc.day && !isRequiredToday) {
-            cinNpcEnter.textContent = "NOT YET AVAILABLE";
-            cinNpcEnter.disabled = true;
-          } else if (routeForToday(zone)) {
-            cinNpcEnter.textContent = "BEGIN ACTIVITY →";
-            cinNpcEnter.disabled = false;
-          } else {
-            // No work scheduled with them today — this was a conversation, not a
-            // shift, so the button must not promise an activity it cannot start.
-            cinNpcEnter.textContent = "RETURN TO DECK";
-            cinNpcEnter.disabled = false;
-            cinNpcReturn.style.display = "none";
-          }
-          cinNpcActions.style.display = "flex";
-        });
-        cinNpcOptions.appendChild(btn);
+      renderResponses(zone, npc, responses, () => {
+        const dayEntry = DAYS.find(d => d.n === state.currentDay);
+        const isRequiredToday = dayEntry?.npcs.includes(zone);
+        if (state.currentDay < npc.day && !isRequiredToday) {
+          cinNpcEnter.textContent = "NOT YET AVAILABLE";
+          cinNpcEnter.disabled = true;
+        } else if (routeForToday(zone)) {
+          cinNpcEnter.textContent = "BEGIN ACTIVITY →";
+          cinNpcEnter.disabled = false;
+        } else {
+          // No work scheduled with them today — this was a conversation, not a
+          // shift, so the button must not promise an activity it cannot start.
+          cinNpcEnter.textContent = "RETURN TO DECK";
+          cinNpcEnter.disabled = false;
+          cinNpcReturn.style.display = "none";
+        }
+        cinNpcActions.style.display = "flex";
       });
     } else {
       if (routeForToday(zone)) {

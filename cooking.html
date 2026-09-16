@@ -49,6 +49,25 @@
   outline: 5px solid color-mix(in oklch, var(--paper-deep) 28%, transparent);
   background: var(--hull-darkest) center/cover no-repeat;
 }
+
+/* ── INGRID'S WARMTH ──
+   One rule per mood on the four-step scale; each names a colour and how much
+   of it. The two rules below spend it on the portrait and a faint tint behind
+   the sidebar. Shared.css vars only — no new hues, and no default tint when
+   no mood class is set. */
+.ingrid-mood-cold    { --ingrid-warmth: var(--ice);        --ingrid-tint: 10%; }
+.ingrid-mood-terse   { --ingrid-warmth: var(--ice-dim);    --ingrid-tint:  6%; }
+.ingrid-mood-neutral { --ingrid-warmth: var(--paper-deep); --ingrid-tint:  0%; }
+.ingrid-mood-warmer  { --ingrid-warmth: var(--lamp-warm);  --ingrid-tint:  7%; }
+
+.ingrid-sidebar {
+  box-shadow: inset 0 0 78px color-mix(in oklch,
+    var(--ingrid-warmth, var(--paper-deep)) var(--ingrid-tint, 0%), transparent);
+}
+.ingrid-sidebar .ingrid-portrait {
+  border-color:  var(--ingrid-warmth, var(--paper-deep));
+  outline-color: color-mix(in oklch, var(--ingrid-warmth, var(--paper-deep)) 26%, transparent);
+}
 .ingrid-name {
   font-family: "IM Fell English SC", serif; font-size: 18px;
   letter-spacing: 0.08em; color: var(--paper); text-align: center;
@@ -631,6 +650,11 @@ function saveState(s) {
 const appState  = loadState();
 const lastCatch = appState.lastCatch;
 const catchRoll = lastCatch ? lastCatch.roll : 3;
+// The day this galley shift belongs to. The hub only ever sends you here on
+// Day 1 or the Day 8 emergency — and finishing Day 1 advances the clock to 2
+// before "Try Again" reloads this page, so a retried Day 1 shift arrives
+// reading "Day 2". It is still Day 1's work, and must land in Day 1's slot.
+const workDay   = (appState.currentDay || 1) >= 8 ? 8 : 1;
 
 /* ── FISHING GATE ── */
 if (!lastCatch) {
@@ -690,6 +714,17 @@ const CONFIGS = {
 
 const cfg = CONFIGS[catchRoll] || CONFIGS[3];
 
+/* ── INGRID'S MOOD ──
+   cfg.ingridMood is set by the catch alone. Standing shifts it along the same
+   four-step scale, so how you have treated her carries between days. Clamped
+   to the ends of MOOD_SCALE — those four keys are exactly the ones the
+   .ingrid-mood-* rules define, and a fifth would style nothing. */
+const MOOD_SCALE = ["cold", "terse", "neutral", "warmer"];
+const moodBase   = Math.max(0, MOOD_SCALE.indexOf(cfg.ingridMood));
+const ingridMood = MOOD_SCALE[
+  Math.min(MOOD_SCALE.length - 1, Math.max(0, moodBase + Remorhaz.standingMoodBias("ingrid")))
+];
+
 /* ── APPLY STAT MODIFIERS ── */
 (function () {
   try {
@@ -744,6 +779,8 @@ let garnishBonus = 0;
    SIDEBAR HELPERS
 ══════════════════════════════════════════ */
 document.getElementById("ingridPortrait").style.backgroundImage = "url('assets/ingrid.png')";
+// Warmth cue only — every line she speaks is unchanged.
+document.querySelector(".ingrid-sidebar").classList.add("ingrid-mood-" + ingridMood);
 
 function setDialogue(text) {
   const el = document.getElementById("ingridDialogue");
@@ -1604,6 +1641,12 @@ function showResult() {
   s.cookingScore = total;
   s.cooksProficiency = proficiency;
   saveState(s);
+
+  // Ingrid's read on the shift, on the ladder above and its own boundaries:
+  // PROFICIENT or MASTERWORK earns her regard, ACCEPTABLE and EDIBLE · BARELY
+  // are merely adequate, and the tier where she has to fix it herself costs.
+  // recordWork re-scores the day, so Try Again revises rather than farms.
+  Remorhaz.recordWork("ingrid", workDay, total >= 35 ? 1 : total >= 18 ? 0 : -1);
 
   document.getElementById("toHubBtn").addEventListener("click", () => {
     _navigateTo("index.html");
