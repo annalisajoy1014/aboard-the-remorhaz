@@ -968,10 +968,9 @@ function startRopeInspection() {
       if (Math.hypot(mx - s.x, my - s.y) < s.radius + 10) {
         s.clicked = true; spotted++;
         document.getElementById("ropeFeedback").textContent = spotted + " / " + TOTAL + " wear points found";
-        const pct = spotted / TOTAL;
-        setDialogue(pct >= 1 ? "Every one. That is... unexpected." :
-                    pct >= 0.7 ? "Most of them. The ones you missed will cost us." :
-                    cfg.kaltGoodD);
+        // No verdict mid-stage. Wear points are still surfacing, so anything she
+        // says here about what was missed counts things she has not shown the
+        // player yet. Her assessment waits for endRopeStage, where it is true.
         break;
       }
     }
@@ -1064,6 +1063,11 @@ function startRopeInspection() {
     const vig = ctx.createRadialGradient(CW*0.5, CH*0.5, CW*0.18, CW*0.5, CH*0.5, CW*0.72);
     vig.addColorStop(0, "transparent"); vig.addColorStop(1, "rgba(0,0,0,0.52)");
     ctx.fillStyle = vig; ctx.fillRect(0, 0, CW, CH);
+
+    // Every wear point has spawned and every one is found or gone — there is
+    // nothing left on the rope to look at. End here rather than run the timer
+    // out on a bare line and deliver her verdict seconds after the work stopped.
+    if (totalSpawned >= TOTAL && spots.every(s => s.clicked || s.faded)) { endRopeStage(); return; }
 
     animId = requestAnimationFrame(draw);
   }
@@ -1317,10 +1321,11 @@ function startSailRepair() {
 
         // Dot times out
         if (age > life && !dot.stitched) {
-          // missed — advance silently, Kalt mutters
+          // missed — advance silently. "You missed some" is a verdict on the
+          // seam, not on one dot, and endSailStage already delivers it once, in
+          // full, counting every stitch dropped. No mutter per dropped stitch.
           dot.stitched = false; // keep unstitched (missed)
           dotSpawnedAt = null;
-          setDialogue(cfg.kaltFailD);
           currentDot++;
           if (currentDot >= TEARS[currentTear].points.length) {
             document.getElementById(`pip-${currentTear}`).classList.remove("active");
@@ -1358,6 +1363,8 @@ function startSailRepair() {
     const pct    = totalHit / totalDots;
     stage2Score  = Math.round(Math.min(15, pct * 15));
 
+    // The one verdict on the seam, and it already counts every stitch dropped —
+    // which is what the per-miss mutter was trying to say, a dozen times over.
     let dialogue;
     if (pct >= 0.95)     dialogue = "Every stitch placed. ...Fine. I'll admit that is competent work.";
     else if (pct >= 0.75) dialogue = "Most of the tears sealed. The ones you missed I'll do myself. Quietly.";
@@ -1406,6 +1413,7 @@ function startHullRepair() {
   let holdTarget = null;  // { crackIdx, startTime }
   let holdRingProgress = 0;
   const HOLD_NEEDED = 1400; // ms to seal a large crack
+  let saidGreat = false;  // her best line: one hearing a stage, not one per breach
 
   function updateIntegrity() {
     const pct = Math.max(0, 100 - hullDamage);
@@ -1659,7 +1667,11 @@ function startHullRepair() {
           c.patched = true; patchedCracks++;
           spawnSealParticles(c.x, c.y);
           holdTarget = null;
-          setDialogue(cfg.kaltGreatD);
+          // Said on every sealed breach, the compliment she gives least often
+          // stops being a compliment. Once a stage — after that, a sealed breach
+          // earns the same "good" a released hold does.
+          setDialogue(saidGreat ? cfg.kaltGoodD : cfg.kaltGreatD);
+          saidGreat = true;
         }
       }
     });
@@ -1737,7 +1749,7 @@ function showResult() {
     { min:35, tag:"COMPETENT CREW",       verdict:`The ropes are checked, the sail is stitched, and the hull holds water. You have done real work today. The ship is sound — and Kalt knows it.` },
     { min:27, tag:"ADEQUATE",             verdict:`The ship is in acceptable condition. You missed things — Kalt noticed every one — but the vessel will reach port. That has to be enough for now.` },
     { min:18, tag:"ROUGH EDGES",          verdict:`You completed the tasks, after a fashion. Kalt has quietly fixed most of what you missed. The crew watched. They are... withholding judgment.` },
-    { min:0,  tag:"EMPIRE WEAKLING",      verdict:`Kalt fixed it. All of it. He said nothing. He didn't need to. The look said enough. Perhaps tomorrow will go better.` },
+    { min:0,  tag:"EMPIRE WEAKLING",      verdict:`Kalt fixed it. All of it. She said nothing. She didn't need to. The look said enough. Perhaps tomorrow will go better.` },
   ];
 
   const tier = TIERS.find(t => total >= t.min) || TIERS[TIERS.length-1];

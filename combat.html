@@ -510,6 +510,9 @@ function showDialogue(idx) {
       btn.classList.add("chosen");
       setTimeout(() => {
         if (idx === 0) {
+          // preSpy is Haldor's line for the beat before Stage II — the key name is
+          // inherited from navigation.html, where that stage is the spyglass.
+          setDialogue(cfg.preSpy);
           goToScreen("screen-approach");
         } else {
           goToScreen("screen-result");
@@ -632,6 +635,9 @@ function startDrills() {
     for (let i=targets.length-1; i>=0; i--) {
       const t=targets[i];
       if (t.hit) continue;
+      // Same lifetime test draw() uses — once a target stops being drawn it's bare
+      // deck, not a hit. Without this the drill score can be farmed by spam-clicking.
+      if (elapsed - t.born > t.life) continue;
       if (Math.hypot(mx-t.x,my-t.y) < HIT_R+t.r) {
         t.hit=true; hits++;
         document.getElementById("drillsFeedback").textContent = WEAPON_LABELS[t.type] + " — " + hits + " / " + TOTAL_TARGETS + " hits";

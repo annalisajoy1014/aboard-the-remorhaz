@@ -430,6 +430,11 @@ function saveState(s) {
   const WIS = Remorhaz.stat("wisdom");
   const DC  = 7;
 
+  // The nat1 lines put the hull into the ice — a hard strike, a groan amidships,
+  // in one case a crack heard across the channel — and it used to cost exactly
+  // what a graze costs. This is the only place the two failures differ in price.
+  const CRIT_DAMAGE = 2;
+
   // Ursula's Day 3 card — "+1 to future navigation & observation checks" — is
   // spent right here. Kept as its own term everywhere it shows, because an
   // unexplained +1 on the total reads as a bug rather than a reward.
@@ -600,10 +605,12 @@ function saveState(s) {
           bannerText = "CRITICAL FAILURE";
           bannerClass = "fail";
           outcomeText = opts.nat1Text;
-          damage++;
+          damage += CRIT_DAMAGE;
           updatePips();
           document.getElementById(logId).textContent = "Critical fail";
-          updateSidebarDialogue(sidebarLines.fail);
+          // Never falls back to sidebarLines.fail: those lines reassure, and
+          // over a cracked hull reassurance is the one thing she would not offer.
+          if (sidebarLines.crit) updateSidebarDialogue(sidebarLines.crit);
         } else if (passed) {
           bannerText = "SUCCESS — DC MET";
           bannerClass = "pass";
@@ -625,6 +632,10 @@ function saveState(s) {
         bannerEl.className = "outcome-banner " + bannerClass;
         outEl.textContent = outcomeText;
         outEl.classList.add("visible");
+        // The roll is spent and this panel is a fixed height. Clearing the dead
+        // button leaves Next as the only control on screen, and the only one the
+        // player can read as live.
+        rollBtn.style.display = "none";
         nextBtn.classList.add("visible");
       }, 660);
     });
@@ -643,6 +654,7 @@ function saveState(s) {
     passText: C.h1Pass, failText: C.h1Fail, nat20Text: C.h1Nat20, nat1Text: C.h1Nat1,
     sidebarLines: {
       pass: "Good call. Keep your eyes ahead — the current's next.",
+      crit: "Okay — that one went deep. I felt it come up through the deck. Two more ahead, and I need you steadier than that. Breathe.",
       fail: "That's a strike. We'll deal with it. Eyes forward — there's more coming.",
     },
     onComplete: () => {
@@ -659,6 +671,7 @@ function saveState(s) {
     passText: C.h2Pass, failText: C.h2Fail, nat20Text: C.h2Nat20, nat1Text: C.h2Nat1,
     sidebarLines: {
       pass: "That's what I'm talking about. One more — the plates are closing ahead.",
+      crit: "That wasn't a scrape, that was the shelf taking a bite. Kalt is going to have my head and she'll be right to. One more. Eyes down.",
       fail: "Shelf strike. This old girl can take it. Almost through — last hazard.",
     },
     onComplete: () => {
@@ -675,6 +688,7 @@ function saveState(s) {
     passText: C.h3Pass, failText: C.h3Fail, nat20Text: C.h3Nat20, nat1Text: C.h3Nat1,
     sidebarLines: {
       pass: "We're through. Nice work up there. I mean it.",
+      crit: "...We're through. We're through. I'm not going to tell you that was fine, because it wasn't — but we're through, and you're still standing at the bow.",
       fail: "That last one got us. But we're through. That's what matters.",
     },
     onComplete: () => showResult(),
@@ -706,8 +720,12 @@ function saveState(s) {
       npcEl.textContent    = "“That's a clean run. Not even Kalt could complain about that one. Nice work.” — Ursula";
       continueBtn.textContent = "Sail On →";
       continueBtn.addEventListener("click", () => {
-        // Complete Day 5, advance to Day 6
-        saveState({ d5KaltRequired: false });
+        // Complete Day 5, advance to Day 6.
+        // d5KaltRequired only says "the hull needs looking at". d5HullStrikes
+        // carries the count itself — written on every ending, clean runs
+        // included — so later days can tell a graze from a disaster, and an
+        // unwritten key from a channel that was never sailed.
+        saveState({ d5KaltRequired: false, d5HullStrikes: damage });
         const existing = JSON.parse(localStorage.getItem("remorhaz") || "{}");
         const completed = new Set(Array.isArray(existing.completed) ? existing.completed : []);
         const completedDays = new Set(Array.isArray(existing.completedDays) ? existing.completedDays : []);
@@ -728,7 +746,7 @@ function saveState(s) {
         const completed = new Set(Array.isArray(existing.completed) ? existing.completed : []);
         const completedDays = new Set(Array.isArray(existing.completedDays) ? existing.completedDays : []);
         completed.add("ursula");
-        saveState({ completed: [...completed], completedDays: [...completedDays], d5KaltRequired: true });
+        saveState({ completed: [...completed], completedDays: [...completedDays], d5KaltRequired: true, d5HullStrikes: damage });
         Remorhaz.recordWork("ursula", 5, workDelta);
         _navigateTo("index.html");
       });
@@ -743,7 +761,7 @@ function saveState(s) {
         const completed = new Set(Array.isArray(existing.completed) ? existing.completed : []);
         const completedDays = new Set(Array.isArray(existing.completedDays) ? existing.completedDays : []);
         completed.add("ursula");
-        saveState({ completed: [...completed], completedDays: [...completedDays], d5KaltRequired: true });
+        saveState({ completed: [...completed], completedDays: [...completedDays], d5KaltRequired: true, d5HullStrikes: damage });
         Remorhaz.recordWork("ursula", 5, workDelta);
         _navigateTo("index.html");
       });

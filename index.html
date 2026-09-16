@@ -375,6 +375,9 @@
   }
   .knot:hover .lbl { opacity: 1; }
   .knot:hover .bead { transform: scale(1.12); }
+  /* The rope is a record, not a control, unless the dev flag turns the day jump
+     back on (see renderKnots) — so the ordinary cursor must not promise a click. */
+  .knot.is-static { cursor: default; }
 
   .knot.is-current .bead {
     background: radial-gradient(circle at 35% 30%, var(--lamp), var(--lamp-warm) 60%, var(--lamp-deep) 100%);
@@ -417,6 +420,22 @@
     color: var(--paper-deep);
     white-space: nowrap;
   }
+
+  /* Thirteen of these were written — one per crew member per day — and none had
+     ever rendered: both consumers reach them through `|| eff.hook`, and the
+     value on the left is always present. They read as epigraphs rather than
+     speech, so that is how they are set. */
+  .panel-hook {
+    font-family: "IM Fell English", serif;
+    font-style: italic;
+    font-size: 16px;
+    line-height: 1.5;
+    color: var(--lamp-warm);
+    margin-bottom: 14px;
+    padding-left: 14px;
+    border-left: 2px solid color-mix(in oklch, var(--lamp-warm) 40%, transparent);
+  }
+  .panel-hook:empty { display: none; }
 
   /* ========== MODAL / SIDE PANEL ========== */
   .modal-shroud {
@@ -615,6 +634,19 @@
   .panel button.secondary:hover {
     background: color-mix(in oklch, var(--ink) 12%, transparent);
   }
+  /* A locked action used to light up on hover and accept a click that did
+     nothing, with the reason buried in the status line. Disabled has to read as
+     disabled: drained of ink, dashed rather than solid, and a cursor that says
+     so before the player spends a click finding out. */
+  .panel button.primary:disabled,
+  .panel button.primary:disabled:hover,
+  .panel button.secondary:disabled,
+  .panel button.secondary:disabled:hover {
+    background: transparent;
+    color: color-mix(in oklch, var(--ink) 45%, transparent);
+    border: 1px dashed color-mix(in oklch, var(--ink) 28%, transparent);
+    cursor: not-allowed;
+  }
   .panel .status-line {
     margin-top: 18px;
     font-family: "Caveat", cursive;
@@ -747,6 +779,16 @@
     border-color: rgba(200,168,102,0.9);
     background: rgba(200,168,102,0.12);
     color: #e4d8c2;
+  }
+  /* Same rule in the cinematic: "NOT YET AVAILABLE" must not glow back at you.
+     The :hover pair is listed too — equal specificity, so source order alone
+     would be doing the work otherwise. */
+  .cin-npc-btn:disabled,
+  .cin-npc-btn:disabled:hover {
+    color: rgba(224,204,162,0.32);
+    background: transparent;
+    border: 1px dashed rgba(200,168,102,0.22);
+    cursor: not-allowed;
   }
 
   /* ── DIALOGUE RESPONSE OPTIONS ── */
@@ -1497,6 +1539,7 @@
 
     <hr class="rule"/>
 
+    <div class="panel-hook" id="p-hook"></div>
     <div class="dialogue" id="p-dialogue"></div>
 
     <div class="activity">
@@ -1521,7 +1564,15 @@ setTimeout(() => { if (_pf) _pf.classList.remove("in"); }, 50);
 function _navigateTo(url) {
   if (!_pf) { window.location.href = url; return; }
   _pf.classList.add("in");
-  _pf.addEventListener("transitionend", () => { window.location.href = url; }, { once: true });
+  // transitionend is not a promise. A reduced-motion setting, an overlay that is
+  // already faded in, or a dropped frame all leave it unfired, and the player is
+  // stranded on a black screen that never goes anywhere. The timer is the
+  // guarantee; whichever arrives first navigates, and the flag keeps the other
+  // from firing a second time.
+  let _navDone = false;
+  const _go = () => { if (_navDone) return; _navDone = true; window.location.href = url; };
+  _pf.addEventListener("transitionend", _go, { once: true });
+  setTimeout(_go, 700); // just past the 0.6s fade in shared.css
 }
 
 (() => {
@@ -2134,6 +2185,7 @@ function _navigateTo(url) {
   const pPortrait = document.getElementById("p-portrait");
   const pStats = document.getElementById("p-stats");
   const pDialogue = document.getElementById("p-dialogue");
+  const pHook     = document.getElementById("p-hook");
   const pActTitle = document.getElementById("p-act-title");
   const pActDesc  = document.getElementById("p-act-desc");
   const pBegin = document.getElementById("p-begin");
@@ -2156,8 +2208,9 @@ function _navigateTo(url) {
     pName.textContent = eff.name;
     pRole.textContent = eff.role;
     pPortrait.style.backgroundImage = `url('${eff.portrait}')`;
-    // Panel shows approach text (sensory description)
-    pDialogue.textContent = eff.approach || eff.hook;
+    // The hook is the day's epigraph; the approach is the scene it opens onto.
+    pHook.textContent = eff.hook || "";
+    pDialogue.textContent = eff.approach || "";
     pActTitle.textContent = eff.activityTitle;
     pActDesc.textContent  = eff.activityDesc;
 
@@ -2184,7 +2237,7 @@ function _navigateTo(url) {
       const _isD8req = repairDayRequired && state.currentDay === 8 && (DAYS.find(d => d.n === 8)?.npcs || []).includes(zone);
       pStatus.textContent = _isD8req
         ? "Emergency work complete — well done."
-        : `You have already worked with ${eff.name.split(" ")[0]} today.`;
+        : `You have already worked with ${SHORT_NAME[zone] || eff.name.split(" ")[0]} today.`;
     } else if (state.currentDay >= npc.day || isRequiredToday) {
       pBegin.textContent = "SPEAK WITH THEM";
       const _isD8req = repairDayRequired && state.currentDay === 8 && (DAYS.find(d => d.n === 8)?.npcs || []).includes(zone);
@@ -2234,25 +2287,47 @@ function _navigateTo(url) {
   });
 
   /* ============== ROPE / KNOTS ============== */
+  // Clicking a knot rewrites currentDay. That is a testing shortcut, not a player
+  // control: a player who clicks the rope to read a day would teleport the voyage
+  // there and permanently skip — or un-skip — the content in between. It stays
+  // available to the author behind an explicit opt-in (load the hub as
+  // index.html?dev=1); otherwise the rope is a record of where the voyage stands
+  // and nothing more, so the knots are rendered as plain marks, not as controls.
+  //
+  // The flag sticks once set, because every _navigateTo() in the game uses a
+  // bare relative URL — so a query parameter is gone the moment the author
+  // enters a minigame, and testing a Day 5 branch would mean retyping it on
+  // every return to the hub. index.html?dev=1 turns it on and it stays on;
+  // index.html?dev=0 turns it off again.
+  const DEV_DAY_JUMP = (() => {
+    const q = new URLSearchParams(location.search).get("dev");
+    if (q === "1" || q === "0") {
+      Remorhaz.patch({ devDayJump: q === "1" });
+      return q === "1";
+    }
+    return !!Remorhaz.load().devDayJump;
+  })();
   const knotsEl = document.getElementById("knots");
   function renderKnots() {
     knotsEl.innerHTML = "";
     DAYS.forEach(d => {
-      const btn = document.createElement("button");
-      btn.className = "knot";
+      const btn = document.createElement(DEV_DAY_JUMP ? "button" : "div");
+      btn.className = DEV_DAY_JUMP ? "knot" : "knot is-static";
       if (state.completedDays.has(d.n)) btn.classList.add("is-done");
       if (d.n === state.currentDay && !state.completedDays.has(d.n)) btn.classList.add("is-current");
       btn.innerHTML = `<span class="num">${String(d.n).padStart(2, "0")}</span>
                        <span class="bead"></span>
                        <span class="lbl">Day ${d.n} · ${d.label}</span>`;
-      btn.addEventListener("click", () => {
-        // Jump current day (DM convenience)
-        if (d.n <= 9) {
-          state.currentDay = d.n;
-          save();
-          renderKnots();
-        }
-      });
+      if (DEV_DAY_JUMP) {
+        btn.addEventListener("click", () => {
+          // Jump current day (DM convenience)
+          if (d.n <= 9) {
+            state.currentDay = d.n;
+            save();
+            renderKnots();
+          }
+        });
+      }
       knotsEl.appendChild(btn);
     });
   }
@@ -2599,7 +2674,11 @@ function _navigateTo(url) {
 
   // Detect day change since last visit (delay until after page-fade completes)
   {
-    const _s = JSON.parse(localStorage.getItem("remorhaz") || "{}");
+    // The file's one unguarded parse used to live here. A save that would not
+    // parse threw out of the whole hub script before the RESTART button below
+    // was ever bound — so the one control that could recover from a bad save was
+    // the one control the bad save disabled.
+    const _s = (() => { try { return JSON.parse(localStorage.getItem("remorhaz") || "{}"); } catch { return {}; } })();
     const lastSeen = _s.lastSeenDay || 0;
     // Update lastSeenDay immediately so a refresh won't re-show the cinematic
     try {
@@ -2614,7 +2693,8 @@ function _navigateTo(url) {
   /* ============== RESTART ============== */
   document.getElementById("restartBtn").addEventListener("click", () => {
     if (!confirm("Begin a new voyage?\n\nAll progress will be permanently lost.")) return;
-    localStorage.removeItem("remorhaz");
+    // Nothing storage does may stop the escape hatch from opening.
+    try { localStorage.removeItem("remorhaz"); } catch {}
     _navigateTo("character-select.html");
   });
 

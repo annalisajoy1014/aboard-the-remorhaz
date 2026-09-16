@@ -28,6 +28,11 @@
   position: absolute; inset: 0;
   display: none; flex-direction: column;
   align-items: center; justify-content: center;
+  /* The intro already sat within a few pixels of this panel's fixed height, and
+     a resolved check card is taller again. Centred flex clips both ends when it
+     overflows, which would put ENTER THE GALLEY out of reach — so let it scroll
+     instead, and keep the top edge reachable where "safe" is understood. */
+  justify-content: safe center; overflow-y: auto;
   gap: 22px; padding: 32px;
   background: linear-gradient(to bottom, oklch(0.14 0.04 50), oklch(0.10 0.03 45));
 }
@@ -222,6 +227,7 @@ canvas#heatCanvas {
   width: 20px; height: 120px; position: relative;
   background: oklch(0.12 0.03 45); border: 1px solid var(--rope-dark); border-radius: 10px;
   overflow: visible;
+  cursor: pointer; user-select: none;   /* hold it to scrape spice back off */
 }
 .spice-meter-fill {
   position: absolute; bottom: 0; left: 0; right: 0;
@@ -471,7 +477,7 @@ canvas#heatCanvas {
 
 <div class="page-header">
   <div class="eyebrow">— Glassblade Charter Vessel —</div>
-  <div class="title">Day 1 · Cooking</div>
+  <div class="title" id="pageTitle">Day 1 · Cooking</div>
   <div class="rule"></div>
 </div>
 
@@ -493,8 +499,20 @@ canvas#heatCanvas {
 
         <!-- BG3 Wisdom / Insight check -->
         <div class="skill-check-card">
+          <div class="sck-name">WISDOM · INSIGHT</div>
+          <div class="sck-dc" id="wisckDc"></div>
           <p class="sck-prompt">You try to gauge what Ingrid expects and how best to approach the work ahead.</p>
           <div class="sck-indicator" id="wisArrow"></div>
+          <!-- The die, the total and the verdict. The card called this a check and
+               showed none of them; .sck-die and .sck-verdict have been styled for
+               it all along. -->
+          <div class="sck-die-row" id="wisckDieRow" style="display:none">
+            <div class="sck-die" id="wisckDie">d10</div>
+            <div class="sck-breakdown">
+              <div id="wisckEquation"></div>
+              <div class="sck-verdict" id="wisckVerdict"></div>
+            </div>
+          </div>
           <button class="btn-roll-check" id="btnRollInsight">Read the Room</button>
           <p class="sck-result-prose" id="wisckResultProse"></p>
         </div>
@@ -578,12 +596,12 @@ canvas#heatCanvas {
     <div class="ingrid-sidebar">
       <div class="ingrid-portrait" id="ingridPortrait"></div>
       <div class="ingrid-name">Chef Ingrid Firebrew</div>
-      <div class="ingrid-role">Galley Master · Day 1</div>
+      <div class="ingrid-role" id="ingridRole">Galley Master · Day 1</div>
       <div class="sidebar-rule"></div>
       <div class="ingrid-dialogue" id="ingridDialogue">&nbsp;</div>
       <div class="sidebar-rule"></div>
       <div class="phase-label" id="phaseLabel">Sleight of Hand · Medicine · Performance</div>
-      <div class="instruction-label" id="instructionLabel">DC 10 each stage · 35 points for proficiency</div>
+      <div class="instruction-label" id="instructionLabel">15 points a stage · 35 of 48 for proficiency</div>
       <div class="score-tally" id="scoreTally" style="display:none">
         <div class="score-row"><span>Heat</span><span id="ts1">—</span></div>
         <div class="score-row"><span>Seasoning</span><span id="ts2">—</span></div>
@@ -655,6 +673,14 @@ const catchRoll = lastCatch ? lastCatch.roll : 3;
 // before "Try Again" reloads this page, so a retried Day 1 shift arrives
 // reading "Day 2". It is still Day 1's work, and must land in Day 1's slot.
 const workDay   = (appState.currentDay || 1) >= 8 ? 8 : 1;
+
+// Day 1's galley shift and the Day 8 emergency cook are the same page, so the
+// captions come from the save rather than the markup — the title, the header
+// and Ingrid's role all read "Day 1" through the emergency before now.
+const dayCaption = workDay === 8 ? "Day 8 · Emergency Cooking" : "Day 1 · Cooking";
+document.title = dayCaption + " — Aboard the Remorhaz";
+document.getElementById("pageTitle").textContent  = dayCaption;
+document.getElementById("ingridRole").textContent = "Galley Master · Day " + workDay;
 
 /* ── FISHING GATE ── */
 if (!lastCatch) {
@@ -798,9 +824,11 @@ function updateTally(s1, s2, s3) {
   document.getElementById("ts1").textContent    = s1 !== null ? s1 + " / 15" : "—";
   document.getElementById("ts2").textContent    = s2 !== null ? s2 + " / 15" : "—";
   document.getElementById("ts3").textContent    = s3 !== null ? s3 + " / 15" : "—";
+  // 15 + 15 + 15 from the stages plus up to 3 for the garnish: the ceiling is
+  // 48, not 45. A strong run was being shown an impossible score.
   const total = (s1 || 0) + (s2 || 0) + (s3 || 0) + garnishBonus;
   document.getElementById("tsTotal").textContent = (s1 !== null || s2 !== null || s3 !== null)
-    ? total + " / 45" : "—";
+    ? total + " / 48" : "—";
 }
 
 /* ══════════════════════════════════════════
@@ -822,6 +850,16 @@ function goToScreen(id, delay = 0) {
 document.getElementById("introCatchIcon").textContent = CATCH_ICONS[catchRoll] || "🐠";
 document.getElementById("introCatchName").textContent = CATCH_NAMES[catchRoll] || "Your Catch";
 document.getElementById("difficultyTag").textContent  = cfg.label;
+// The opening promise used to read "DC 10 each stage". Nothing here rolls against
+// a DC — the three stages are precision minigames, each graded on its own scale
+// out of 15, with the garnish worth up to 3 more. 35 is the real proficiency
+// threshold (showResult) and 48 the real ceiling. The arrows go where the ability
+// is named, as they do on every stage label, because they are the only warning
+// the player gets that a stage is not their strength.
+document.getElementById("instructionLabel").innerHTML =
+  Remorhaz.arrow("dexterity") + "Dexterity · " +
+  Remorhaz.arrow("wisdom")    + "Wisdom · " +
+  Remorhaz.arrow("charisma")  + "Charisma — 15 points a stage · 35 of 48 for proficiency";
 setDialogue(cfg.ingridIntro);
 
 // 2nd-person narrative per catch type
@@ -841,6 +879,9 @@ document.getElementById("introBody").textContent = CATCH_NARRATIVES[catchRoll] |
   else if (wisMod <= -1) wisEl.innerHTML = '<span class="stat-arrow dn">▼</span>';
 
   const DC = 8;
+  // One source for the number the player is now shown.
+  document.getElementById("wisckDc").textContent = "DC " + DC + " · d10 + Wisdom";
+
   const WISDOM_SUCCESS = {
     1: "You read the situation quickly. Ingrid expects precision and restraint — she's making do, and so will you.",
     2: "You gauge the challenge immediately. The eel demands high heat and bold seasoning. Miss either and it becomes inedible.",
@@ -856,8 +897,24 @@ document.getElementById("introBody").textContent = CATCH_NARRATIVES[catchRoll] |
 
   document.getElementById("btnRollInsight").addEventListener("click", function () {
     this.disabled = true;
-    const pass  = (Math.ceil(Math.random() * 10) + wisMod) >= DC;
+    const roll  = Math.ceil(Math.random() * 10);
+    const total = roll + wisMod;
+    const pass  = total >= DC;
     const resEl = document.getElementById("wisckResultProse");
+
+    // The roll was always being made — it just happened out of sight, with no die,
+    // no DC and no verdict, which made a check of it in name only. What it buys is
+    // the read below and nothing else: no stage score moves on it. So the honest
+    // version is to put the whole of it on the table.
+    document.getElementById("wisckDieRow").style.display = "flex";
+    const dieEl = document.getElementById("wisckDie");
+    dieEl.textContent = roll;
+    dieEl.classList.toggle("is-fail", !pass);
+    document.getElementById("wisckEquation").textContent =
+      roll + (wisMod !== 0 ? (wisMod > 0 ? " + " + wisMod : " − " + Math.abs(wisMod)) : "") + " = " + total;
+    const verdictEl = document.getElementById("wisckVerdict");
+    verdictEl.textContent = pass ? "SUCCESS — DC MET" : "FAILURE — DC MISSED";
+    verdictEl.classList.add(pass ? "pass" : "fail");
 
     setTimeout(() => {
       resEl.textContent = (pass ? WISDOM_SUCCESS : WISDOM_FAILURE)[catchRoll] || (pass ? WISDOM_SUCCESS[3] : WISDOM_FAILURE[3]);
@@ -1217,7 +1274,7 @@ let tasteUsed      = false;
 let seasoningDone  = false;
 
 function startSeasoning() {
-  setPhase("Stage II — The Seasoning", _cookArrow('wisdom') + "Wisdom Check · Apply salt, pepper, and herbs");
+  setPhase("Stage II — The Seasoning", _cookArrow('wisdom') + "Wisdom Check · Hold a jar to pour, its meter to scrape back");
   setDialogue("The size of the fish determines how much it needs. Too much salt and you are seasoning the ocean. Too little and it is flavorless — and you will answer for it.");
   document.getElementById("seasonFishPreview").textContent = CATCH_ICONS[catchRoll] || "🐠";
   buildSpiceRow();
@@ -1242,19 +1299,29 @@ function buildSpiceRow() {
     const jar = col.querySelector(`#jar-${sp.key}`);
     jar.addEventListener("mousedown", () => startPour(sp.key, sp.pourRate));
     jar.addEventListener("touchstart", (e) => { e.preventDefault(); startPour(sp.key, sp.pourRate); }, {passive:false});
+
+    // Hold the meter instead of the jar to take that spice back down — the same
+    // hold-to-pour plumbing run backwards, so "keep adjusting" is something the
+    // player can actually do.
+    const wrap = col.querySelector(`#wrap-${sp.key}`);
+    wrap.addEventListener("mousedown", () => startPour(sp.key, -sp.pourRate));
+    wrap.addEventListener("touchstart", (e) => { e.preventDefault(); startPour(sp.key, -sp.pourRate); }, {passive:false});
   });
 
   document.addEventListener("mouseup",  stopPour);
   document.addEventListener("touchend", stopPour);
 }
 
+// A positive rate pours from the jar, a negative one scrapes the spice back off.
+// Levels only ever climbed before, so one over-hold ruined that spice for the
+// rest of the stage while Ingrid was telling the player to keep adjusting.
 function startPour(key, rate) {
   if (seasoningDone) return;
   pouringKey = key;
-  document.getElementById("jar-" + key).classList.add("pouring");
+  if (rate > 0) document.getElementById("jar-" + key).classList.add("pouring");
   clearInterval(pourInterval);
   pourInterval = setInterval(() => {
-    spiceLevels[key] = Math.min(100, spiceLevels[key] + rate * 0.1);
+    spiceLevels[key] = Math.max(0, Math.min(100, spiceLevels[key] + rate * 0.1));
     updateSpiceMeter(key);
   }, 100);
 }
@@ -1284,7 +1351,10 @@ document.getElementById("tasteBtn").addEventListener("click", () => {
   SPICES.forEach(sp => {
     const t = cfg.spiceTargets[sp.key];
     const lvl = spiceLevels[sp.key];
-    if (lvl < t[0] - 8 || lvl > t[1] + 8) offCount++;
+    // The band the scoring pays full credit for is [t0, t1] exactly. Judged eight
+    // points wider than that, she could call the balance right while all three
+    // spices sat outside it — so palate and scoresheet now use the same band.
+    if (lvl < t[0] || lvl > t[1]) offCount++;
   });
 
   let fb, dialogue;
@@ -1362,7 +1432,10 @@ const FOOD_ITEMS = [
 ];
 
 const GARNISH_OPTIONS = [
-  { id: "dill",   icon: "🌿", label: "Dill",    bonus: catchRoll === 4 ? 3 : catchRoll === 3 ? 2 : 1 },
+  // Every catch has exactly one 3-point garnish — except halibut, whose best was
+  // a 2, so on the most common catch the full bonus and the line that comes with
+  // it were both unreachable. Dill was already halibut's right answer at 2.
+  { id: "dill",   icon: "🌿", label: "Dill",    bonus: catchRoll === 4 || catchRoll === 3 ? 3 : 1 },
   { id: "roe",    icon: "🫧", label: "Roe",     bonus: catchRoll === 2 ? 3 : catchRoll === 4 ? 2 : 1 },
   { id: "butter", icon: "🧈", label: "Butter",  bonus: catchRoll === 1 ? 3 : 2 },
 ];
@@ -1499,16 +1572,22 @@ function placeOnPlate(item, relX, relY, plateRect) {
   const hint = plateArea.querySelector('.plate-zone-hint[data-zone="' + item.id + '"]');
   if (hint) hint.style.opacity = "0";
 
-  // React with Ingrid dialogue after each item
-  const placed = Object.keys(placedItems).length;
-  const reacts = [
-    ["Hmm. The fish placement.", "The fish is well-centred.", "You left the fish in a corner. This is not a corner fish."],
-    ["The lemon. Yes.", "Good. Acid to balance.", "Too much garnish on one side. Think about the eye."],
-    ["...", "You understand balance.", "It will be eaten regardless."],
-  ];
-  const r = reacts[placed - 1];
+  // React with Ingrid dialogue after each item, keyed to the item itself. The
+  // triples were indexed by how many things had been dropped, so putting the
+  // lemon down first earned the line about leaving the fish in a corner.
+  const REACTS = {
+    fish:   ["Hmm. The fish placement.", "The fish is well-centred.", "You left the fish in a corner. This is not a corner fish."],
+    citrus: ["The lemon. Yes.", "Good. Acid to balance.", "Too much garnish on one side. Think about the eye."],
+    sauce:  ["...", "You understand balance.", "It will be eaten regardless."],
+  };
+  const r = REACTS[item.id];
   if (r) {
-    const pick = dist < cfg.plateTolerance ? r[1] : r[2];
+    // Three lines, and resolvePlating already grades a placement in three bands:
+    // full credit, partial credit, the miss. The noncommittal first line is the
+    // partial-credit one; a two-way ternary had left it unreachable.
+    const pick = dist < cfg.plateTolerance * 0.5 ? r[1]
+               : dist < cfg.plateTolerance       ? r[0]
+               : r[2];
     setDialogue(pick);
   }
 
@@ -1533,15 +1612,14 @@ function showGarnishStep() {
     opt.className = "garnish-opt";
     opt.innerHTML = `<div class="gem">${g.icon}</div><div class="glbl">${g.label}</div>`;
     opt.addEventListener("click", () => {
+      if (plateDone) return;
       document.querySelectorAll(".garnish-opt").forEach(o => o.classList.remove("chosen"));
       opt.classList.add("chosen");
       chosenGarnish = g;
       document.getElementById("garnishSubmitBtn").disabled = false;
-      setDialogue(g.bonus >= 3
-        ? "...Yes. That pairs well. You thought about this."
-        : g.bonus >= 2
-          ? "A reasonable choice."
-          : "If you must.");
+      // She says nothing yet. Her read used to land on selection, which made
+      // "choose carefully" free: click all three, submit whichever one drew the
+      // warm line. The highlight is the acknowledgement; the verdict waits.
     });
     row.appendChild(opt);
   });
@@ -1550,7 +1628,14 @@ function showGarnishStep() {
 document.getElementById("garnishSubmitBtn").addEventListener("click", () => {
   if (!chosenGarnish || plateDone) return;
   plateDone = true;
-  resolvePlating();
+  // The choice is committed now, so it costs nothing to tell the player what she
+  // makes of it. The plating verdict follows once her line has had its beat.
+  setDialogue(chosenGarnish.bonus >= 3
+    ? "...Yes. That pairs well. You thought about this."
+    : chosenGarnish.bonus >= 2
+      ? "A reasonable choice."
+      : "If you must.");
+  setTimeout(resolvePlating, 1500);
 });
 
 function resolvePlating() {
@@ -1619,13 +1704,13 @@ function showResult() {
   }
 
   setDialogue(ingridFinal);
-  setPhase("— Ingrid's Verdict —", total + " / 45 points");
+  setPhase("— Ingrid's Verdict —", total + " / 48 points");
 
   const card = document.getElementById("resultCard");
   card.innerHTML = `
     <div class="result-tag">— ${tag} —</div>
     <div class="result-score">${total}</div>
-    <div class="result-max">out of 45 points</div>
+    <div class="result-max">out of 48 points</div>
     ${proficiency ? `<div class="result-proficiency">🍳 Cook's Utensils Proficiency Awarded</div>` : ""}
     <div class="result-verdict">${verdict}</div>
     <div class="result-ingrid">"${ingridFinal}"</div>

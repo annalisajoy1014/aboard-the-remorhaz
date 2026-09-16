@@ -528,9 +528,8 @@ canvas#oceanCanvas {
   border-radius: 1px; transition: background 0.2s, color 0.2s, border-color 0.2s;
 }
 .btn-secondary:hover { color: var(--paper); background: rgba(255,255,255,0.05); border-color: var(--paper-dim); }
-/* success card sits on parchment — secondary needs ink text */
-.catch-card:not(.is-fail) ~ .catch-actions .btn-secondary { color: var(--ink); }
-.catch-card:not(.is-fail) ~ .catch-actions .btn-secondary:hover { background: color-mix(in oklch, var(--ink) 10%, transparent); }
+/* The action row is a sibling of the card, sitting on the dark reveal scene and
+   not on the parchment — so both exits keep the paper-on-dark secondary above. */
 
 /* Hide the page-level header chrome while the splash is up so it doesn't compete with the splash title */
 body.splash-active .page-header,
@@ -1067,7 +1066,7 @@ body.splash-active .back-btn { visibility: hidden; opacity: 0; }
       </div>
       <div class="sidebar-rule"></div>
       <div class="phase-label" id="phaseLabel">Act I — The Deep Watch</div>
-      <div class="instruction-label" id="instructionLabel">Survival DC 11 · Read the sea</div>
+      <div class="instruction-label" id="instructionLabel">Intelligence Check · Read the sea</div>
       <div class="catch-tally" id="catchTally" style="display:none">
         <div class="tally-row"><span>Catch</span><span class="tally-val" id="tallyName">—</span></div>
         <div class="tally-row"><span>Quality</span><span class="tally-val" id="tallyQuality">—</span></div>
@@ -1130,6 +1129,23 @@ function _arrow(k) {
 }
 
 /* ──────────────────────────────────────────────
+   WHICH DAY THIS IS
+   The hub sends you to this rail twice — Day 1's dawn watch, and the Day 8
+   emergency after the storm takes the stores. Finishing Day 1 advances the
+   clock, so a reload can read Day 2 while still being Day 1's shift: only
+   Day 8 and beyond is the emergency. Captions follow the save, not the markup.
+─────────────────────────────────────────────── */
+const WORK_DAY = (Remorhaz.load().currentDay || 1) >= 8 ? 8 : 1;
+(function () {
+  const heading = WORK_DAY === 8 ? "Day 8 · Emergency Fishing" : "Day 1 · Fishing";
+  document.title = heading + " — Aboard the Remorhaz";
+  document.querySelector(".page-header .title").textContent = heading;
+  document.querySelector(".splash-eyebrow").textContent =
+    WORK_DAY === 8 ? "— Day 8 · Emergency Fishing —" : "— Day 1 · Before Dawn —";
+  document.querySelector(".haldor-role").textContent = "Fisherman · Day " + WORK_DAY;
+})();
+
+/* ──────────────────────────────────────────────
    CANVAS
 ─────────────────────────────────────────────── */
 const canvas = document.getElementById("oceanCanvas");
@@ -1169,7 +1185,7 @@ let animId        = null;
 // Act 2
 let tension       = 0.5;   // 0 = net wins, 1 = player wins
 const NET_RATE    = 0.0014; // base net pull per 16ms tick (modulated by surges)
-const PULL_RATE   = 0.018;  // baseline per-click pull (varied at use site)
+const PULL_RATE   = 0.038;  // average per-click pull (varied at use site)
 const HOLD_RATE   = 0.006;  // per hold tick (60fps)
 let holdInterval  = null;
 let netInterval   = null;   // legacy alias
@@ -1761,12 +1777,17 @@ function startRopePull() {
       updateNetForceIndicator(1);
     }
 
-    // random slip: chunky tension drop (only if not already near loss)
-    if (now > nextSlip && tension > 0.15) {
-      const drop = 0.06 + Math.random() * 0.09;
-      tension -= drop;
-      nextSlip  = now + 2200 + Math.random() * 3800;
-      showSlip(drop);
+    // random slip: chunky tension drop (only if not already near loss). The
+    // timer reschedules either way — left ticking in the past while suppressed,
+    // every swallowed slip fired the instant the player clawed back over the
+    // threshold, so fighting up from the brink was punished for succeeding.
+    if (now > nextSlip) {
+      if (tension > 0.15) {
+        const drop = 0.06 + Math.random() * 0.09;
+        tension -= drop;
+        showSlip(drop);
+      }
+      nextSlip = now + 2200 + Math.random() * 3800;
     }
 
     // net pull
@@ -1813,8 +1834,11 @@ function startRopePull() {
 function doPull() {
   if (pullDone) return;
   pullCount++;
-  // each tap adds variable pull (0.010–0.022) so chance matters
-  const amt = 0.010 + Math.random() * 0.012;
+  // each tap adds variable pull (0.033–0.043) so chance matters. The tutorial,
+  // the prompt and the toast all offer clicking and holding as equal tactics, so
+  // they have to earn about the same: a press is also a brief hold, and at this
+  // size ~7 taps a second come out level with a steady haul over that second.
+  const amt = PULL_RATE * (0.86 + Math.random() * 0.28);
   tension += amt;
   if (tension > 1) tension = 1;
   const knot = document.getElementById("ropeKnot");
@@ -2011,9 +2035,10 @@ function showReveal(success, reason) {
   const saveHaul = () => {
     // Work is credited above the early return: an empty net is still how the day
     // went, and Haldor noticed. recordWork re-scores the day rather than adding to
-    // it, so a retry revises the credit instead of farming it. The day comes from
-    // the save because this page serves Day 1 and the Day 8 emergency alike.
-    Remorhaz.recordWork("haldor", Remorhaz.load().currentDay || 1, workDelta(caught));
+    // it, so a retry revises the credit instead of farming it. It is credited to
+    // WORK_DAY, the day the captions name, so a retry after the clock has moved
+    // on still revises Day 1's slot rather than opening one nothing reads.
+    Remorhaz.recordWork("haldor", WORK_DAY, workDelta(caught));
     if (!caught) return;                     // empty nets finish nothing
     Remorhaz.patch({ lastCatch: caught });   // the object in scope, not re-read from the rendered tag
     Remorhaz.markComplete("haldor");         // idempotent, so a replay cannot duplicate the entry
@@ -2203,6 +2228,11 @@ let splashRollDone = false;
     this.disabled = true;
     const pass = (Math.ceil(Math.random() * 10) + intMod) >= DC;
     const resEl = document.getElementById("sckResultProse");
+    // The success prose promises the player will know when the moment arrives,
+    // so it has to buy something: a read on the sea widens the haul window by
+    // half again. The net-glow, the sign and Haldor's shout all derive from
+    // windowLen, so the tell the player watches for stretches with it.
+    if (pass) windowLen *= 1.5;
 
     setTimeout(() => {
       resEl.textContent = pass ? SUCCESS : FAILURE;
