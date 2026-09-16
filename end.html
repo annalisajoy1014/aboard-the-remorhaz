@@ -456,12 +456,10 @@ function loadState() {
       completed:         Array.from(s.completed     || []),
       completedDays:     Array.from(s.completedDays || []),
       navigationScore:   s.navigationScore  || 0,
-      ursulaRapport:     s.ursulaRapport    || 0,
       cookingScore:      s.cookingScore     || 0,
       crewRespect:       s.crewRespect      || false,
       himmselkSpotted:   s.himmselkSpotted  || false,
       navigatorBonus:    s.navigatorBonus   || false,
-      kaltRapport:       s.kaltRapport      || 0,
     };
   } catch { return {}; }
 }
@@ -527,16 +525,36 @@ function buildStats() {
   ).length;
   rows.push(["Crew Relationships", crewCount + " formed"]);
 
+  if (appState.cookingScore) rows.push(["Cooking Score", appState.cookingScore + " / 45"]);
   if (appState.navigationScore) rows.push(["Navigation Score", appState.navigationScore + " / 30"]);
   if (appState.himmselkSpotted) rows.push(["Rare Sighting", "Himmselk Isful — Omen of Fair Weather"]);
+  if (appState.crewRespect) rows.push(["Crew Respect", "Earned"]);
   if (appState.navigatorBonus) rows.push(["Navigator's Favour", "Earned"]);
 
-  const rapLabel = r =>
-    r >= 2 ? "Trusted" : r >= 1 ? "Respectful" : r === 0 ? "Professional" : "Strained";
-  if (appState.ursulaRapport !== undefined)
-    rows.push(["Ursula's Regard", rapLabel(appState.ursulaRapport)]);
-  if (appState.kaltRapport !== undefined)
-    rows.push(["Kalt's Regard", rapLabel(appState.kaltRapport)]);
+  /* Standing persists across the whole voyage, so all five can be reported
+     instead of the two scenes that happened to keep a rapport number. The
+     captain's row weighs his own dealings with you against how the rest of his
+     crew took to you.
+
+     Read the raw 0-10 rather than the three dialogue tiers. Those tiers exist
+     to choose which lines a character speaks, and three buckets are plenty for
+     that — but this is the last thing the player reads about nine days of
+     choices, and "low" covering both a neutral stranger and someone who was
+     hostile all voyage would flatten the difference the voyage just earned. */
+  const regard = v =>
+    v >= 9 ? "Would sail with you again" :
+    v >= 7 ? "Trusted" :
+    v >= 4 ? "Respectful" :
+    v >= 2 ? "Professional" :
+             "Cold";
+  const crewRows = [
+    ["The Captain", Math.round(Remorhaz.thorgrimStanding())],
+    ["Haldor", Remorhaz.standing("haldor")],
+    ["Ingrid", Remorhaz.standing("ingrid")],
+    ["Kalt",   Remorhaz.standing("kalt")],
+    ["Ursula", Remorhaz.standing("ursula")],
+  ];
+  crewRows.forEach(([name, v]) => rows.push([name, regard(v)]));
 
   const block = document.getElementById("statsBlock");
   block.innerHTML = rows.map(([k, v]) => `

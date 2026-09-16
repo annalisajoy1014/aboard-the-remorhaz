@@ -2056,8 +2056,9 @@ function _navigateTo(url) {
       (hpPct / 100) * 3
     ));
     const verdicts = ["A hard-won victory.", "The sea is yours — for now.", "A masterful defence of the Remorhaz.", "They shall not take this ship."];
+    const verdictTier = Math.min(score - 1, verdicts.length - 1);
     document.getElementById("victory-score").textContent = score + " / 10";
-    document.getElementById("victory-body").textContent = verdicts[Math.min(score - 1, verdicts.length - 1)] || verdicts[0];
+    document.getElementById("victory-body").textContent = verdicts[verdictTier] || verdicts[0];
 
     // Save
     try {
@@ -2072,6 +2073,10 @@ function _navigateTo(url) {
       }));
     } catch(e) {}
 
+    // Day 6 work credit, on the same rungs as the verdict copy above. Must run
+    // after the save block, which writes back a snapshot read before this call.
+    Remorhaz.recordWork("ursula", 6, verdictTier >= 2 ? 1 : (verdictTier === 1 ? 0 : -1));
+
     setTimeout(() => {
       document.getElementById("screen-victory").classList.add("visible");
     }, 600);
@@ -2082,6 +2087,9 @@ function _navigateTo(url) {
       const ex = JSON.parse(localStorage.getItem("remorhaz") || "{}");
       localStorage.setItem("remorhaz", JSON.stringify({ ...ex, seaBattleTutorialDone: true }));
     } catch(e) {}
+    // Losing the deck is poor work. Re-scored rather than stacked, so the retry
+    // button below can still earn Day 6 back.
+    Remorhaz.recordWork("ursula", 6, -1);
     setTimeout(() => {
       document.getElementById("screen-defeat").classList.add("visible");
     }, 800);

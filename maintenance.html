@@ -450,6 +450,10 @@ const appState   = loadState();
 const catchRoll  = appState.lastCatch?.roll ?? 2;
 const cookScore  = appState.cookingScore ?? 0;
 const cookProf   = appState.cooksProficiency ?? false;
+// The day this shift belongs to. Read once, here: this page also serves the
+// Day 5 hull inspection and the Day 8 repairs, and showResult() advances
+// appState.currentDay before it saves.
+const workDay    = appState.currentDay ?? 1;
 
 // Kalt's mood: -2 (contemptuous) → +2 (grudgingly impressed)
 let kaltMood = 0;
@@ -457,6 +461,8 @@ if (catchRoll >= 4)              kaltMood += 1;
 else if (catchRoll <= 1)         kaltMood -= 1;
 if (cookProf || cookScore >= 35) kaltMood += 1;
 else if (cookScore < 18)         kaltMood -= 1;
+// She also reads how she's been treated, not just how the work went.
+kaltMood += Remorhaz.standingMoodBias("kalt");
 kaltMood = Math.max(-2, Math.min(2, kaltMood));
 
 const CFGS = {
@@ -1679,6 +1685,18 @@ function showResult() {
     if (s.currentDay < 3) s.currentDay = 3;
   }
   saveState(s);
+
+  // The dialogue is a conversation, and a conversation happens once: credit it
+  // on every retry and a replay farms Kalt's regard a point at a time. Marked
+  // even when rapport is 0, or a neutral run followed by a warmer retry pays.
+  if (!Remorhaz.hasSpokenTo("kalt", workDay, "scene")) {
+    Remorhaz.adjustStanding("kalt", rapport);
+    Remorhaz.markSpokenTo("kalt", workDay, "scene");
+  }
+  // The day's work, scored on the page's own boundaries: Kalt's pass line for a
+  // good day, her bottom verdict for a poor one. Re-scored, not accumulated.
+  Remorhaz.recordWork("kalt", workDay,
+    total >= cfg.winThreshold ? 1 : tier === TIERS[TIERS.length-1] ? -1 : 0);
 
   document.getElementById("toHubBtn").addEventListener("click", () => { _navigateTo("index.html"); });
   document.getElementById("retryBtn").addEventListener("click", () => { _navigateTo(window.location.href); });

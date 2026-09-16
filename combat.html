@@ -277,6 +277,10 @@ let haldorMood = 0;
 if (appState.maintenanceScore >= 22) haldorMood += 1;
 if (appState.crewRespect)            haldorMood += 1;
 if (appState.navigationScore < 10)   haldorMood -= 1;
+// He notices how he's been treated, not just how well the work went. Folded in
+// BEFORE the clamp — CFGS and every speech/reply block define only "-1" through
+// "2", so an out-of-range mood would leave the scene with no config at all.
+haldorMood += Remorhaz.standingMoodBias("haldor");
 haldorMood = Math.max(-1, Math.min(2, haldorMood));
 
 const CFGS = {
@@ -1078,6 +1082,25 @@ function showResult() {
   s.completedDays   = [...new Set([...s.completedDays, 4])];
   if (s.currentDay < 5) s.currentDay = 5;
   saveState(s);
+
+  // Haldor's training day — the same day written to completedDays above.
+  const DAY = 4;
+
+  // haldorRapport still gets written, but it resets with the scene; standing is
+  // what carries. Gated so "Try Again" replays the drills without re-banking the
+  // same conversation.
+  if (!Remorhaz.hasSpokenTo("haldor", DAY, "scene")) {
+    Remorhaz.adjustStanding("haldor", rapport);
+    Remorhaz.markSpokenTo("haldor", DAY, "scene");
+  }
+
+  // Work credit off this page's own tiers: the top two (27+, 22+) earn his
+  // regard, PROMISING STUDENT (15+) is par, the two below it cost some.
+  // recordWork re-scores Day 4 rather than stacking, so a better retry revises
+  // the credit instead of farming it.
+  const tierIdx   = TIERS.indexOf(tier);
+  const workDelta = tierIdx <= 1 ? 1 : tierIdx === 2 ? 0 : -1;
+  Remorhaz.recordWork("haldor", DAY, workDelta);
 
   document.getElementById("toHubBtn").addEventListener("click", () => { _navigateTo("index.html"); });
   document.getElementById("retryBtn").addEventListener("click", () => { _navigateTo(window.location.href); });

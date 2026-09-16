@@ -276,6 +276,10 @@ let ursulaMood = 0;
 if ((appState.lastCatch?.roll ?? 0) >= 4) ursulaMood += 1;
 if (appState.crewRespect)                 ursulaMood += 1;
 if (appState.cookingScore < 15)           ursulaMood -= 1;
+// She weighs how she's been treated alongside how you've performed. Standing
+// rides the same -2..+2 scale, so it folds in ahead of the clamp and CFGS
+// needs no keys beyond the "-1".."2" it already defines.
+ursulaMood += Remorhaz.standingMoodBias("ursula");
 ursulaMood = Math.max(-1, Math.min(2, ursulaMood));
 
 const CFGS = {
@@ -1056,6 +1060,20 @@ function showResult() {
   });
   // A run too poor to record still writes the sighting, on its own.
   if (!recorded && himmselkSpotted) Remorhaz.patch({ himmselkSpotted: true });
+
+  // Day 3's work credit reads off the tiers above — the top two verdicts are
+  // strong, ADEQUATE TRAINING adequate, the bottom two poor. Ungated: recordWork
+  // keeps the best attempt by itself, so it already describes the run the save
+  // kept, and gating it on `recorded` too would drop the credit for a first
+  // attempt that happened to tie the stored score.
+  Remorhaz.recordWork("ursula", 3, tier.min >= 22 ? 1 : tier.min >= 15 ? 0 : -1);
+
+  // The lesson's two exchanges are a moment, not a score — they land once, on
+  // the day they happened. A replay can hear them again but cannot re-earn them.
+  if (!Remorhaz.hasSpokenTo("ursula", 3, "scene")) {
+    Remorhaz.adjustStanding("ursula", rapport);
+    Remorhaz.markSpokenTo("ursula", 3, "scene");
+  }
 
   document.getElementById("toHubBtn").addEventListener("click", () => { _navigateTo("index.html"); });
   document.getElementById("retryBtn").addEventListener("click", () => { _navigateTo(window.location.href); });

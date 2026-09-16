@@ -56,6 +56,8 @@
   // own dealings more heavily.
   var THORGRIM_SELF_WEIGHT = 0.65;
   var THORGRIM_CREW_WEIGHT = 0.35;
+  // How far ahead of his crew's opinion the captain's own regard may run.
+  var THORGRIM_CREW_LEAD   = 2;
 
   /* ── RAW I/O ─────────────────────────────────────────────────────── */
 
@@ -251,11 +253,18 @@
       return n ? sum / n : STANDING_START;
     },
 
-    // The captain's read on you: mostly his own dealings, partly what he
-    // sees in how his crew treat you.
+    // The captain's read on you: mostly his own dealings, partly what he sees in
+    // how his crew take to you.
+    //
+    // The cap is the important part. He is the only person aboard you can talk to
+    // every single day and never work beside, so without it a player who charmed
+    // him each morning and was useless all afternoon ended the voyage as his most
+    // trusted passenger — which makes a liar of "Flattery wastes time." He will
+    // not think better of you than his crew do, give or take a little goodwill.
     thorgrimStanding: function () {
-      return (this.standing("thorgrim") * THORGRIM_SELF_WEIGHT) +
-             (this.crewStandingAvg()    * THORGRIM_CREW_WEIGHT);
+      var crew = this.crewStandingAvg();
+      var own  = Math.min(this.standing("thorgrim"), crew + THORGRIM_CREW_LEAD);
+      return (own * THORGRIM_SELF_WEIGHT) + (crew * THORGRIM_CREW_WEIGHT);
     },
 
     thorgrimTier: function () {
@@ -319,6 +328,66 @@
       }
       writeRaw(s);
       return s;
+    },
+
+    // Has the player already had this particular exchange with this crew member
+    // today?
+    //
+    // Without this, standing is farmable: the hub lets you reopen a crew panel as
+    // often as you like, and every reopen offered another free point. That was
+    // harmless while standing was written and never read. It is not harmless now.
+    //
+    // `scope` matters. Meeting Haldor on deck and talking to him between drills
+    // are two different conversations on the same day, and each should count once.
+    // Sharing a slot would let whichever happened first silently swallow the other
+    // — which is exactly what it did before this argument existed.
+    //   "hub"   — the approach conversation on the ship hub (default)
+    //   "scene" — dialogue inside that day's minigame
+    hasSpokenTo: function (npc, day, scope) {
+      var ledger = this.load().dialogueLedger;
+      return !!(ledger && ledger[(scope || "hub") + ":" + npc + ":" + day]);
+    },
+
+    markSpokenTo: function (npc, day, scope) {
+      var s = this.load();
+      var ledger = (s.dialogueLedger && typeof s.dialogueLedger === "object") ? s.dialogueLedger : {};
+      ledger[(scope || "hub") + ":" + npc + ":" + day] = true;
+      s.dialogueLedger = ledger;
+      writeRaw(s);
+    },
+
+    // Credit a day's work with one crew member: -1 poor, 0 adequate, +1 strong.
+    //
+    // Two rules, both of which exist because the minigames all offer "Try Again".
+    //
+    // Re-scoring, not accumulating: a retry REPLACES that day's contribution
+    // rather than stacking on it. Otherwise replaying Day 1 fishing ten times
+    // would buy ten points of Haldor's regard, and standing would be measuring
+    // persistence rather than competence.
+    //
+    // And it only ever goes up. The crew remember your best day's work, so a
+    // retry can improve their regard but never spend it. A game that offers a
+    // retry should not punish taking it — that was the bug that let a curious
+    // replay of a 24-point run trade it for a 9.
+    //
+    // Dialogue deltas go through adjustStanding() directly; those are moments,
+    // and a moment happens once.
+    recordWork: function (npc, day, delta) {
+      var s = this.load();
+      var ledger = (s.workCredit && typeof s.workCredit === "object") ? s.workCredit : {};
+      var slot = npc + ":" + day;
+      var prev = toNum(ledger[slot], null);
+      var next = clamp(Math.round(toNum(delta, 0)), -1, 1);
+      if (prev !== null && next <= prev) return this.standing(npc);
+      if (prev === null) prev = 0;
+
+      ledger[slot] = next;
+      s.workCredit = ledger;
+      s.standing = s.standing || {};
+      var base = clamp(toNum(s.standing[npc], STANDING_START), STANDING_MIN, STANDING_MAX);
+      s.standing[npc] = clamp(base - prev + next, STANDING_MIN, STANDING_MAX);
+      writeRaw(s);
+      return s.standing[npc];
     },
 
     /* Bonuses ------------------------------------------------------ */

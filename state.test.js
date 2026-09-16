@@ -62,10 +62,10 @@ R.setStanding('thorgrim',2);
 const tb=R.thorgrimStanding();
 eq(Math.round(tb*100)/100, Math.round((2*0.65+10*0.35)*100)/100,'thorgrim blend math');
 eq(R.thorgrimTier(),'mid','blend lifts low self to mid, not high');
-// and the reverse: high self, hostile crew
+// and the reverse: his own regard cannot outrun his crew's by more than a little
 store={}; R.setStanding('thorgrim',10);
 ['haldor','ingrid','kalt','ursula'].forEach(n=>R.setStanding(n,0));
-eq(R.thorgrimTier(),'high','own 10 + crew 0 -> 6.5 rounds to 7 = high');
+eq(R.thorgrimTier(),'low','a hostile crew caps him at their opinion + 2, not his own 10');
 
 // 7. recordRun: worse retry must not overwrite
 store={};
@@ -95,6 +95,60 @@ eq(R.standing('kalt'),3,'corrupt save -> default standing');
 store={}; R.setStanding('kalt',9); eq(R.standingMoodBias('kalt'),2,'standing 9 -> +2 mood');
 R.setStanding('kalt',0); eq(R.standingMoodBias('kalt'),-2,'standing 0 -> -2 mood');
 R.setStanding('kalt',4); eq(R.standingMoodBias('kalt'),0,'standing 4 -> 0 mood');
+
+// 12. recordWork: re-scores a day, never accumulates
+store={};
+eq(R.recordWork('haldor',1,1),4,'strong work +1');
+eq(R.recordWork('haldor',1,1),4,'replaying the same day does not stack');
+eq(R.recordWork('haldor',1,1),4,'...still does not stack on a third run');
+eq(R.recordWork('haldor',1,-1),4,'a worse retry cannot spend regard already earned');
+eq(R.recordWork('haldor',1,0),4,'nor can a merely adequate one');
+eq(R.recordWork('haldor',4,1),5,'a DIFFERENT day credits separately');
+// dialogue deltas are independent of the work ledger
+R.adjustStanding('haldor',1); eq(R.standing('haldor'),6,'dialogue stacks on work');
+eq(R.recordWork('haldor',4,-1),6,'a worse day-4 retry leaves the earlier credit standing');
+// a poor FIRST attempt still costs, and improving on it recovers the ground
+store={};
+eq(R.recordWork('kalt',2,-1),2,'a poor first attempt costs a point');
+eq(R.recordWork('kalt',2,1),4,'improving on it recovers and then some');
+eq(R.recordWork('kalt',2,-1),4,'and cannot be given back');
+// clamping
+store={}; R.setStanding('kalt',10); eq(R.recordWork('kalt',2,1),10,'clamps at max');
+store={}; R.setStanding('kalt',0);  eq(R.recordWork('kalt',2,-1),0,'clamps at min');
+// out-of-range deltas are clamped to -1..+1
+store={}; eq(R.recordWork('ursula',3,5),4,'delta clamped to +1');
+
+// 13. hasSpokenTo / markSpokenTo: one exchange per person per day
+store={};
+eq(R.hasSpokenTo('kalt',2),false,'not spoken yet');
+R.markSpokenTo('kalt',2);
+eq(R.hasSpokenTo('kalt',2),true,'spoken today');
+eq(R.hasSpokenTo('kalt',3),false,'tomorrow is a fresh conversation');
+eq(R.hasSpokenTo('ursula',2),false,'a different person is separate');
+// the ledger survives other writes
+R.adjustStanding('kalt',1); R.recordWork('kalt',2,1);
+eq(R.hasSpokenTo('kalt',2),true,'ledger survives sibling writes');
+
+// 14. the farming exploit this closes, end to end
+store={};
+const speak=(npc,day,delta)=>{ if(R.hasSpokenTo(npc,day)) return; R.adjustStanding(npc,delta); R.markSpokenTo(npc,day); };
+for(let i=0;i<20;i++) speak('haldor',1,1);
+eq(R.standing('haldor'),4,'twenty reopens of the same day award exactly one point');
+for(let d=2;d<=5;d++) speak('haldor',d,1);
+eq(R.standing('haldor'),8,'four further days award four points');
+
+// 15. hub and scene are separate conversations on the same day
+store={};
+R.markSpokenTo('haldor',4);                      // met him on deck (hub, the default scope)
+eq(R.hasSpokenTo('haldor',4),true,'hub exchange spent');
+eq(R.hasSpokenTo('haldor',4,'scene'),false,'the drill-floor conversation is still available');
+R.markSpokenTo('haldor',4,'scene');
+eq(R.hasSpokenTo('haldor',4,'scene'),true,'scene exchange now spent');
+eq(R.hasSpokenTo('haldor',4,'hub'),true,'hub exchange unaffected');
+// the regression this guards: one shared slot let the hub swallow the scene's delta
+store={};
+R.markSpokenTo('ursula',3);
+eq(R.hasSpokenTo('ursula',3,'scene'),false,'navigation can still credit its own dialogue');
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail?1:0);

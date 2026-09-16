@@ -118,5 +118,50 @@ function codeLines(file) {
   check('no save write drops sibling keys', hits.length === 0, hits.join('\n'));
 }
 
+/* ── 7. The two copies of the response deltas agree ───────────────────
+   index.html keeps tone deltas twice: the RESP_DELTAS table the code reads,
+   and a `delta:` field beside each authored line. The second copy is unused,
+   which is exactly how it would rot unnoticed and mislead the next reader. */
+{
+  const src = fs.readFileSync(path.join(DIR, 'index.html'), 'utf8');
+  const TONES = ['amicable', 'argumentative', 'placating', 'complimentary'];
+  const tableSrc = /const RESP_DELTAS = \{([\s\S]*?)\n  \};/.exec(src);
+  const problems = [];
+
+  if (!tableSrc) {
+    problems.push('RESP_DELTAS table not found');
+  } else {
+    const table = {};
+    tableSrc[1].trim().split('\n').forEach(line => {
+      const npc = /^\s*(\w+):\s*\{/.exec(line);
+      if (!npc) return;
+      table[npc[1]] = {};
+      TONES.forEach(t => {
+        const m = new RegExp(t + ':\\s*(-?\\d)').exec(line);
+        if (m) table[npc[1]][t] = Number(m[1]);
+      });
+    });
+
+    Object.keys(table).forEach(npc => {
+      const blk = new RegExp('\\n    ' + npc + ': \\{([\\s\\S]*?)\\n    \\},\\n').exec(src);
+      if (!blk) return;
+      TONES.forEach(t => {
+        const m = new RegExp(t + ':\\s*\\{[\\s\\S]*?delta:\\s*(-?\\d)').exec(blk[1]);
+        if (m && Number(m[1]) !== table[npc][t]) {
+          problems.push(`${npc}.${t}: RESP_DELTAS says ${table[npc][t]}, colocated delta says ${m[1]}`);
+        }
+      });
+    });
+
+    // Every crew member needs a way up, or their warmer dialogue is unreachable.
+    Object.keys(table).forEach(npc => {
+      if (!TONES.some(t => table[npc][t] > 0)) {
+        problems.push(`${npc} has no response that raises standing — their high-tier lines cannot be reached`);
+      }
+    });
+  }
+  check('response deltas agree and every crew member can be won over', problems.length === 0, problems.join('\n'));
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

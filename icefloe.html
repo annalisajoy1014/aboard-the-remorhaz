@@ -693,6 +693,12 @@ function saveState(s) {
     damEl.textContent = damage;
     subEl.textContent = damage === 1 ? "hull strike" : "hull strikes";
 
+    // Ursula's read on the passage is the count the page already grades on:
+    // a clean channel is strong work, one strike adequate, more than one poor.
+    // recordWork re-scores Day 5 rather than adding to it, so a re-rolled
+    // passage replaces this credit instead of stacking a second one on top.
+    const workDelta = damage === 0 ? 1 : damage === 1 ? 0 : -1;
+
     if (damage === 0) {
       verdictEl.textContent = "The Remorhaz threads the floe channel without a single contact. Open water ahead — the worst is behind you.";
       noteEl.style.display = "";
@@ -708,6 +714,7 @@ function saveState(s) {
         completed.add("ursula");
         completedDays.add(5);
         saveState({ completed: [...completed], completedDays: [...completedDays], currentDay: 6 });
+        Remorhaz.recordWork("ursula", 5, workDelta);
         _navigateTo("index.html");
       });
     } else if (damage === 1) {
@@ -722,6 +729,7 @@ function saveState(s) {
         const completedDays = new Set(Array.isArray(existing.completedDays) ? existing.completedDays : []);
         completed.add("ursula");
         saveState({ completed: [...completed], completedDays: [...completedDays], d5KaltRequired: true });
+        Remorhaz.recordWork("ursula", 5, workDelta);
         _navigateTo("index.html");
       });
     } else {
@@ -736,6 +744,7 @@ function saveState(s) {
         const completedDays = new Set(Array.isArray(existing.completedDays) ? existing.completedDays : []);
         completed.add("ursula");
         saveState({ completed: [...completed], completedDays: [...completedDays], d5KaltRequired: true });
+        Remorhaz.recordWork("ursula", 5, workDelta);
         _navigateTo("index.html");
       });
     }

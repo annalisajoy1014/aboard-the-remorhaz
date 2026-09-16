@@ -1941,6 +1941,16 @@ const CATCHES = [
   },
 ];
 
+// Haldor's read on the day's work, taken straight off the catch tiers above:
+// Fine Catch and Exceptional Haul are strong work, the Dangerous Catch adequate,
+// the Meagre Haul poor — and nets that came up empty poorest of all.
+function workDelta(c) {
+  if (!c) return -1;             // the no-catch branch
+  if (c.roll >= 3) return 1;     // Fine Catch, Exceptional Haul
+  if (c.roll === 2) return 0;    // Dangerous Catch
+  return -1;                     // Meagre Haul
+}
+
 function showReveal(success, reason) {
   phase = PHASE.REVEAL;
   document.getElementById("ropeScene").classList.remove("active");
@@ -1999,6 +2009,11 @@ function showReveal(success, reason) {
   scene.innerHTML = html;
   // both exits must leave the same saved state; only the destination differs
   const saveHaul = () => {
+    // Work is credited above the early return: an empty net is still how the day
+    // went, and Haldor noticed. recordWork re-scores the day rather than adding to
+    // it, so a retry revises the credit instead of farming it. The day comes from
+    // the save because this page serves Day 1 and the Day 8 emergency alike.
+    Remorhaz.recordWork("haldor", Remorhaz.load().currentDay || 1, workDelta(caught));
     if (!caught) return;                     // empty nets finish nothing
     Remorhaz.patch({ lastCatch: caught });   // the object in scope, not re-read from the rendered tag
     Remorhaz.markComplete("haldor");         // idempotent, so a replay cannot duplicate the entry
