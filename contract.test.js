@@ -207,5 +207,39 @@ function codeLines(file) {
   check('no authored prose is defined and never rendered', dead.length === 0, dead.join('\n'));
 }
 
+/* ── 9. Every page declares a viewport ────────────────────────────────
+   Without this a phone lays the page out at ~980px and scales it down, so
+   the responsive rules never engage and every control is a third of its
+   intended size. */
+{
+  const missing = PAGES.filter(f =>
+    !/<meta\s+name="viewport"[^>]*width=device-width/.test(fs.readFileSync(path.join(DIR, f), 'utf8')));
+  check('every page declares a device-width viewport', missing.length === 0, missing.join(', '));
+}
+
+/* ── 10. Motion built in JS respects the motion setting ───────────────
+   shared.css collapses CSS animation, but a page that constructs its own
+   effect — the Day 7 storm builds a full-screen flash element per strike —
+   is out of CSS's reach and has to ask. */
+{
+  const problems = [];
+  const sharedCss = fs.readFileSync(path.join(DIR, 'shared.css'), 'utf8');
+  if (!/@media\s*\(prefers-reduced-motion/.test(sharedCss)) {
+    problems.push('shared.css has no prefers-reduced-motion block');
+  }
+  PAGES.forEach(f => {
+    const src = codeLines(f).join('\n');
+    // Pages that build motion imperatively must consult the setting.
+    const buildsMotion = /style\.transition\s*=|style\.animation\s*=|requestAnimationFrame\(/.test(src);
+    const asks = /reducedMotion\(\)/.test(src);
+    const flashes = /lightning-flash|flashLightning/.test(src);
+    if (flashes && !asks) problems.push(`${f}: creates flash elements without checking Remorhaz.reducedMotion()`);
+    else if (buildsMotion && !asks && /style\.transition\s*=.*scale|style\.transform\s*=\s*"scale/.test(src)) {
+      problems.push(`${f}: sets an inline scale transition without checking Remorhaz.reducedMotion()`);
+    }
+  });
+  check('JS-built motion honours prefers-reduced-motion', problems.length === 0, problems.join('\n'));
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

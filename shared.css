@@ -166,6 +166,110 @@ body {
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-thumb { background: color-mix(in oklch, var(--ink) 40%, transparent); }
 
+/* ── REDUCED MOTION ───────────────────────────────────────────────────
+   This game is drifting snow, rocking hulls, flickering lanterns, a spinning
+   d20 and — in the Day 7 storm — repeated full-screen lightning. None of it
+   was optional, and the storm's flashes are a photosensitivity risk rather
+   than a comfort question. Honour the system setting everywhere.
+
+   Durations are collapsed rather than removed: code in several pages waits on
+   transitionend to sequence itself, and a transition that never runs is a
+   transition that never ends. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  /* Ambient motion with no informational content simply goes away. */
+  .snow, .flake { display: none !important; }
+  .lightning-flash { display: none !important; }
+}
+
+/* ── FOCUS ────────────────────────────────────────────────────────────
+   There was no focus style anywhere in the project, so a keyboard player had
+   no way to tell what was selected. :focus-visible keeps it off mouse clicks. */
+:focus-visible {
+  outline: 2px solid var(--lamp);
+  outline-offset: 3px;
+  border-radius: 1px;
+}
+.btn-primary:focus-visible,
+.btn-secondary:focus-visible,
+.back-btn:focus-visible { outline-offset: 4px; }
+
+/* ── SCREEN-READER-ONLY ───────────────────────────────────────────────
+   For live regions and for naming controls whose visible label is an icon. */
+.sr-only {
+  position: absolute !important;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0); clip-path: inset(50%);
+  white-space: nowrap; border: 0;
+}
+
+/* ── TOUCH ────────────────────────────────────────────────────────────
+   Several minigames are built on rapid tapping or dragging, which a browser
+   will happily interpret as double-tap-to-zoom or a pan gesture instead. */
+canvas, .stage-canvas, .food-token, .tray-token, .token { touch-action: none; }
+
+/* ── RESPONSIVE ───────────────────────────────────────────────────────
+   Every minigame is a fixed-height flex row: a play panel beside a ~300px
+   crew sidebar. Below roughly 860px the sidebar stops being a column and
+   becomes a band above the panel, and the whole area is allowed to grow and
+   scroll rather than crushing the play space to nothing.
+
+   The canvases can be scaled freely because every pointer handler in the
+   project already converts through (CW / rect.width) — they were written to
+   survive this. */
+.stage-canvas { max-width: 100%; height: auto; }
+
+/* The `html` prefix is load-bearing. Every page declares its own
+   `.game-area { height: min(76vh, 680px) }` in an inline <style> that the
+   browser sees AFTER this file, at identical specificity — and a media query
+   adds none. Without the extra element, source order wins and none of the
+   rules below ever apply on any page. */
+@media (max-width: 860px) {
+  html, body { overflow-y: auto; height: auto; }
+
+  html .game-area {
+    flex-direction: column;
+    width: 96vw;
+    height: auto;
+    max-height: none;
+  }
+  html .game-panel {
+    border-right: 1px solid color-mix(in oklch, var(--paper-deep) 25%, transparent);
+    min-height: 58vh;
+    /* The panel clips at full size because the stage screens are absolutely
+       positioned inside it. Stacked, they come back into flow and can run taller
+       than the panel — so it has to scroll rather than swallow them. */
+    overflow-y: auto;
+  }
+  html .stage { position: static; padding: 76px 0 28px; display: block; }
+  html .stage > * { margin-inline: auto; }
+
+  html .sidebar, html .npc-sidebar, html .ingrid-sidebar, html .ursula-sidebar,
+  html .kalt-sidebar, html .haldor-sidebar, html .storm-sidebar {
+    width: 100%;
+    flex-shrink: 1;
+    padding: 20px 22px;
+  }
+
+  .page-header .title { font-size: 26px; letter-spacing: 0.12em; }
+  .page-header .eyebrow, .page-header .subtitle { font-size: 13px; }
+  .corner { width: 40px; height: 40px; }
+  .back-btn { top: 12px; left: 12px; font-size: 13px; padding: 5px 10px; }
+}
+
+/* Short windows — laptops with browser chrome, phones in landscape. */
+@media (max-height: 680px) {
+  .page-header { position: static; transform: none; margin: 10px auto 0; }
+  .page-header .title { font-size: 24px; }
+}
+
 /* ── UNIVERSAL PAGE-FADE OVERLAY ── */
 .page-fade {
   position: fixed; inset: 0; z-index: 9999;

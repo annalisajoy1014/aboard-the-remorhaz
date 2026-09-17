@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
 <title>Choose Your Character — Aboard the Remorhaz</title>
 <link rel="stylesheet" href="shared.css">
 <script src="state.js"></script>
@@ -84,7 +85,11 @@
   transition: opacity 0.3s ease;
   pointer-events: none;
 }
-.char-card:hover .char-label-strip { opacity: 0; }
+/* :focus-visible rather than :focus-within — the card IS the focusable
+   element, so they select the same node, but :focus-visible keeps the panel
+   from pinning open behind a mouse click. */
+.char-card:hover .char-label-strip,
+.char-card:focus-visible .char-label-strip { opacity: 0; }
 /* The one-line hook each character was given. It had never been rendered — and
    since the fuller blurb only appears on hover, a touch user saw nothing at all
    about who they were choosing. */
@@ -119,9 +124,11 @@
   transition: opacity 0.38s ease;
   pointer-events: none;
 }
-.char-card:hover .char-hover-panel { opacity: 1; }
+.char-card:hover .char-hover-panel,
+.char-card:focus-visible .char-hover-panel { opacity: 1; }
 .char-card.selected .char-hover-panel { opacity: 0.35; }
-.char-card.selected:hover .char-hover-panel { opacity: 1; }
+.char-card.selected:hover .char-hover-panel,
+.char-card.selected:focus-visible .char-hover-panel { opacity: 1; }
 
 .char-hover-name {
   font-family: "IM Fell English SC", serif; font-size: 22px;
@@ -143,7 +150,8 @@
   transform: translateY(8px);
   transition: transform 0.45s ease 0.06s;
 }
-.char-card:hover .char-blurb { transform: translateY(0); }
+.char-card:hover .char-blurb,
+.char-card:focus-visible .char-blurb { transform: translateY(0); }
 
 
 /* Selected checkmark */
@@ -345,7 +353,7 @@
   <div class="cin-open-vignette"></div>
   <div class="cin-open-bar cin-open-bar-top"></div>
   <div class="cin-open-bar cin-open-bar-bot"></div>
-  <div class="cin-open-body">
+  <div class="cin-open-body" inert>
     <div class="cin-open-eyebrow">— Glassblade Charter Vessel —</div>
     <h1 class="cin-open-title">Aboard<br>the Remorhaz</h1>
     <div class="cin-open-sep"></div>
@@ -362,20 +370,27 @@
 <span class="corner bl"></span>
 <span class="corner br"></span>
 
-<div class="stage">
+<!-- inert while a cinematic covers it: the cards are focusable now, and a
+     keyboard player must not be able to tab into a screen they cannot see. -->
+<div class="stage" inert>
 
   <div>
     <div class="cs-eyebrow">— Glassblade Charter Vessel —</div>
-    <div class="cs-title">Choose Your Character</div>
+    <div class="cs-title" id="csTitle">Choose Your Character</div>
   </div>
   <div class="cs-rule"></div>
   <div class="cs-sub">Each traveller carries different gifts. Your strengths and weaknesses will shape how the voyage unfolds.</div>
 
-  <div class="cards" id="cards"></div>
+  <div class="cards" id="cards" role="radiogroup" aria-labelledby="csTitle"></div>
 
   <button class="btn-begin" id="beginBtn" disabled>Begin the Voyage →</button>
 
 </div>
+
+<!-- Selection announcements. It sits outside .stage because the stage goes inert
+     under the cinematics, and a live region has to be in the accessibility tree
+     from the start to be heard at all. -->
+<p class="sr-only" id="csLive" aria-live="polite"></p>
 
 <!-- ══ VOYAGE CINEMATIC ══ -->
 <div id="cin-voyage" class="cin-voyage" aria-hidden="true">
@@ -383,7 +398,7 @@
   <div class="cin-voyage-vignette"></div>
   <div class="cin-voyage-bar cin-voyage-bar-top"></div>
   <div class="cin-voyage-bar cin-voyage-bar-bot"></div>
-  <div class="cin-voyage-body" id="cin-voyage-body">
+  <div class="cin-voyage-body" id="cin-voyage-body" inert>
     <div class="cin-voyage-eyebrow">— Glassblade Charter Vessel · The Remorhaz —</div>
     <div class="cin-voyage-sep"></div>
     <p class="cin-voyage-passage">You have set sail for Syrinlya, a nine-day voyage through the arctic seas of the north. Get comfortable — and better yet, get useful. This is a small crew, and everyone has work to do. Even you. It's time to meet the crew and find your place aboard the Remorhaz.</p>
@@ -407,12 +422,29 @@ function _navigateTo(url) {
 /* ── OPENING CINEMATIC ── */
 {
   let _done = false;
+  // The body starts at opacity 0 and fades in a second later, and its button was
+  // hit-testable and focusable that whole time — invisible but fully operable.
+  // It stays inert until the fade has actually finished.
+  const _openBody = document.querySelector(".cin-open-body");
+  const _wakeOpenBody = e => { if (!_done && (!e || e.target === _openBody)) _openBody.removeAttribute("inert"); };
+  _openBody.addEventListener("animationend", _wakeOpenBody, { once: true });
+  setTimeout(_wakeOpenBody, 4000);   // animationend never lands if the animation is cancelled
+
   function _dismissOpening() {
     if (_done) return;
     _done = true;
     const el  = document.getElementById("cin-open");
     const bg  = el.querySelector(".cin-open-bg");
     const bod = el.querySelector(".cin-open-body");
+    // On the way out it is invisible again, so it leaves the tab order again.
+    bod.setAttribute("inert", "");
+    // The stage is uncovered from here on, so it comes back to the keyboard.
+    document.querySelector(".stage").removeAttribute("inert");
+    // The zoom-through below is written as inline style, which the shared
+    // reduced-motion CSS cannot reach — and a 4.5x blurred zoom on the first
+    // screen of the game is exactly the motion that setting is declining. Cut
+    // straight to the result instead.
+    if (Remorhaz.reducedMotion()) { el.style.display = "none"; return; }
     // Fade out text instantly
     bod.style.transition = "opacity 0.2s ease";
     bod.style.opacity = "0";
@@ -516,13 +548,23 @@ const esc = t => String(t).replace(/&/g, "&amp;").replace(/"/g, "&quot;")
 /* ── RENDER CARDS ── */
 let selectedId = null;
 const container = document.getElementById("cards");
+const csLive    = document.getElementById("csLive");
 
-CHARACTERS.forEach(ch => {
+CHARACTERS.forEach((ch, i) => {
   const card = document.createElement("div");
   card.className = "char-card";
   card.dataset.id = ch.id;
+  /* Three mutually exclusive choices, so: a radio group. These were plain divs
+     with a click listener, and choosing a card is the only thing that enables
+     Begin — so the game could not be started from a keyboard at all. The group
+     carries one tab stop, and it roves onto whichever card is chosen. */
+  card.setAttribute("role", "radio");
+  card.setAttribute("aria-checked", "false");
+  card.setAttribute("aria-label", `${ch.name}, ${ch.classLabel}`);
+  card.setAttribute("aria-describedby", `char-blurb-${ch.id}`);
+  card.tabIndex = i === 0 ? 0 : -1;
   card.innerHTML = `
-    <div class="check-badge">✓</div>
+    <div class="check-badge" aria-hidden="true">✓</div>
     <img class="char-portrait" src="assets/${ch.id}.jpg" alt="${esc(ch.name)}">
     <div class="char-label-strip">
       <div class="char-name">${ch.name}</div>
@@ -533,19 +575,48 @@ CHARACTERS.forEach(ch => {
       <div class="char-hover-name">${ch.name}</div>
       <div class="char-hover-class">${ch.classLabel}</div>
       <div class="char-hover-rule"></div>
-      <div class="char-blurb">${ch.blurb}</div>
+      <div class="char-blurb" id="char-blurb-${ch.id}">${ch.blurb}</div>
     </div>
   `;
   card.addEventListener("click", () => selectChar(ch.id));
+  card.addEventListener("keydown", onCardKey);
   container.appendChild(card);
 });
 
+/* Arrows move through the group and choose as they go, the way a native radio
+   group does; Enter and Space choose the card the cursor is already on. Both
+   run through selectChar, the same path a click takes. */
+const CARD_STEP = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 };
+function onCardKey(e) {
+  const card = e.currentTarget;
+  if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") {
+    e.preventDefault();   // Space would otherwise scroll the stage
+    selectChar(card.dataset.id);
+    return;
+  }
+  const step = CARD_STEP[e.key];
+  if (!step) return;
+  e.preventDefault();     // and the arrows would otherwise scroll it
+  const cards = Array.from(container.querySelectorAll(".char-card"));
+  const next  = cards[(cards.indexOf(card) + step + cards.length) % cards.length];
+  selectChar(next.dataset.id);
+  next.focus();
+}
+
 function selectChar(id) {
   selectedId = id;
+  const beginBtn = document.getElementById("beginBtn");
+  const wasDisabled = beginBtn.disabled;
   document.querySelectorAll(".char-card").forEach(c => {
-    c.classList.toggle("selected", c.dataset.id === id);
+    const on = c.dataset.id === id;
+    c.classList.toggle("selected", on);
+    c.setAttribute("aria-checked", on ? "true" : "false");
+    c.tabIndex = on ? 0 : -1;   // the chosen card holds the group's tab stop
   });
-  document.getElementById("beginBtn").disabled = false;
+  beginBtn.disabled = false;
+  const ch = CHARACTERS.find(c => c.id === id);
+  csLive.textContent = ch.name + " selected."
+    + (wasDisabled ? " Begin the Voyage is now available." : "");
 }
 
 /* ── CONFIRM ── */
@@ -566,15 +637,28 @@ document.getElementById("beginBtn").addEventListener("click", () => {
     const voy = document.getElementById("cin-voyage");
     voy.classList.add("active");
     voy.removeAttribute("aria-hidden");
+    // A full-screen cinematic covers the stage again.
+    document.querySelector(".stage").setAttribute("inert", "");
     // Fade page-fade back out to reveal the cinematic
     requestAnimationFrame(() => {
       _pf.classList.remove("in");
       // Fade the cinematic in
       requestAnimationFrame(() => { voy.classList.add("fade-in"); });
     });
-    // After 5 seconds, show the text body
+    // After 5 seconds, show the text body. Report for Duty was clickable and
+    // focusable through all five of those seconds and the fade after them, so it
+    // waits inert until the fade lands — and then takes focus, since the player's
+    // focus was on Begin, inside the stage that just went inert.
     setTimeout(() => {
-      document.getElementById("cin-voyage-body").classList.add("visible");
+      const body = document.getElementById("cin-voyage-body");
+      const onShown = e => {
+        if (e.target !== body) return;
+        body.removeEventListener("transitionend", onShown);
+        body.removeAttribute("inert");
+        document.getElementById("cin-voyage-btn").focus();
+      };
+      body.addEventListener("transitionend", onShown);
+      body.classList.add("visible");
     }, 5000);
   }, { once: true });
 });

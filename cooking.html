@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
 <title>Day 1 · Cooking — Aboard the Remorhaz</title>
 <link rel="stylesheet" href="shared.css">
 <script src="state.js"></script>
@@ -136,7 +137,9 @@
 
 /* ── SCREEN: EEL SUBDUE ── */
 .eel-arena {
-  width: 380px; height: 200px; position: relative;
+  /* min() so the arena narrows with the panel instead of overflowing it —
+     moveEel() already places the eel from the arena's measured width. */
+  width: min(380px, 100%); height: 200px; position: relative;
   background: oklch(0.12 0.03 45);
   border: 1px solid var(--rope-dark); border-radius: 2px;
   overflow: hidden; cursor: crosshair;
@@ -148,7 +151,7 @@
   transition: transform 0.06s;
 }
 .eel-timer-bar {
-  width: 380px; height: 10px;
+  width: min(380px, 100%); height: 10px;
   background: var(--hull-darkest); border-radius: 5px; overflow: hidden;
 }
 .eel-timer-fill {
@@ -203,6 +206,12 @@ canvas#heatCanvas {
   position: relative; border-radius: 4px 4px 2px 2px;
   display: flex; align-items: center; justify-content: center;
   font-size: 28px;
+  /* A real button, so the jar can be tabbed to and held with Space or Enter.
+     The reset keeps it looking exactly like the div it replaced — overflow
+     included, or a browser that clips button content would cut off the pour
+     stream, which hangs below the jar. */
+  appearance: none; font-family: inherit; color: inherit; padding: 0;
+  overflow: visible;
   border: 1px solid var(--hull-light);
   background: linear-gradient(to bottom, oklch(0.35 0.06 55), oklch(0.22 0.04 50));
   box-shadow: inset 0 2px 4px rgba(255,255,255,0.08), 0 4px 12px rgba(0,0,0,0.5);
@@ -228,6 +237,7 @@ canvas#heatCanvas {
   background: oklch(0.12 0.03 45); border: 1px solid var(--rope-dark); border-radius: 10px;
   overflow: visible;
   cursor: pointer; user-select: none;   /* hold it to scrape spice back off */
+  appearance: none; font-family: inherit; color: inherit; padding: 0;
 }
 .spice-meter-fill {
   position: absolute; bottom: 0; left: 0; right: 0;
@@ -304,6 +314,9 @@ canvas#heatCanvas {
 .food-token.dragging { cursor: grabbing; transform: translate(-50%,-50%) scale(1.15); box-shadow: 0 8px 24px rgba(0,0,0,0.7); z-index: 20; }
 .food-token.placed { cursor: default; }
 .food-token.placed.accurate { box-shadow: 0 0 0 3px var(--lamp), 0 4px 12px rgba(0,0,0,0.5); }
+/* The keyboard cursor: the token the pointer would be dragging, parked on the
+   plate with a ring so a sighted keyboard player can see where it would land. */
+.food-token.placing { outline: 2px dashed var(--lamp); outline-offset: 4px; z-index: 18; cursor: default; }
 
 .food-tray {
   display: flex; flex-direction: column; gap: 16px;
@@ -319,6 +332,8 @@ canvas#heatCanvas {
   width: 48px; height: 48px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   font-size: 24px; cursor: grab;
+  /* Button reset — the tray token has to be focusable to be placed by keyboard. */
+  appearance: none; border: 0; padding: 0; font-family: inherit; color: inherit;
   background: radial-gradient(circle, oklch(0.30 0.06 55), oklch(0.16 0.03 45));
   box-shadow: 0 4px 12px rgba(0,0,0,0.5);
   user-select: none; transition: transform 0.15s, opacity 0.2s;
@@ -342,6 +357,8 @@ canvas#heatCanvas {
 .garnish-opt {
   display: flex; flex-direction: column; align-items: center; gap: 6px;
   cursor: pointer; padding: 10px 16px;
+  /* Button reset — three discrete choices, so they are three real buttons. */
+  appearance: none; background: transparent; color: inherit; font-family: inherit;
   border: 1px solid color-mix(in oklch, var(--paper-deep) 30%, transparent);
   border-radius: 2px; transition: border-color 0.2s, background 0.2s;
 }
@@ -392,6 +409,21 @@ canvas#heatCanvas {
 .stat-arrow.dn { color: var(--blood); }
 
 /* ── MISC SHARED ── */
+/* Keyboard instructions for the stages that were pointer-only. Kept in the
+   layout at opacity 0: a screen reader reads it through the aria-describedby on
+   the control it belongs to, it fades in for the sighted keyboard player the
+   moment something in the stage takes focus from the keyboard, and nothing
+   shifts for the player who never leaves the mouse. :focus-visible rather than
+   :focus-within because two stages now hand focus to their first control as
+   they open, and a mouse player should not be shown a line about arrow keys. */
+.key-hint {
+  font-family: "Caveat", cursive; font-size: 14px; line-height: 1.35;
+  color: var(--paper-deep); text-align: center;
+  opacity: 0; transition: opacity 0.2s;
+}
+.screen:has(:focus-visible) .key-hint { opacity: 1; }
+.food-tray .key-hint { font-size: 13px; max-width: 150px; }
+
 .screen-title {
   font-family: "IM Fell English SC", serif; font-size: 14px;
   letter-spacing: 0.24em; color: var(--blood); margin-bottom: -10px;
@@ -462,6 +494,30 @@ canvas#heatCanvas {
 .sck-prompt { font-family:"IM Fell English",serif; font-style:italic; font-size:14px; line-height:1.65; color:var(--paper-dim); text-align:center; max-width:320px; margin:0; }
 .sck-indicator { min-height:24px; display:flex; align-items:center; justify-content:center; }
 .sck-indicator .stat-arrow { font-size:20px; margin-right:0; }
+
+/* ── NARROW SCREENS ──
+   shared.css stacks the sidebar under 860px and lets the page scroll, but this
+   page pinned the whole game to the viewport with a fixed .stage, so nothing
+   below the fold could be reached — and its screens are absolutely positioned,
+   so stacked in a column the panel would have had no height at all. Put the
+   stage back in flow, let the active screen size the panel, and bring the three
+   fixed-width play areas down with it. */
+@media (max-width: 860px) {
+  /* relative, not static: .backdrop is a positioned z-index:0 layer, and a
+     static sidebar would paint underneath it. */
+  .stage { position: relative; inset: auto; padding: 96px 0 36px; }
+  .screen { position: static; overflow: visible; padding: 26px 14px; }
+  .screen.active { min-height: 60vh; }
+
+  .spice-row { gap: 14px; flex-wrap: wrap; }
+  .spice-col { width: 78px; }
+
+  /* The plate keeps its 260px down to a ~283px panel, so the same placement
+     scores the same on a phone as on a desk. */
+  .plate-workspace { flex-wrap: wrap; gap: 18px; }
+  .plate-area { width: min(260px, 100%); height: auto; aspect-ratio: 1; }
+  .food-tray { flex-direction: row; flex-wrap: wrap; justify-content: center; }
+}
 </style>
 </head>
 <body>
@@ -482,6 +538,11 @@ canvas#heatCanvas {
 </div>
 
 <button class="back-btn" id="backBtn">← Return to Deck</button>
+
+<!-- Outcomes this page only ever showed by moving something on screen: a hit on
+     the eel, a spice level, where a plated item came down. In the DOM from the
+     start so a screen reader is listening before the first one arrives. -->
+<div class="sr-only" id="cookLive" aria-live="polite" aria-atomic="true"></div>
 
 <div class="stage">
   <div class="game-area">
@@ -526,17 +587,23 @@ canvas#heatCanvas {
         <div class="screen-title">— BEFORE WE BEGIN —</div>
         <div class="eel-instruction">It is still alive. Hold it down.</div>
         <div class="eel-arena" id="eelArena">
-          <div class="eel-body" id="eelBody">🐍</div>
+          <!-- role=button rather than a real <button>: Enter and Space are handled
+               in keydown here, and a native button would fire its own click on top
+               of that and count every keyboard hit twice. -->
+          <div class="eel-body" id="eelBody" role="button" tabindex="0"
+               aria-label="The eel" aria-describedby="eelKeyHint">🐍</div>
         </div>
         <div class="eel-counter" id="eelCounter">0 / 5 hits</div>
         <div class="eel-timer-bar"><div class="eel-timer-fill" id="eelTimerFill"></div></div>
+        <div class="key-hint" id="eelKeyHint">Keyboard: Enter pins the eel. After each hit, press an arrow key to take hold again.</div>
       </div>
 
       <!-- STAGE 1: HEAT / TIMING -->
       <div class="screen" id="screen-heat">
         <div class="screen-title">— STAGE I · THE HEAT —</div>
-        <canvas id="heatCanvas" width="480" height="280"></canvas>
-        <div class="heat-result-label" id="heatResultLabel"></div>
+        <canvas id="heatCanvas" class="stage-canvas" width="480" height="280" role="img"
+                aria-label="The fish in a pan over the galley fire, with a thermometer at the right that rises as it cooks."></canvas>
+        <div class="heat-result-label" id="heatResultLabel" aria-live="polite"></div>
         <button class="lift-btn" id="liftBtn">LIFT FROM HEAT</button>
       </div>
 
@@ -548,7 +615,8 @@ canvas#heatCanvas {
           <div class="spice-row" id="spiceRow">
             <!-- built by JS -->
           </div>
-          <div class="taste-feedback" id="tasteFeedback"></div>
+          <div class="key-hint" id="spiceKeyHint">Keyboard: tab to a jar or to its meter, then hold Space or Enter — the jar pours, the meter scrapes it back off.</div>
+          <div class="taste-feedback" id="tasteFeedback" aria-live="polite"></div>
           <div class="season-actions">
             <button class="taste-btn" id="tasteBtn">TASTE TEST</button>
             <button class="btn-primary" id="seasonSubmitBtn">FINISHED SEASONING</button>
@@ -598,7 +666,9 @@ canvas#heatCanvas {
       <div class="ingrid-name">Chef Ingrid Firebrew</div>
       <div class="ingrid-role" id="ingridRole">Galley Master · Day 1</div>
       <div class="sidebar-rule"></div>
-      <div class="ingrid-dialogue" id="ingridDialogue">&nbsp;</div>
+      <!-- Every verdict this page gives is spoken by Ingrid and nowhere else, so
+           the sidebar has to be a live region of its own. -->
+      <div class="ingrid-dialogue" id="ingridDialogue" aria-live="polite">&nbsp;</div>
       <div class="sidebar-rule"></div>
       <div class="phase-label" id="phaseLabel">Sleight of Hand · Medicine · Performance</div>
       <div class="instruction-label" id="instructionLabel">15 points a stage · 35 of 48 for proficiency</div>
@@ -813,6 +883,12 @@ function setDialogue(text) {
   el.style.opacity = "0";
   setTimeout(() => { el.textContent = '"' + text + '"'; el.style.opacity = "1"; }, 260);
 }
+/* Interface outcomes for a player who cannot see the board move. Ingrid's own
+   lines go out through the sidebar, which is a live region in its own right. */
+function announce(msg) {
+  const el = document.getElementById("cookLive");
+  if (el) el.textContent = msg;
+}
 function setPhase(p, instHtml) {
   document.getElementById("phaseLabel").textContent     = p;
   document.getElementById("instructionLabel").innerHTML = instHtml;
@@ -948,6 +1024,10 @@ let eelHits = 0;
 let eelTimerInterval = null;
 let eelTimeLeft = 5000;
 const EEL_NEEDED = 5;
+// Whether the keyboard player has hold of the eel. The pointer player has to
+// chase it across the arena for every hit; the keyboard player has to take hold
+// of it again, so the stage stays a rhythm rather than five presses of one key.
+let eelGripped = true;
 
 function startEelSubdue() {
   setPhase("Stage 0 — Subdue the Eel", "Click the eel 5 times before it escapes");
@@ -963,7 +1043,38 @@ function startEelSubdue() {
     if (eelTimeLeft <= 0) { clearInterval(eelTimerInterval); eelTimeout(); }
   }, 100);
 
-  document.getElementById("eelBody").addEventListener("click", onEelHit);
+  eelGripped = true;
+  const eelEl = document.getElementById("eelBody");
+  eelEl.addEventListener("click", onEelHit);
+  eelEl.addEventListener("keydown", onEelKey);
+  // goToScreen hid the button the player pressed to get here, so focus is on
+  // nothing. On a five-second timer, tabbing back in from the top of the page
+  // would cost the keyboard player the stage before they reached the eel.
+  eelEl.focus();
+}
+
+// Enter strikes, an arrow takes hold again. The strike runs through onEelHit —
+// the same function the click path calls — so the counter, the timer and the
+// penalty are the ones the pointer plays against.
+function onEelKey(e) {
+  if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") {
+    e.preventDefault();
+    if (!eelGripped) {
+      announce("Not holding it. Press an arrow key to take hold. " + eelHits + " of " + EEL_NEEDED + ".");
+      return;
+    }
+    onEelHit();
+    if (eelHits < EEL_NEEDED) {
+      eelGripped = false;
+      announce("Hit " + eelHits + " of " + EEL_NEEDED + ". Press an arrow key to take hold again.");
+    }
+  } else if (e.key.indexOf("Arrow") === 0) {
+    e.preventDefault();
+    if (!eelGripped) {
+      eelGripped = true;
+      announce("Holding it — " + eelHits + " of " + EEL_NEEDED + ".");
+    }
+  }
 }
 
 function moveEel() {
@@ -981,16 +1092,19 @@ function onEelHit() {
   eelHits++;
   updateEelCounter();
   moveEel();
+  announce("Hit " + eelHits + " of " + EEL_NEEDED + ".");
   if (eelHits >= EEL_NEEDED) {
     clearInterval(eelTimerInterval);
     setDialogue("Good. Now it will not kill us. Mostly.");
     document.getElementById("eelBody").removeEventListener("click", onEelHit);
+    document.getElementById("eelBody").removeEventListener("keydown", onEelKey);
     // success: no penalty
     setTimeout(() => { goToScreen("screen-heat"); setTimeout(startHeat, 500); }, 900);
   }
 }
 function eelTimeout() {
   document.getElementById("eelBody").removeEventListener("click", onEelHit);
+  document.getElementById("eelBody").removeEventListener("keydown", onEelKey);
   setDialogue("It got away from you. This will make things... harder.");
   // penalty: tighten heat window slightly
   cfg.heatWindowMs = Math.max(1400, cfg.heatWindowMs - 400);
@@ -1023,6 +1137,9 @@ function startHeat() {
   heatLevel = 0; heatDone = false; heatLastTs = null;
   document.getElementById("liftBtn").disabled = false;
   document.getElementById("heatResultLabel").textContent = "";
+  // Same reason as the eel: the fish is already on the heat, and tabbing in from
+  // the top of the page to find LIFT FROM HEAT burns the window.
+  document.getElementById("liftBtn").focus();
   heatAnimId = requestAnimationFrame(drawHeat);
 }
 
@@ -1289,10 +1406,12 @@ function buildSpiceRow() {
     col.className = "spice-col";
     col.innerHTML = `
       <div class="spice-label">${sp.label}</div>
-      <div class="spice-jar" id="jar-${sp.key}" data-key="${sp.key}">${sp.icon}</div>
-      <div class="spice-meter-wrap" id="wrap-${sp.key}">
-        <div class="spice-meter-fill" id="fill-${sp.key}" style="height:0%"></div>
-      </div>
+      <button type="button" class="spice-jar" id="jar-${sp.key}" data-key="${sp.key}"
+              aria-label="Pour ${sp.label.toLowerCase()}" aria-describedby="spiceKeyHint">${sp.icon}</button>
+      <button type="button" class="spice-meter-wrap" id="wrap-${sp.key}"
+              aria-label="Scrape ${sp.label.toLowerCase()} back off" aria-describedby="spiceKeyHint">
+        <span class="spice-meter-fill" id="fill-${sp.key}" style="height:0%"></span>
+      </button>
     `;
     row.appendChild(col);
 
@@ -1306,10 +1425,48 @@ function buildSpiceRow() {
     const wrap = col.querySelector(`#wrap-${sp.key}`);
     wrap.addEventListener("mousedown", () => startPour(sp.key, -sp.pourRate));
     wrap.addEventListener("touchstart", (e) => { e.preventDefault(); startPour(sp.key, -sp.pourRate); }, {passive:false});
+
+    // Both are hold controls, so the keyboard holds them: Space or Enter down
+    // starts the same pour the mouse does, the key coming back up ends it.
+    bindHoldKeys(jar,  sp.key,  sp.pourRate);
+    bindHoldKeys(wrap, sp.key, -sp.pourRate);
   });
 
-  document.addEventListener("mouseup",  stopPour);
-  document.addEventListener("touchend", stopPour);
+  document.addEventListener("mouseup",  () => { keyPourEl = null; stopPour(); });
+  document.addEventListener("touchend", () => { keyPourEl = null; stopPour(); });
+}
+
+// Which control, if any, is currently pouring because a key is held down on it.
+// This has to be tracked: stopPour() is global, and a blur handler that calls it
+// unconditionally will kill a pour that a DIFFERENT control just started —
+// mousedown fires before the focus change, so pressing the mouse on a second jar
+// started it and then the first jar's blur immediately stopped it again.
+let keyPourEl = null;
+
+function bindHoldKeys(btn, key, rate) {
+  btn.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" && e.key !== " " && e.key !== "Spacebar") return;
+    e.preventDefault();
+    // A held key repeats every few tens of milliseconds, and every repeat would
+    // restart the 100ms pour interval before it had once fired — a hold that
+    // poured nothing at all. The first keydown starts it; the repeats are noise.
+    if (e.repeat) return;
+    keyPourEl = btn;
+    startPour(key, rate);
+  });
+  btn.addEventListener("keyup", (e) => {
+    if (e.key !== "Enter" && e.key !== " " && e.key !== "Spacebar") return;
+    if (keyPourEl !== btn) return;
+    keyPourEl = null;
+    stopPour();
+  });
+  // A hold that loses focus mid-pour would never get its key-up — but only this
+  // control's own keyboard pour is ours to cancel.
+  btn.addEventListener("blur", () => {
+    if (keyPourEl !== btn) return;
+    keyPourEl = null;
+    stopPour();
+  });
 }
 
 // A positive rate pours from the jar, a negative one scrapes the spice back off.
@@ -1328,9 +1485,12 @@ function startPour(key, rate) {
 
 function stopPour() {
   if (!pouringKey) return;
-  document.getElementById("jar-" + pouringKey)?.classList.remove("pouring");
+  const key = pouringKey;
+  document.getElementById("jar-" + key)?.classList.remove("pouring");
   clearInterval(pourInterval);
   pouringKey = null;
+  // The meter is the whole of this stage's feedback, and it is a bar height.
+  announce(key + " " + Math.round(spiceLevels[key]) + " percent.");
 }
 
 function updateSpiceMeter(key) {
@@ -1480,11 +1640,14 @@ function buildPlate() {
   FOOD_ITEMS.forEach(item => {
     const trayItem = document.createElement("div");
     trayItem.className = "tray-item";
-    const token = document.createElement("div");
+    const token = document.createElement("button");
+    token.type = "button";
     token.className = "tray-token";
     token.id = "tray-" + item.id;
     token.textContent = item.icon;
     token.dataset.itemId = item.id;
+    token.setAttribute("aria-label", item.label);
+    token.setAttribute("aria-describedby", "trayKeyHint");
     const lbl = document.createElement("div");
     lbl.className = "tray-label";
     lbl.textContent = item.label;
@@ -1494,8 +1657,107 @@ function buildPlate() {
 
     // Pointer events for drag
     token.addEventListener("pointerdown", (e) => startDrag(e, item));
+    // The same placement by a different input. Handled in keydown, because a
+    // mouse drag ends in a click on this button too, and a click handler would
+    // lift a second copy of the item every time one was dragged.
+    token.addEventListener("keydown", (e) => onTrayKey(e, item));
   });
 
+  // Built here because buildPlate empties the tray.
+  const hint = document.createElement("div");
+  hint.className = "key-hint";
+  hint.id = "trayKeyHint";
+  hint.textContent = "Keyboard: Enter lifts an item onto the plate, the arrow keys move it, Enter again places it. Escape puts it back.";
+  tray.appendChild(hint);
+}
+
+/* ══════════════════════════════════════════
+   STAGE 3: PLATING BY KEYBOARD
+   The drag was the only way this stage could be played at all. This is the same
+   placement by a different input: lift an item, walk it about the plate a step
+   at a time, let it go through placeOnPlate — so the scoring, the target rings
+   and Ingrid's reaction are all the ones the pointer plays against.
+══════════════════════════════════════════ */
+let keyPlacing = null;    // { item, x, y, marker, zone } while an item is held
+const KEY_STEP = 0.03;    // of the plate's width per arrow press
+
+function onTrayKey(e, item) {
+  if (plateDone || placedItems[item.id]) return;
+  const held = keyPlacing && keyPlacing.item.id === item.id;
+  if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") {
+    e.preventDefault();
+    if (held) dropKeyPlace(); else liftKeyPlace(item);
+  } else if (held && e.key.indexOf("Arrow") === 0) {
+    e.preventDefault();
+    moveKeyPlace(
+      e.key === "ArrowLeft" ? -KEY_STEP : e.key === "ArrowRight" ? KEY_STEP : 0,
+      e.key === "ArrowUp"   ? -KEY_STEP : e.key === "ArrowDown"  ? KEY_STEP : 0
+    );
+  } else if (held && e.key === "Escape") {
+    e.preventDefault();
+    cancelKeyPlace();
+    announce(item.label + " back in the tray.");
+  }
+}
+
+function liftKeyPlace(item) {
+  cancelKeyPlace();
+  const marker = document.createElement("div");
+  marker.className = "food-token placing";
+  marker.textContent = item.icon;
+  marker.style.left = "50%";
+  marker.style.top  = "50%";
+  document.getElementById("plateArea").appendChild(marker);
+  keyPlacing = { item: item, x: 0.5, y: 0.5, marker: marker, zone: undefined };
+  announce(item.label + " lifted, at the centre of the plate.");
+}
+
+function moveKeyPlace(dx, dy) {
+  if (!keyPlacing) return;
+  const rect = document.getElementById("plateArea").getBoundingClientRect();
+  let x = keyPlacing.x + dx, y = keyPlacing.y + dy;
+  // The drop path only accepts a release inside 0.9 of the plate radius, so hold
+  // the cursor to the same circle rather than let it walk off the china.
+  const ox = x - 0.5, oy = y - 0.5;
+  const r  = Math.hypot(ox, oy);
+  if (r > 0.45) { x = 0.5 + ox / r * 0.45; y = 0.5 + oy / r * 0.45; }
+  keyPlacing.x = x; keyPlacing.y = y;
+  keyPlacing.marker.style.left = (x * 100) + "%";
+  keyPlacing.marker.style.top  = (y * 100) + "%";
+
+  // The target rings are drawn on the plate for the pointer player to aim at.
+  // This is that same information for a player who cannot see them: which ring,
+  // if any, the item is sitting on now.
+  const w = rect.width || plateWidthPx || 260;
+  let over = null;
+  FOOD_ITEMS.forEach(it => {
+    if (!over && Math.hypot(x - it.targetX, y - it.targetY) * w < cfg.plateTolerance) over = it;
+  });
+  const zoneId = over ? over.id : null;
+  if (zoneId !== keyPlacing.zone) {
+    keyPlacing.zone = zoneId;
+    announce(over ? "On the mark for " + over.label + "." : "Between the marks.");
+  }
+}
+
+function dropKeyPlace() {
+  if (!keyPlacing) return;
+  const item = keyPlacing.item, x = keyPlacing.x, y = keyPlacing.y;
+  const rect = document.getElementById("plateArea").getBoundingClientRect();
+  cancelKeyPlace();
+  announce(item.label + " placed.");
+  placeOnPlate(item, x, y, rect);   // the same call the pointer drop makes
+}
+
+function cancelKeyPlace() {
+  if (!keyPlacing) return;
+  keyPlacing.marker.remove();
+  keyPlacing = null;
+}
+
+function focusNextTray() {
+  const next = document.querySelector(".tray-token:not(:disabled)");
+  if (next) next.focus();
 }
 
 function startDrag(e, item) {
@@ -1503,7 +1765,7 @@ function startDrag(e, item) {
   e.preventDefault();
   draggingItem = { ...item };
 
-  const trayToken = document.getElementById("tray-" + item.id);
+  cancelKeyPlace();   // a keyboard lift and a drag cannot both be in the air
 
   // Create floating token
   const floater = document.createElement("div");
@@ -1521,12 +1783,26 @@ function startDrag(e, item) {
 
   const getCoords = (ev) => ev.touches ? [ev.touches[0].clientX, ev.touches[0].clientY] : [ev.clientX, ev.clientY];
 
-  const onMove = (ev) => { const [cx, cy] = getCoords(ev); moveFloater(cx, cy); };
+  // Every way out of the drag comes through here. A touch drag the browser takes
+  // over for a scroll ends in pointercancel and no pointerup at all: without it
+  // the floating token was orphaned over the interface for good and both
+  // listeners stayed live behind it.
+  let cleanedUp = false;
+  const cleanup = () => {
+    if (cleanedUp) return;
+    cleanedUp = true;
+    document.body.removeEventListener("pointermove",   onMove);
+    document.body.removeEventListener("pointerup",     onUp);
+    document.body.removeEventListener("pointercancel", onCancel);
+    floater.remove();
+    draggingItem = null;
+  };
+
+  const onMove   = (ev) => { const [cx, cy] = getCoords(ev); moveFloater(cx, cy); };
+  const onCancel = () => cleanup();
   const onUp   = (ev) => {
     const [cx, cy] = getCoords(ev);
-    document.body.removeEventListener("pointermove", onMove);
-    document.body.removeEventListener("pointerup",   onUp);
-    document.body.removeChild(floater);
+    cleanup();
 
     // Check if dropped on plate
     const plateArea = document.getElementById("plateArea");
@@ -1540,18 +1816,30 @@ function startDrag(e, item) {
       const relX = px / pr.width;
       const relY = py / pr.height;
       placeOnPlate(item, relX, relY, pr);
-      trayToken.classList.add("used");
     }
   };
 
   const [startX, startY] = getCoords(e);
   moveFloater(startX, startY);
-  document.body.addEventListener("pointermove", onMove);
-  document.body.addEventListener("pointerup",   onUp);
+  document.body.addEventListener("pointermove",   onMove);
+  document.body.addEventListener("pointerup",     onUp);
+  document.body.addEventListener("pointercancel", onCancel);
 }
 
 function placeOnPlate(item, relX, relY, plateRect) {
   placedItems[item.id] = { x: relX, y: relY };
+
+  // Both routes spend the item here. Disabling its tray token as well as greying
+  // it keeps a dead control out of the tab order — and where that token was the
+  // one holding focus, focus moves on to the next item rather than falling back
+  // to the top of the page.
+  const trayToken = document.getElementById("tray-" + item.id);
+  if (trayToken) {
+    const hadFocus = document.activeElement === trayToken;
+    trayToken.classList.add("used");
+    trayToken.disabled = true;
+    if (hadFocus) focusNextTray();
+  }
 
   // Remember how wide the plate was while it was still on screen — scoring happens
   // after the garnish step has hidden it, and a hidden plate measures 0.
@@ -1608,13 +1896,21 @@ function showGarnishStep() {
   const row = document.getElementById("garnishRow");
   row.innerHTML = "";
   GARNISH_OPTIONS.forEach(g => {
-    const opt = document.createElement("div");
+    const opt = document.createElement("button");
+    opt.type = "button";
     opt.className = "garnish-opt";
-    opt.innerHTML = `<div class="gem">${g.icon}</div><div class="glbl">${g.label}</div>`;
+    // Three discrete choices, so they are three real buttons — reachable by tab,
+    // taken with Enter or Space, and aria-pressed carries which one is standing.
+    opt.setAttribute("aria-pressed", "false");
+    opt.innerHTML = `<span class="gem">${g.icon}</span><span class="glbl">${g.label}</span>`;
     opt.addEventListener("click", () => {
       if (plateDone) return;
-      document.querySelectorAll(".garnish-opt").forEach(o => o.classList.remove("chosen"));
+      document.querySelectorAll(".garnish-opt").forEach(o => {
+        o.classList.remove("chosen");
+        o.setAttribute("aria-pressed", "false");
+      });
       opt.classList.add("chosen");
+      opt.setAttribute("aria-pressed", "true");
       chosenGarnish = g;
       document.getElementById("garnishSubmitBtn").disabled = false;
       // She says nothing yet. Her read used to land on selection, which made
@@ -1623,6 +1919,11 @@ function showGarnishStep() {
     });
     row.appendChild(opt);
   });
+
+  // The workspace the player was standing in has just been hidden, which drops
+  // focus to the top of the page. Hand it to the step that replaced it.
+  const firstOpt = row.querySelector(".garnish-opt");
+  if (firstOpt && (!document.activeElement || document.activeElement === document.body)) firstOpt.focus();
 }
 
 document.getElementById("garnishSubmitBtn").addEventListener("click", () => {

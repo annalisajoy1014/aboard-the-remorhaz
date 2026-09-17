@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
 <title>Day 3 · Navigation — Aboard the Remorhaz</title>
 <link rel="stylesheet" href="shared.css">
 <script src="state.js"></script>
@@ -147,7 +148,11 @@
       <!-- STAGE 1: CHART READING -->
       <div class="screen" id="screen-chart">
         <div class="screen-title">— STAGE I · CHART READING —</div>
-        <canvas class="stage-canvas" id="chartCanvas" width="480" height="252"></canvas>
+        <!-- tabindex makes the chart reachable at all; role="application" stops a screen
+             reader eating the arrow keys for its own browse mode before they get here. -->
+        <canvas class="stage-canvas" id="chartCanvas" width="480" height="252" tabindex="0"
+                role="application"
+                aria-label="Nautical chart. Ursula names a marking to find. Left and right arrows move between the five markings; Enter or Space marks the one under the cursor."></canvas>
         <div class="stage-prompt" id="chartPrompt">&nbsp;</div>
         <div class="stage-feedback" id="chartFeedback">&nbsp;</div>
         <div class="timer-bar-wrap"><div class="timer-bar-fill" id="chartTimerFill"></div></div>
@@ -166,7 +171,10 @@
       <!-- STAGE 2: SPYGLASS -->
       <div class="screen" id="screen-spyglass">
         <div class="screen-title">— STAGE II · THE CROW'S NEST —</div>
-        <canvas class="stage-canvas" id="spyglassCanvas" width="480" height="252"></canvas>
+        <!-- Same keyboard route as the chart: arrows sweep, Enter logs. -->
+        <canvas class="stage-canvas" id="spyglassCanvas" width="480" height="252" tabindex="0"
+                role="application"
+                aria-label="The horizon through a spyglass. Left and right arrows sweep between sightings currently showing in the fog; Enter or Space logs the one under the cursor."></canvas>
         <div class="stage-feedback" id="spyglassFeedback">&nbsp;</div>
         <div class="timer-bar-wrap"><div class="timer-bar-fill" id="spyglassTimerFill"></div></div>
         <!-- Himmselk overlay sits over the whole screen -->
@@ -217,6 +225,11 @@
 
   </div>
 </div>
+
+<!-- Both stages report themselves by painting a canvas and swapping two lines of
+     text, none of which a screen reader notices. Outcomes are mirrored here. It
+     sits outside the screens so it is never display:none when it needs to speak. -->
+<div class="sr-only" id="srLive" aria-live="polite" aria-atomic="true"></div>
 
 <script>
 /* ── PAGE TRANSITIONS ── */
@@ -454,6 +467,18 @@ const DIALOGUE_SETS = [
 ];
 
 /* ══════════════════════════════════════════
+   LIVE REGION
+══════════════════════════════════════════ */
+const liveEl = document.getElementById("srLive");
+function announce(msg) {
+  if (!liveEl || !msg) return;
+  // A reader ignores a live region reset to the text it already holds, and the
+  // keyboard sweep repeats itself constantly. The alternating trailing space is
+  // never spoken, and makes each announcement a new string.
+  liveEl.textContent = liveEl.textContent.endsWith("\u00A0") ? msg : msg + "\u00A0";
+}
+
+/* ══════════════════════════════════════════
    SIDEBAR HELPERS
 ══════════════════════════════════════════ */
 document.getElementById("ursulaPortrait").style.backgroundImage = "url('assets/ursula.jpg')";
@@ -646,6 +671,10 @@ function startChartReading() {
   const TOTAL_T  = CHART_TARGETS.length * TIME_PER;
 
   let current = 0, hits = 0, elapsed = 0, done = false, animId = null;
+  // Keyboard cursor: an index into all five markings, so choosing the wrong one
+  // is still possible. kbOn stays false until a key is pressed — a pointer
+  // player's chart is then exactly as uncluttered as it was before.
+  let kbIndex = 0, kbOn = false;
   setPhase("Stage I — Chart Reading", Remorhaz.arrow("intelligence") + "Intelligence (Navigation) · DC 4 · Follow Ursula's instruction");
   document.getElementById("chartPrompt").textContent = CHART_TARGETS[0].prompt;
 
@@ -657,22 +686,50 @@ function startChartReading() {
 
   canvas.style.cursor = "crosshair";
   canvas.addEventListener("click", onClick);
+  canvas.addEventListener("keydown", onKey);
+  canvas.focus();                      // the clock is already running — don't make them tab to it
+  announce(CHART_TARGETS[0].prompt);
 
   function onClick(e) {
-    if (done || current >= CHART_TARGETS.length) return;
     const r = canvas.getBoundingClientRect();
-    const mx = (e.clientX-r.left)*(CW/r.width), my = (e.clientY-r.top)*(CH/r.height);
+    markChart((e.clientX-r.left)*(CW/r.width), (e.clientY-r.top)*(CH/r.height));
+  }
+
+  // Pointer and keyboard both resolve to a point on the chart and land here, so
+  // the scoring is written once.
+  function markChart(mx, my) {
+    if (done || current >= CHART_TARGETS.length) return;
     const tgt = CHART_TARGETS[current];
     if (Math.hypot(mx-tgt.x, my-tgt.y) < HIT_R+8) {
       hits++; current++;
-      setDialogue(hits >= 4 ? cfg.greatD : cfg.goodD);
-      document.getElementById("chartFeedback").textContent = hits + " of " + CHART_TARGETS.length + " identified";
+      const line  = hits >= 4 ? cfg.greatD : cfg.goodD;
+      const tally = hits + " of " + CHART_TARGETS.length + " identified";
+      setDialogue(line);
+      document.getElementById("chartFeedback").textContent = tally;
       if (current < CHART_TARGETS.length) {
         document.getElementById("chartPrompt").textContent = CHART_TARGETS[current].prompt;
-      } else { endChart(); }
+        announce(line + " " + tally + ". " + CHART_TARGETS[current].prompt);
+      } else { endChart(); }           // the closing summary is the announcement
     } else {
       setDialogue(cfg.failD);
+      announce(cfg.failD);
     }
+  }
+
+  // The cursor walks every marking, not only the one being asked for: Enter on
+  // the wrong mark fails through markChart exactly as a misplaced click does.
+  function onKey(e) {
+    const k = e.key;
+    const move = (k === "ArrowLeft" || k === "ArrowUp") ? -1 : (k === "ArrowRight" || k === "ArrowDown") ? 1 : 0;
+    const act  = (k === "Enter" || k === " " || k === "Spacebar");
+    if (!move && !act) return;
+    e.preventDefault();                // arrows and space would scroll the page
+    if (done) return;
+    kbOn = true;
+    if (act) { markChart(CHART_TARGETS[kbIndex].x, CHART_TARGETS[kbIndex].y); return; }
+    kbIndex = (kbIndex + move + CHART_TARGETS.length) % CHART_TARGETS.length;
+    announce((kbIndex+1) + " of " + CHART_TARGETS.length + ": " + CHART_TARGETS[kbIndex].label +
+             (kbIndex < current ? ", already marked" : ""));
   }
 
   function draw(ts) {
@@ -708,13 +765,24 @@ function startChartReading() {
       ctx.moveTo(tgt.x,tgt.y+HIT_R*0.42); ctx.lineTo(tgt.x,tgt.y+HIT_R);
       ctx.stroke(); ctx.restore();
     }
+
+    // Keyboard cursor ring — dark against the parchment, and plainly not the
+    // orange glow of the marking Ursula is asking for.
+    if (kbOn) {
+      const kt = CHART_TARGETS[kbIndex];
+      ctx.save();
+      ctx.strokeStyle = "rgba(18,26,50,0.85)"; ctx.lineWidth = 1.6; ctx.setLineDash([4,3]);
+      ctx.beginPath(); ctx.arc(kt.x,kt.y,HIT_R*0.78,0,Math.PI*2); ctx.stroke();
+      ctx.restore();
+    }
     animId = requestAnimationFrame(draw);
   }
   animId = requestAnimationFrame(draw);
 
   function endChart() {
     if (done) return; done = true;
-    cancelAnimationFrame(animId); canvas.removeEventListener("click",onClick); clearInterval(ticker);
+    cancelAnimationFrame(animId); canvas.removeEventListener("click",onClick);
+    canvas.removeEventListener("keydown",onKey); clearInterval(ticker);
     const pct = hits/CHART_TARGETS.length;
     stage1Score = Math.round(pct*15);
     setDialogue(
@@ -727,6 +795,7 @@ function startChartReading() {
     showScoreTally(); updateTally(stage1Score,null);
     document.getElementById("chartPrompt").textContent = hits + " / " + CHART_TARGETS.length + " markers identified";
     document.getElementById("chartFeedback").textContent = stage1Score + " / 15 pts";
+    announce("Stage one complete. " + hits + " of " + CHART_TARGETS.length + " markers identified. " + stage1Score + " of 15 points.");
     setTimeout(() => { goToScreen("screen-dialogue1"); showDialogue(0); }, 2000);
   }
 }
@@ -788,11 +857,23 @@ function startSpyglass() {
     { type:"island",  x:348, y:HY-8,  w:70, h:20, spawn:14800, spotted:false },
     { type:"storm",   x:118, y:22,    w:99, h:66, spawn:19500, spotted:false, hitDX:-18, hitDY:-14 },
   ];
+  // Sighting names, shared by the spotting feedback and the keyboard sweep.
+  const OBJ_LABELS = {rocks:"Rocky outcrop",ship:"Distant vessel",dolphins:"Pod of dolphins",island:"Island on the horizon",storm:"Storm gathering to the north"};
   const HIMMSELK_SPAWN = 11800;
   const HIMMSELK_DUR   = Math.max(1100, 2000 + _stat("wisdom")*450);
   let hBorn = null, hActive = false, hHandled = false;
 
   let elapsed = 0, timeLeft = STAGE_T, done = false, animId = null, spotsHit = 0;
+  // Keyboard cursor: the sighting itself, held by reference. An index would
+  // slide onto a different sighting the moment one faded out from under it.
+  let kbTarget = null, kbOn = false;
+
+  // The bird's position is a function of its age alone; the hit test, the
+  // keyboard cursor and the focus ring all want the same point.
+  function himmselkPos() {
+    const hp = (elapsed - hBorn) / HIMMSELK_DUR;
+    return { x: lerp(250,320,hp), y: HY - 22 + Math.sin(hp*Math.PI)*10 };
+  }
 
   const ticker = setInterval(() => {
     elapsed += 100; timeLeft -= 100;
@@ -802,21 +883,26 @@ function startSpyglass() {
 
   canvas.style.cursor = "crosshair";
   canvas.addEventListener("click", onClick);
+  canvas.addEventListener("keydown", onKey);
+  canvas.focus();                      // the watch has already started
 
   function onClick(e) {
-    if (done) return;
     const r = canvas.getBoundingClientRect();
-    const mx = (e.clientX-r.left)*(CW/r.width), my = (e.clientY-r.top)*(CH/r.height);
+    spotAt((e.clientX-r.left)*(CW/r.width), (e.clientY-r.top)*(CH/r.height));
+  }
+
+  // Pointer and keyboard both resolve to a point on the horizon and land here.
+  function spotAt(mx, my) {
+    if (done) return;
 
     // Himmselk hit-test
     if (hActive && !hHandled && !himmselkSpotted) {
-      const hprog = (elapsed - hBorn) / HIMMSELK_DUR;
-      const bx = lerp(250,320,hprog);
-      const by = HY - 22 + Math.sin(hprog*Math.PI)*10;
-      if (Math.hypot(mx-bx, my-by) < 38) {
+      const hb = himmselkPos();
+      if (Math.hypot(mx-hb.x, my-hb.y) < 38) {
         himmselkSpotted = true; hHandled = true; hActive = false;
         setDialogue("...Did you just — yes. You saw it. A Himmselk Isful. Fair weather ahead. Mark it in the log.");
         document.getElementById("spyglassFeedback").textContent = "✶ HIMMSELK ISFUL SPOTTED ✶";
+        announce("Himmselk Isful spotted.");
         showHimmselkOverlay();
         return;
       }
@@ -831,12 +917,66 @@ function startSpyglass() {
       const hx = o.x + (o.hitDX||0), hy = o.y + (o.hitDY||0);
       if (mx >= hx && mx <= hx+o.w && my >= hy && my <= hy+o.h) {
         o.spotted = true; spotsHit++;
-        const lbl = {rocks:"Rocky outcrop",ship:"Distant vessel",dolphins:"Pod of dolphins",island:"Island on the horizon",storm:"Storm gathering to the north"}[o.type];
+        const lbl = OBJ_LABELS[o.type];
         setDialogue(spotsHit >= 4 ? cfg.greatD + " " + lbl + ". Log it." : lbl + ". Log it.");
         document.getElementById("spyglassFeedback").textContent = spotsHit + " / " + OBJ.length + " sightings";
+        // The last sighting ends the stage a frame later; letting that summary
+        // be the announcement keeps the two from talking over each other.
+        if (spotsHit < OBJ.length || !hHandled) {
+          announce(lbl + " logged. " + spotsHit + " of " + OBJ.length + " sightings.");
+        }
         break;
       }
     }
+  }
+
+  // Is this sighting still in the air? The cursor holds a reference, so it has
+  // to answer the same question the hit tests above ask.
+  function isLive(t) {
+    if (t === "bird") return hActive && !hHandled && !himmselkSpotted;
+    if (!t || t.spotted) return false;
+    const age = elapsed - t.spawn;
+    return age >= 0 && age <= VIS;
+  }
+  function liveTargets() {
+    const live = OBJ.filter(isLive);
+    if (isLive("bird")) live.push("bird");
+    return live;
+  }
+  function targetPoint(t) {
+    if (t === "bird") return himmselkPos();
+    return { x: t.x + (t.hitDX||0) + t.w/2, y: t.y + (t.hitDY||0) + t.h/2 };
+  }
+
+  // Keyboard sweep. Nothing announces itself as it surfaces: the player still
+  // has to find a sighting inside the same window a pointer player watches for,
+  // and Enter only fires on a sighting the cursor actually reached and that is
+  // still there — so holding Enter down logs nothing.
+  function onKey(e) {
+    const k = e.key;
+    const move = (k === "ArrowLeft" || k === "ArrowUp") ? -1 : (k === "ArrowRight" || k === "ArrowDown") ? 1 : 0;
+    const act  = (k === "Enter" || k === " " || k === "Spacebar");
+    if (!move && !act) return;
+    e.preventDefault();                // arrows and space would scroll the page
+    if (done) return;
+    // The ice-bird overlay swallows pointer events for its three seconds. The
+    // keyboard waits out the same interruption.
+    if (document.getElementById("himmselkOverlay").classList.contains("visible")) return;
+    kbOn = true;
+    if (act) {
+      if (!isLive(kbTarget)) { announce("No sighting in view."); return; }
+      const p = targetPoint(kbTarget);
+      kbTarget = null;                 // the sighting is spent either way — sweep again
+      spotAt(p.x, p.y);
+      return;
+    }
+    const live = liveTargets();
+    if (!live.length) { kbTarget = null; announce("No sighting in view."); return; }
+    const at = live.indexOf(kbTarget);
+    const next = at < 0 ? (move > 0 ? 0 : live.length-1)
+                        : ((at + move) % live.length + live.length) % live.length;
+    kbTarget = live[next];
+    announce(kbTarget === "bird" ? "Bird in the sky." : OBJ_LABELS[kbTarget.type] + ".");
   }
 
   function showHimmselkOverlay() {
@@ -981,6 +1121,21 @@ function startSpyglass() {
     vig.addColorStop(0,"transparent"); vig.addColorStop(0.68,"rgba(0,0,0,0.18)"); vig.addColorStop(1,"rgba(0,0,0,0.86)");
     ctx.fillStyle = vig; ctx.fillRect(0,0,CW,CH);
 
+    // Keyboard cursor ring, drawn over the vignette so it survives the dark
+    // edges. It outlines the hit box without lifting the fog off the shape, and
+    // only after a key has been pressed — a pointer player never sees it.
+    if (kbOn && isLive(kbTarget)) {
+      ctx.save();
+      ctx.strokeStyle = "rgba(232,246,255,0.9)"; ctx.lineWidth = 1.6; ctx.setLineDash([5,4]);
+      if (kbTarget === "bird") {
+        const b = himmselkPos();
+        ctx.beginPath(); ctx.arc(b.x,b.y,38,0,Math.PI*2); ctx.stroke();
+      } else {
+        ctx.strokeRect(kbTarget.x+(kbTarget.hitDX||0), kbTarget.y+(kbTarget.hitDY||0), kbTarget.w, kbTarget.h);
+      }
+      ctx.restore();
+    }
+
     // A clean sweep ends the stage rather than draining the clock over empty water.
     // The last sighting opens long after the ice-bird has gone, so hHandled is already
     // true by then; the guard only matters if the bird is somehow still in the air.
@@ -992,7 +1147,8 @@ function startSpyglass() {
 
   function endSpyglass() {
     if (done) return; done = true;
-    cancelAnimationFrame(animId); canvas.removeEventListener("click",onClick); clearInterval(ticker);
+    cancelAnimationFrame(animId); canvas.removeEventListener("click",onClick);
+    canvas.removeEventListener("keydown",onKey); clearInterval(ticker);
     if (hActive && !hHandled) hHandled = true;
 
     stage2Score = Math.round((spotsHit/OBJ.length)*15);
@@ -1011,6 +1167,8 @@ function startSpyglass() {
     document.getElementById("spyglassFeedback").textContent =
       spotsHit + " / " + OBJ.length + " sighted · " + stage2Score + " / 15 pts" +
       (himmselkSpotted ? " · ✶ Himmselk Isful" : "");
+    announce("Stage two complete. " + spotsHit + " of " + OBJ.length + " sighted. " + stage2Score + " of 15 points." +
+             (himmselkSpotted ? " Himmselk Isful sighted." : ""));
 
     setTimeout(() => { goToScreen("screen-dialogue2"); showDialogue(1); }, 2200);
   }
@@ -1048,6 +1206,9 @@ function showResult() {
     <div class="result-verdict">${tier.verdict}</div>
     <div class="result-npc">"${final}"</div>
   `;
+  announce("Ursula's assessment: " + tier.tag + ". " + total + " of 30 points. Ursula: " + rapLabel + "." +
+           (earned ? " Navigator's Favour earned." : "") +
+           (himmselkSpotted ? " Himmselk Isful sighted." : ""));
 
   // Progression advances unconditionally: even a worse retry leaves Day 3 done.
   Remorhaz.markComplete("ursula", 3);

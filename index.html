@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
 <title>Aboard the Remorhaz — Logbook</title>
 <link rel="stylesheet" href="shared.css">
 <script src="state.js"></script>
@@ -17,7 +18,14 @@
   .stage {
     position: fixed;
     inset: 0;
+    /* clip, not hidden: `hidden` makes this a scroll container, and the closed
+       panel parked at translateX(110%) gives it six hundred-odd pixels of
+       hidden scroll. Focusing anything inside the panel would scroll the ship
+       out of frame and leave it there. `clip` crops identically and does not
+       scroll. The `hidden` below it is the fallback for browsers that do not
+       know `clip` — the old behaviour, not no behaviour. */
     overflow: hidden;
+    overflow: clip;
   }
 
   /* Vignette overlay */
@@ -183,6 +191,13 @@
   .hotspot:hover .ring-inner { opacity: 1; }
   .hotspot:hover .glow { opacity: 1; }
   .hotspot:hover .portrait-clip-img { transform: scale(1.06); }
+  /* A keyboard player has to see what a cursor sees. The shared :focus-visible
+     outline does not paint reliably on an SVG <g>, so focus lights the rings
+     the same way hover does. */
+  .hotspot:focus-visible .ring-outer { opacity: 0.85; stroke: var(--lamp); }
+  .hotspot:focus-visible .ring-inner { opacity: 1; }
+  .hotspot:focus-visible .glow { opacity: 1; }
+  .hotspot:focus-visible .portrait-clip-img { transform: scale(1.06); }
   .hotspot.is-active .ring-inner { opacity: 1; }
   .hotspot.is-active .ring-outer { stroke: var(--lamp); opacity: 0.9; }
 
@@ -197,6 +212,7 @@
     pointer-events: none;
   }
   .hotspot:hover + .hotspot-label,
+  .hotspot:focus-visible + .hotspot-label,
   .hotspot:hover .hotspot-label,
   .hotspot.is-active + .hotspot-label {
     opacity: 1;
@@ -468,6 +484,12 @@
     border-left: 1px solid color-mix(in oklch, var(--ink) 30%, transparent);
   }
   .panel.open { transform: translateX(0); }
+  /* These three take focus only so a reader lands inside the dialog; they are
+     not controls, and the shared focus ring on a container edge reads as a
+     stray border rather than as "you are here". The controls inside keep it. */
+  .panel:focus-visible,
+  .cin-npc:focus-visible,
+  .cin-day:focus-visible { outline: none; }
   .panel::before {
     /* parchment texture */
     content: "";
@@ -885,6 +907,126 @@
     0%, 55%, 100% { opacity: 0.5; }
     28% { opacity: 1; }
   }
+
+  /* ── NARROW WINDOWS ──
+     The hub is a fixed, full-bleed frame: a 1700-unit ship centred in the
+     viewport with the voyage rope pinned to the right edge at a flat 720px
+     tall. Below the shared breakpoint that rope lands on top of the ship and
+     its last knots fall off the bottom of the screen. So the frame gives way
+     to an ordinary scrolling column — the day's orders, then the ship, then
+     the rope laid along the foot. Anything that reads client coordinates (the
+     tooltip) or has to cover the screen (the shroud, the panel) goes fixed so
+     it stays put while the column scrolls. */
+  @media (max-width: 860px) {
+    .stage {
+      /* relative, not static: the tooltip and every part of the rope are
+         absolutely positioned and need this box to measure against. */
+      position: relative;
+      inset: auto;
+      overflow: visible;
+      min-height: 100vh;
+      padding-bottom: 26px;
+    }
+    /* These stay viewport-sized and the column scrolls past them. Keeping them
+       positioned also keeps the backdrop's z-index:0 from painting over an
+       in-flow ship. */
+    .backdrop, .snow, .vignette { position: fixed; }
+
+    .chrome-bottom-left {
+      position: relative;
+      bottom: auto; left: auto;
+      max-width: none;
+      padding: 58px 22px 0;
+    }
+
+    .ship-wrap {
+      position: relative;
+      z-index: 2;
+      inset: auto;
+      display: block;
+      margin-top: 10px;
+      /* The cross-section cannot shrink past the point where a portrait stops
+         being something you can aim at, so the ship keeps a floor width and
+         the deck scrolls sideways inside its own box rather than the page
+         doing it. Focusing a crew member scrolls them into view. */
+      overflow-x: auto;
+    }
+    .ship-svg { width: 100%; min-width: 680px; max-height: none; }
+    /* Label text is in viewBox units, so it shrinks with the ship. */
+    .hotspot-label { font-size: 22px; }
+
+    .tooltip { position: fixed; max-width: 220px; }
+
+    /* The rope lies along the foot of the page instead of down the side. */
+    .voyage {
+      position: relative;
+      right: auto; top: auto;
+      transform: none;
+      width: auto;
+      height: 148px;
+      margin-top: 8px;
+    }
+    .voyage-title {
+      writing-mode: horizontal-tb;
+      transform: none;
+      left: 0; right: 0; top: 2px;
+      height: auto;
+      text-align: center;
+      font-size: 13px;
+    }
+    .rope-line {
+      left: 20px; right: 20px; top: 58px; bottom: auto;
+      width: auto; height: 4px;
+      transform: none;
+      background:
+        repeating-linear-gradient(90deg,
+          var(--rope) 0 6px,
+          var(--rope-dark) 6px 10px);
+    }
+    .rope-line::before { top: 50%; left: -8px; transform: translateY(-50%); }
+    .rope-line::after  { top: 50%; bottom: auto; left: auto; right: -8px; transform: translateY(-50%); }
+
+    .knots {
+      flex-direction: row;
+      top: 32px; bottom: auto; height: 56px;
+      left: 12px; right: 12px;
+    }
+    .knot { width: auto; flex: 1 1 0; }
+    .knot .num {
+      right: auto; left: 50%; top: 44px;
+      transform: translateX(-50%);
+      width: 28px; text-align: center;
+    }
+    /* An absolutely positioned 200px label still adds scroll width at opacity
+       zero, which would drag the whole page sideways at either end of the
+       rope — and there is no hover to reveal it on the screens this is for. */
+    .knot .lbl { display: none; }
+    .voyage-foot { bottom: 6px; }
+
+    .modal-shroud { position: fixed; }
+    .panel {
+      position: fixed;
+      left: 0; width: 100%;
+      padding: 34px 22px 24px;
+    }
+    .panel h2 { font-size: 30px; }
+    .panel .dialogue { font-size: 18px; padding-left: 16px; }
+
+    /* Half-width cinematic text on a phone is a column four words across, and
+       the left-to-right scrim it relies on for contrast runs out before the
+       text does. */
+    .cin-npc-content {
+      width: auto; right: 0; max-width: none;
+      padding: 24px 22px;
+      justify-content: flex-start;
+      overflow-y: auto;
+      gap: 10px;
+    }
+    .cin-npc-gradient {
+      background: linear-gradient(180deg, rgba(0,0,0,0.74), rgba(0,0,0,0.88));
+    }
+    .cin-npc-quote, .cin-npc-options, .cin-npc-reaction { max-width: none; }
+  }
 </style>
 </head>
 <body>
@@ -913,7 +1055,7 @@
 
   <!-- SHIP SVG -->
   <div class="ship-wrap">
-    <svg class="ship-svg" viewBox="0 0 1700 1050" xmlns="http://www.w3.org/2000/svg" aria-label="Cross-section of the sailing vessel Remorhaz">
+    <svg class="ship-svg" viewBox="0 0 1700 1050" xmlns="http://www.w3.org/2000/svg" role="group" aria-label="Cross-section of the sailing vessel Remorhaz">
 
       <defs>
         <!-- Wood gradient -->
@@ -1408,58 +1550,62 @@
 
         <!-- =============== HOTSPOTS =============== -->
         <!-- Each hotspot: a group with portrait image clipped to a circle, decorative ring(s), label text.
-             data-zone identifies the NPC. -->
+             data-zone identifies the NPC. role/tabindex/aria-label are what make
+             the crew reachable without a mouse — an SVG <g> is not focusable and
+             has no name of its own, and every day of the voyage is behind one of
+             these. The neighbouring <text> is the same name drawn on the deck, so
+             it is hidden from the reading order rather than said twice. -->
 
         <!-- 1. URSULA — Crow's Nest (top of mast) -->
-        <g class="hotspot" data-zone="ursula" transform="translate(852 60)">
+        <g class="hotspot" data-zone="ursula" role="button" tabindex="0" aria-label="Ursula Elara, Navigator and Lookout, in the crow’s nest" transform="translate(852 60)">
           <circle class="glow" r="74" fill="url(#lampGlow)" filter="url(#bigGlow)" opacity="0"/>
           <image href="assets/ursula.jpg" x="-46" y="-46" width="92" height="92" preserveAspectRatio="xMidYMid slice" clip-path="url(#clip-ursula)" class="portrait-clip-img"/>
           <circle class="ring-outer" r="52"/>
           <circle class="ring-inner" r="49"/>
           <circle r="46" fill="none" stroke="oklch(0.25 0.04 50)" stroke-width="2"/>
         </g>
-        <text class="hotspot-label" x="852" y="-2">URSULA · CROW'S NEST</text>
+        <text class="hotspot-label" aria-hidden="true" x="852" y="-2">URSULA · CROW'S NEST</text>
 
         <!-- 2. THORGRIM — Helm (stern castle) -->
-        <g class="hotspot" data-zone="thorgrim" transform="translate(348 386)">
+        <g class="hotspot" data-zone="thorgrim" role="button" tabindex="0" aria-label="Capt. Thorgrim Isskegg, Captain and Master of the Remorhaz, at the helm" transform="translate(348 386)">
           <circle class="glow" r="72" fill="url(#lampGlow)" filter="url(#bigGlow)" opacity="0"/>
           <image href="assets/thorgrim.png" x="-46" y="-46" width="92" height="92" preserveAspectRatio="xMidYMid slice" clip-path="url(#clip-thorgrim)" class="portrait-clip-img"/>
           <circle class="ring-outer" r="52"/>
           <circle class="ring-inner" r="49"/>
           <circle r="46" fill="none" stroke="oklch(0.25 0.04 50)" stroke-width="2"/>
         </g>
-        <text class="hotspot-label" x="348" y="450" transform="translate(0 -116)" style="display:none">THORGRIM</text>
-        <text class="hotspot-label" x="348" y="325">CAPT. THORGRIM · HELM</text>
+        <text class="hotspot-label" aria-hidden="true" x="348" y="450" transform="translate(0 -116)" style="display:none">THORGRIM</text>
+        <text class="hotspot-label" aria-hidden="true" x="348" y="325">CAPT. THORGRIM · HELM</text>
 
         <!-- 3. HALDOR — Main Deck / Stern (near nets) -->
-        <g class="hotspot" data-zone="haldor" transform="translate(660 478)">
+        <g class="hotspot" data-zone="haldor" role="button" tabindex="0" aria-label="Haldor Stormchaser, Fisherman and Deckhand, on the main deck" transform="translate(660 478)">
           <circle class="glow" r="72" fill="url(#lampGlow)" filter="url(#bigGlow)" opacity="0"/>
           <image href="assets/haldor.jpg" x="-46" y="-46" width="92" height="92" preserveAspectRatio="xMidYMid slice" clip-path="url(#clip-haldor)" class="portrait-clip-img"/>
           <circle class="ring-outer" r="52"/>
           <circle class="ring-inner" r="49"/>
           <circle r="46" fill="none" stroke="oklch(0.25 0.04 50)" stroke-width="2"/>
         </g>
-        <text class="hotspot-label" x="660" y="417">HALDOR · MAIN DECK</text>
+        <text class="hotspot-label" aria-hidden="true" x="660" y="417">HALDOR · MAIN DECK</text>
 
         <!-- 4. KALT — Rigging / Mid-deck (near mast/rope coil) -->
-        <g class="hotspot" data-zone="kalt" transform="translate(1020 470)">
+        <g class="hotspot" data-zone="kalt" role="button" tabindex="0" aria-label="Kalt Ironfist, First Mate, in the rigging" transform="translate(1020 470)">
           <circle class="glow" r="72" fill="url(#lampGlow)" filter="url(#bigGlow)" opacity="0"/>
           <image href="assets/kalt.jpg" x="-46" y="-46" width="92" height="92" preserveAspectRatio="xMidYMid slice" clip-path="url(#clip-kalt)" class="portrait-clip-img"/>
           <circle class="ring-outer" r="52"/>
           <circle class="ring-inner" r="49"/>
           <circle r="46" fill="none" stroke="oklch(0.25 0.04 50)" stroke-width="2"/>
         </g>
-        <text class="hotspot-label" x="1020" y="409">KALT · RIGGING</text>
+        <text class="hotspot-label" aria-hidden="true" x="1020" y="409">KALT · RIGGING</text>
 
         <!-- 5. INGRID — Galley (below decks, warm cutaway) -->
-        <g class="hotspot" data-zone="ingrid" transform="translate(760 800)">
+        <g class="hotspot" data-zone="ingrid" role="button" tabindex="0" aria-label="Chef Ingrid Firebrew, Galley Master, in the galley" transform="translate(760 800)">
           <circle class="glow" r="78" fill="url(#lampGlow)" filter="url(#bigGlow)" opacity="0"/>
           <image href="assets/ingrid.png" x="-46" y="-46" width="92" height="92" preserveAspectRatio="xMidYMid slice" clip-path="url(#clip-ingrid)" class="portrait-clip-img"/>
           <circle class="ring-outer" r="52"/>
           <circle class="ring-inner" r="49"/>
           <circle r="46" fill="none" stroke="oklch(0.25 0.04 50)" stroke-width="2"/>
         </g>
-        <text class="hotspot-label" x="760" y="870">INGRID · GALLEY</text>
+        <text class="hotspot-label" aria-hidden="true" x="760" y="870">INGRID · GALLEY</text>
 
       </g>
       <!-- /ship-rock -->
@@ -1492,7 +1638,7 @@
   </aside>
 
   <!-- ══ NPC / CHARACTER CINEMATIC ══ -->
-  <div id="cin-npc" class="cin-npc" aria-hidden="true">
+  <div id="cin-npc" class="cin-npc" role="dialog" aria-modal="true" aria-labelledby="cin-npc-name" tabindex="-1" aria-hidden="true" inert>
     <div class="cin-npc-bg" id="cin-npc-bg"></div>
     <div class="cin-npc-gradient"></div>
     <div class="cin-npc-content">
@@ -1508,24 +1654,29 @@
         <button class="cin-npc-btn" id="cin-npc-enter">BEGIN ACTIVITY →</button>
         <button class="cin-npc-btn-sec" id="cin-npc-return">RETURN TO DECK</button>
       </div>
+      <!-- Answering a crew member deletes the button that had focus and prints
+           the reply somewhere else on screen. The region is here from the start
+           and never display:none, because a live region inserted or revealed at
+           announce time is the one a screen reader misses. -->
+      <div class="sr-only" id="cin-npc-live" aria-live="polite"></div>
     </div>
   </div>
 
   <!-- ══ DAY TRANSITION CINEMATIC ══ -->
-  <div id="cin-day" class="cin-day" aria-hidden="true">
+  <div id="cin-day" class="cin-day" role="dialog" aria-modal="true" aria-labelledby="cin-day-number" tabindex="-1" aria-hidden="true" inert>
     <canvas id="cin-day-stars" class="cin-day-stars-canvas"></canvas>
     <div class="cin-day-body">
       <div class="cin-day-prev-lbl" id="cin-day-prev-lbl"></div>
       <div class="cin-day-number" id="cin-day-number">DAY · 01</div>
       <div class="cin-day-rule"></div>
       <div class="cin-day-event-lbl" id="cin-day-event-lbl"></div>
-      <div class="cin-day-hint">— click anywhere to continue —</div>
+      <div class="cin-day-hint">— click anywhere, or press Enter, to continue —</div>
     </div>
   </div>
 
   <!-- Modal shroud + side panel -->
   <div class="modal-shroud" id="shroud"></div>
-  <aside class="panel" id="panel" role="dialog" aria-modal="true" aria-hidden="true">
+  <aside class="panel" id="panel" role="dialog" aria-modal="true" aria-labelledby="p-name" tabindex="-1" aria-hidden="true" inert>
     <button class="panel-close" id="panelClose">✕  CLOSE</button>
     <div class="eyebrow" id="p-eyebrow">— Aboard the Remorhaz —</div>
     <div class="day-tag" id="p-day">DAY · 01</div>
@@ -2158,20 +2309,34 @@ function _navigateTo(url) {
   function hideTooltip() { tt.classList.remove("visible"); }
 
   /* ============== HOTSPOTS ============== */
+  // Every day of the voyage is behind one of these, and until now the only way
+  // through was a cursor. The keyboard runs the same activate() a click does —
+  // one code path, two inputs — and the tooltip answers focus as well as hover,
+  // because focus is the only way a keyboard player can ask who someone is.
   document.querySelectorAll(".hotspot").forEach(el => {
     const zone = el.dataset.zone;
-    el.addEventListener("mouseenter", (e) => {
+    const reveal = () => {
       const rect = el.getBoundingClientRect();
       showTooltip(zone, rect.left + rect.width/2, rect.top);
-    });
-    el.addEventListener("mousemove", (e) => {
-      const rect = el.getBoundingClientRect();
-      showTooltip(zone, rect.left + rect.width/2, rect.top);
-    });
-    el.addEventListener("mouseleave", hideTooltip);
-    el.addEventListener("click", () => {
+    };
+    const activate = () => {
       el.classList.remove("first-visit-glow");
       openPanel(zone);
+    };
+    el.addEventListener("mouseenter", reveal);
+    el.addEventListener("mousemove", reveal);
+    el.addEventListener("mouseleave", hideTooltip);
+    // :focus-visible keeps the card off a mouse click, which has already had
+    // the hover version of it.
+    el.addEventListener("focus", () => { if (el.matches(":focus-visible")) reveal(); });
+    el.addEventListener("blur", hideTooltip);
+    el.addEventListener("click", activate);
+    el.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      // Enter on a <g> synthesises no click, and Space would scroll the column
+      // the narrow layout puts the deck in.
+      e.preventDefault();
+      activate();
     });
   });
 
@@ -2192,6 +2357,34 @@ function _navigateTo(url) {
   const pLater = document.getElementById("p-later");
   const pStatus = document.getElementById("p-status");
   const closeBtn = document.getElementById("panelClose");
+
+  // Everything a keyboard or a screen reader can reach on the deck lives in one
+  // of these three; the overlays sit outside them.
+  const HUB_LAYERS = [".chrome-bottom-left", ".ship-wrap", ".voyage"];
+
+  // All inert state derived in one place from what is open, rather than paired
+  // on and off at each site. The pairs drift: the panel hands over to the
+  // cinematic with a gap in between, and the day card can arrive on top of
+  // either of them.
+  function syncHubInert() {
+    const cinNpcEl = document.getElementById("cin-npc");
+    const cinDayEl = document.getElementById("cin-day");
+    const dayOpen   = cinDayEl.classList.contains("active");
+    const npcOpen   = cinNpcEl.classList.contains("active");
+    const panelOpen = panel.classList.contains("open");
+    const anyOpen   = dayOpen || npcOpen || panelOpen;
+    HUB_LAYERS.forEach(sel => document.querySelector(sel)?.toggleAttribute("inert", anyOpen));
+    // Only the topmost overlay is reachable; the rest leave the tab order.
+    cinDayEl.toggleAttribute("inert", !dayOpen);
+    cinNpcEl.toggleAttribute("inert", !npcOpen || dayOpen);
+    panel.toggleAttribute("inert", !panelOpen || npcOpen || dayOpen);
+  }
+
+  // preventScroll everywhere: the stage is a clipped box and the overlays
+  // arrive from off-screen, so an ordinary focus() would drag the deck with it.
+  function focusHotspot(zone) {
+    document.querySelector(`.hotspot[data-zone="${zone}"]`)?.focus({ preventScroll: true });
+  }
 
   let activeZone = null;
 
@@ -2257,20 +2450,41 @@ function _navigateTo(url) {
     shroud.classList.add("open");
     panel.classList.add("open");
     panel.setAttribute("aria-hidden", "false");
+    syncHubInert();
+    panel.focus({ preventScroll: true });
   }
 
-  function closePanel() {
+  // handOff is set only when the cinematic is about to open and take focus
+  // itself. Everywhere else the crew member you opened gets it back — leaving
+  // focus on <body> would drop a keyboard player at the top of the document.
+  function closePanel(handOff) {
+    const wasZone = activeZone;
     shroud.classList.remove("open");
     panel.classList.remove("open");
     panel.setAttribute("aria-hidden", "true");
     activeZone = null;
     document.querySelectorAll(".hotspot").forEach(h => h.classList.remove("is-active"));
+    syncHubInert();
+    if (!handOff && wasZone) focusHotspot(wasZone);
   }
 
-  closeBtn.addEventListener("click", closePanel);
-  pLater.addEventListener("click", closePanel);
-  shroud.addEventListener("click", closePanel);
+  // Wrapped rather than passed by reference: the click event would arrive as
+  // handOff and quietly cancel the focus return.
+  closeBtn.addEventListener("click", () => closePanel());
+  pLater.addEventListener("click", () => closePanel());
+  shroud.addEventListener("click", () => closePanel());
+  // One handler for all three overlays, checked from the top layer down. An
+  // element-level listener would not survive the moment a chosen response
+  // deletes the button that had focus.
   document.addEventListener("keydown", (e) => {
+    if (document.getElementById("cin-day")?.classList.contains("active")) {
+      // The day card is dismissed by a click anywhere; a keyboard needs a key.
+      if (e.key === "Enter" || e.key === " " || e.key === "Escape") {
+        e.preventDefault();
+        dismissDayTransition();
+      }
+      return;
+    }
     if (e.key !== "Escape") return;
     if (document.getElementById("cin-npc")?.classList.contains("active")) {
       dismissNpcCinematic();
@@ -2282,7 +2496,7 @@ function _navigateTo(url) {
   pBegin.addEventListener("click", () => {
     if (!activeZone || pBegin.disabled) return;
     const z = activeZone;
-    closePanel();
+    closePanel(true);
     setTimeout(() => showNpcCinematic(z), 350);
   });
 
@@ -2362,8 +2576,24 @@ function _navigateTo(url) {
   const cinNpcActions  = document.getElementById("cin-npc-actions");
   const cinNpcEnter    = document.getElementById("cin-npc-enter");
   const cinNpcReturn   = document.getElementById("cin-npc-return");
+  const cinNpcLive     = document.getElementById("cin-npc-live");
 
   let _pendingZone = null;
+
+  function openNpcCinematic() {
+    cinNpc.classList.add("active");
+    cinNpc.setAttribute("aria-hidden", "false");
+    syncHubInert();
+    cinNpc.focus({ preventScroll: true });
+  }
+
+  // Where focus belongs once the response options are gone: the first action
+  // actually on offer. "NOT YET AVAILABLE" is disabled, and a disabled button
+  // cannot hold focus.
+  function focusCinematicActions() {
+    const next = [cinNpcEnter, cinNpcReturn].find(b => b.style.display !== "none" && !b.disabled);
+    (next || cinNpc).focus({ preventScroll: true });
+  }
 
   // Day-exact activity routing. Each minigame is scheduled for one specific day,
   // so a route exists only on that day. The old >= comparisons let a late-day
@@ -2456,6 +2686,14 @@ function _navigateTo(url) {
         }
 
         onChosen();
+        // The button that had focus has just been removed from the DOM. Without
+        // a new home focus falls to <body>, outside the modal the player is in.
+        focusCinematicActions();
+
+        // Announced after the focus move, not before: a screen reader drops
+        // whatever is queued when focus changes, and this region is the only
+        // thing carrying the reply to a player who cannot read it off the page.
+        cinNpcLive.textContent = [r.npc || "", cinNpcInfluenceEl.textContent].filter(Boolean).join(". ");
       });
       cinNpcOptions.appendChild(btn);
     });
@@ -2479,6 +2717,7 @@ function _navigateTo(url) {
     cinNpcReaction.style.display = "none";
     cinNpcInfluenceEl.textContent = "";
     cinNpcInfluenceEl.className = "cin-npc-influence";
+    cinNpcLive.textContent = "";
     cinNpcActions.style.display = "none";
     cinNpcEnter.disabled = false;
 
@@ -2522,8 +2761,7 @@ function _navigateTo(url) {
         showCaptainActions();
       }
 
-      cinNpc.classList.add("active");
-      cinNpc.setAttribute("aria-hidden", "false");
+      openNpcCinematic();
       return;
     }
 
@@ -2563,8 +2801,7 @@ function _navigateTo(url) {
       cinNpcActions.style.display = "flex";
     }
 
-    cinNpc.classList.add("active");
-    cinNpc.setAttribute("aria-hidden", "false");
+    openNpcCinematic();
   }
 
   function dismissNpcCinematic() {
@@ -2584,7 +2821,10 @@ function _navigateTo(url) {
     }
     cinNpc.classList.remove("active");
     cinNpc.setAttribute("aria-hidden", "true");
+    const wasZone = _pendingZone;
     _pendingZone = null;
+    syncHubInert();
+    if (wasZone) focusHotspot(wasZone);
   }
 
   cinNpcReturn.addEventListener("click", dismissNpcCinematic);
@@ -2663,11 +2903,18 @@ function _navigateTo(url) {
     cinDayEventLbl.textContent = newDayData ? newDayData.label : "";
     cinDay.classList.add("active");
     cinDay.setAttribute("aria-hidden", "false");
+    syncHubInert();
+    cinDay.focus({ preventScroll: true });
   }
 
   function dismissDayTransition() {
     cinDay.classList.remove("active");
     cinDay.setAttribute("aria-hidden", "true");
+    syncHubInert();
+    // Nothing opened this one — it arrives by itself — so focus goes where the
+    // new day points rather than back to a crew member: the captain, who is
+    // already glowing for the same reason.
+    focusHotspot("thorgrim");
   }
 
   cinDay.addEventListener("click", dismissDayTransition);

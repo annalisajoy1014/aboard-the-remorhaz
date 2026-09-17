@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
 <title>Day 4 · Maritime Combat — Aboard the Remorhaz</title>
 <link rel="stylesheet" href="shared.css">
 <script src="state.js"></script>
@@ -106,6 +107,11 @@
 
 <button class="back-btn" id="backBtn">← Return to Deck</button>
 
+<!-- Both stages play out on a canvas, so every call and every score is pixels.
+     This region is the only channel a screen reader has; it ships in the DOM
+     rather than being inserted at announce time, which is often missed. -->
+<div class="sr-only" id="srLive" role="status" aria-live="polite" aria-atomic="true"></div>
+
 <div class="stage">
   <div class="game-area">
 
@@ -125,7 +131,10 @@
       <!-- STAGE 1: WEAPON DRILLS -->
       <div class="screen" id="screen-drills">
         <div class="screen-title">— STAGE I · WEAPON DRILLS —</div>
-        <canvas class="stage-canvas" id="drillsCanvas" width="480" height="252"></canvas>
+        <!-- role="application" so a screen reader hands the arrow keys to the
+             drill instead of eating them with its own browse cursor. -->
+        <canvas class="stage-canvas" id="drillsCanvas" width="480" height="252" tabindex="0" role="application"
+                aria-label="Weapon drill targets. Use the left and right arrow keys to select a target, then press Enter to strike it."></canvas>
         <div class="stage-feedback" id="drillsFeedback">&nbsp;</div>
         <div class="timer-bar-wrap"><div class="timer-bar-fill" id="drillsTimerFill"></div></div>
       </div>
@@ -147,13 +156,13 @@
           <div class="approach-title">Choose Your Approach</div>
           <div class="approach-sub">Haldor takes his position. You have one chance to get past him. How do you go in?</div>
           <div class="approach-cards">
-            <div class="approach-card" id="chooseStr">
+            <div class="approach-card" id="chooseStr" role="button" tabindex="0">
               <div class="approach-icon">💪</div>
               <div class="approach-name">Go In Hard</div>
               <div class="approach-stat">— STRENGTH —</div>
               <div class="approach-desc">Force your way through. Overpower him with sheer weight and momentum.</div>
             </div>
-            <div class="approach-card" id="chooseDex">
+            <div class="approach-card" id="chooseDex" role="button" tabindex="0">
               <div class="approach-icon">🌀</div>
               <div class="approach-name">Stay Nimble</div>
               <div class="approach-stat">— DEXTERITY —</div>
@@ -166,13 +175,14 @@
       <!-- STAGE 2: BOARDING -->
       <div class="screen" id="screen-boarding">
         <div class="screen-title" id="boardingTitle">— STAGE II · BOARDING CHALLENGE —</div>
-        <canvas class="stage-canvas" id="boardingCanvas" width="480" height="252"></canvas>
+        <canvas class="stage-canvas" id="boardingCanvas" width="480" height="252" tabindex="0" role="application"
+                aria-label="Boarding contest."></canvas>
         <div class="stage-feedback" id="boardingFeedback">&nbsp;</div>
         <!-- STR: click counter hint -->
         <div class="tug-wrap" id="tugWrap" style="display:none">
           <div class="tug-labels"><span>HALDOR</span><span>YOU</span></div>
           <div class="tug-track"><div class="tug-fill" id="tugFill"></div></div>
-          <div class="tug-click-hint" id="tugHint">Click to push through</div>
+          <div class="tug-click-hint" id="tugHint">Click or press Space to push through</div>
         </div>
         <!-- DEX: timer bar -->
         <div class="timer-bar-wrap" id="boardingTimerWrap"><div class="timer-bar-fill" id="boardingTimerFill"></div></div>
@@ -241,6 +251,15 @@ for (let i = 0; i < 55; i++) {
   Object.assign(f.style,{width:sz+"px",height:sz+"px",left:Math.random()*100+"%",top:Math.random()*100+"%",animationDuration:(8+Math.random()*12)+"s",animationDelay:(-Math.random()*15)+"s"});
   snowEl.appendChild(f);
 }
+
+/* ══════════════════════════════════════════
+   LIVE REGION
+   Drill feedback and the contest state are drawn or written into styled
+   lines that assistive tech never reads. Every outcome is routed through
+   here as well so the stages are not silent.
+══════════════════════════════════════════ */
+const srLive = document.getElementById("srLive");
+function announce(msg) { if (msg) srLive.textContent = msg; }
 
 /* ══════════════════════════════════════════
    STATE
@@ -514,6 +533,7 @@ function showDialogue(idx) {
           // inherited from navigation.html, where that stage is the spyglass.
           setDialogue(cfg.preSpy);
           goToScreen("screen-approach");
+          setTimeout(() => { document.getElementById("chooseStr").focus(); }, 400);
         } else {
           goToScreen("screen-result");
           setTimeout(showResult, 500);
@@ -522,6 +542,10 @@ function showDialogue(idx) {
     });
     choicesEl.appendChild(btn);
   });
+
+  // goToScreen leaves focus on <body>; land it on the first reply once the swap
+  // has finished, so the keyboard player isn't tabbing in from the page header.
+  setTimeout(() => { choicesEl.querySelector("button")?.focus(); }, 400);
 }
 
 /* ══════════════════════════════════════════
@@ -627,6 +651,28 @@ function startDrills() {
 
   canvas.style.cursor = "crosshair";
   canvas.addEventListener("click", onClick);
+  canvas.addEventListener("keydown", onKey);
+  canvas.focus();
+
+  // Keyboard cursor. Held as a reference to one live target rather than an index,
+  // so another target expiring can't slide the selection out from under the player.
+  let kbTarget = null;
+
+  function liveTargets() {
+    // The same "still on the deck" test the click path and draw() use, ordered
+    // left to right so the arrow keys move the way the canvas looks.
+    return targets.filter(t => !t.hit && elapsed - t.born <= t.life).sort((a,b) => a.x - b.x);
+  }
+
+  // The one place a hit is scored — mouse and keyboard both come through here.
+  function registerHit(t) {
+    t.hit=true; hits++;
+    kbTarget = null;
+    const msg = WEAPON_LABELS[t.type] + " — " + hits + " / " + TOTAL_TARGETS + " hits";
+    document.getElementById("drillsFeedback").textContent = msg;
+    announce(msg);
+    setDialogue(hits>=TOTAL_TARGETS ? cfg.greatD : hits%(3)===0 ? cfg.goodD : "");
+  }
 
   function onClick(e) {
     if (done) return;
@@ -638,12 +684,28 @@ function startDrills() {
       // Same lifetime test draw() uses — once a target stops being drawn it's bare
       // deck, not a hit. Without this the drill score can be farmed by spam-clicking.
       if (elapsed - t.born > t.life) continue;
-      if (Math.hypot(mx-t.x,my-t.y) < HIT_R+t.r) {
-        t.hit=true; hits++;
-        document.getElementById("drillsFeedback").textContent = WEAPON_LABELS[t.type] + " — " + hits + " / " + TOTAL_TARGETS + " hits";
-        setDialogue(hits>=TOTAL_TARGETS ? cfg.greatD : hits%(3)===0 ? cfg.goodD : "");
-        break;
-      }
+      if (Math.hypot(mx-t.x,my-t.y) < HIT_R+t.r) { registerHit(t); break; }
+    }
+  }
+
+  function moveCursor(dir) {
+    const live = liveTargets();
+    if (!live.length) { kbTarget = null; return; }
+    const at = live.indexOf(kbTarget);
+    const i  = at < 0 ? (dir>0 ? 0 : live.length-1) : (at+dir+live.length)%live.length;
+    kbTarget = live[i];
+    announce(WEAPON_LABELS[kbTarget.type] + " — target " + (i+1) + " of " + live.length);
+  }
+
+  function onKey(e) {
+    if (e.key==="ArrowRight" || e.key==="ArrowDown") { e.preventDefault(); if (!done) moveCursor(1); }
+    else if (e.key==="ArrowLeft" || e.key==="ArrowUp") { e.preventDefault(); if (!done) moveCursor(-1); }
+    else if (e.key==="Enter" || e.key===" ") {
+      e.preventDefault();
+      // Strikes only what the cursor is actually on. No auto-pick: selecting the
+      // nearest live target for the player would turn this into Enter-spam with a
+      // guaranteed hit, which is a different game to the one the mouse plays.
+      if (!done && kbTarget && liveTargets().indexOf(kbTarget) >= 0) registerHit(kbTarget);
     }
   }
 
@@ -658,6 +720,8 @@ function startDrills() {
     const spd = SPEED * (0.7+Math.random()*0.6);
     targets.push({ x, y, vx:Math.cos(angle)*spd, vy:Math.sin(angle)*spd, r, type, hit:false, born:elapsed, life:TARGET_LIFE });
     spawned++;
+    // Numbered so two of the same weapon in a row are still two announcements.
+    announce(WEAPON_LABELS[type] + " target " + spawned + " of " + TOTAL_TARGETS + " is up");
     const remaining = TOTAL_T - elapsed;
     const left = TOTAL_TARGETS - spawned;
     nextSpawn = elapsed + (left>0 ? (remaining/(left+1))*(0.55+Math.random()*0.9) : Infinity);
@@ -727,6 +791,15 @@ function startDrills() {
       }
     });
 
+    // Keyboard cursor ring — what Enter is about to strike, drawn in the existing
+    // loop so it tracks the target as it moves. Static dashes, no marching ants.
+    if (kbTarget && !kbTarget.hit && elapsed - kbTarget.born <= kbTarget.life) {
+      ctx.save();
+      ctx.strokeStyle="#f3c376"; ctx.lineWidth=2; ctx.setLineDash([5,4]);
+      ctx.beginPath(); ctx.arc(kbTarget.x,kbTarget.y,HIT_R+kbTarget.r*0.5+6,0,Math.PI*2); ctx.stroke();
+      ctx.restore();
+    }
+
     // Vignette
     const vig=ctx.createRadialGradient(CW/2,CH/2,CW*0.2,CW/2,CH/2,CW*0.72);
     vig.addColorStop(0,"transparent"); vig.addColorStop(1,"rgba(0,0,0,0.5)");
@@ -738,7 +811,7 @@ function startDrills() {
 
   function endDrills() {
     if (done) return; done=true;
-    cancelAnimationFrame(animId); canvas.removeEventListener("click",onClick); clearInterval(ticker);
+    cancelAnimationFrame(animId); canvas.removeEventListener("click",onClick); canvas.removeEventListener("keydown",onKey); clearInterval(ticker);
     const pct = hits/TOTAL_TARGETS;
     stage1Score = Math.round(pct*15);
     setDialogue(
@@ -749,6 +822,7 @@ function startDrills() {
     );
     showScoreTally(); updateTally(stage1Score,null);
     document.getElementById("drillsFeedback").textContent = hits + " / " + TOTAL_TARGETS + " · " + stage1Score + " / 15 pts";
+    announce("Weapon drills over — " + hits + " of " + TOTAL_TARGETS + " hit, " + stage1Score + " of 15 points.");
     setTimeout(() => { goToScreen("screen-dialogue1"); showDialogue(0); }, 2000);
   }
 }
@@ -771,8 +845,15 @@ function pickApproach(approach) {
   setTimeout(() => approach==="str" ? startBoardingStr() : startBoardingDex(), 500);
 }
 
-document.getElementById("chooseStr").addEventListener("click", () => pickApproach("str"));
-document.getElementById("chooseDex").addEventListener("click", () => pickApproach("dex"));
+// The cards are divs. Without a key wired to the same pickApproach the pointer
+// calls, Stage II can't be entered from a keyboard at all.
+[["chooseStr","str"],["chooseDex","dex"]].forEach(([id, approach]) => {
+  const card = document.getElementById(id);
+  card.addEventListener("click", () => pickApproach(approach));
+  card.addEventListener("keydown", e => {
+    if (e.key==="Enter" || e.key===" ") { e.preventDefault(); pickApproach(approach); }
+  });
+});
 
 /* ══════════════════════════════════════════
    STAGE 2a: STR BOARDING — tug-of-war clicks
@@ -798,6 +879,13 @@ function startBoardingStr() {
 
   canvas.style.cursor = "pointer";
   canvas.addEventListener("click", onClick);
+  canvas.addEventListener("keydown", onKey);
+  canvas.setAttribute("aria-label", "Boarding contest against Haldor. Press Space repeatedly to push through his guard.");
+  canvas.focus();
+
+  // Which band of the contest was last spoken. The push is rapid-fire input, so
+  // only a change of state reaches the live region — never every press.
+  let lastBand = null;
 
   function onClick() {
     if (done) return;
@@ -810,6 +898,17 @@ function startBoardingStr() {
     } else {
       document.getElementById("boardingFeedback").textContent = position >= 60 ? "Push! Keep pushing!" : "Hold your ground!";
     }
+    const band = position >= WIN_THRESHOLD ? "through" : position >= 60 ? "push" : "hold";
+    if (band !== lastBand) { lastBand = band; announce(document.getElementById("boardingFeedback").textContent); }
+  }
+
+  function onKey(e) {
+    if (e.key!=="Enter" && e.key!==" ") return;
+    e.preventDefault();
+    // Auto-repeat would hold the push down for free. The mouse has to click for
+    // every inch of the plank, so the keyboard has to press for every inch too.
+    if (done || e.repeat) return;
+    onClick();
   }
 
   function draw(ts) {
@@ -851,11 +950,11 @@ function startBoardingStr() {
     animId=requestAnimationFrame(draw);
   }
   animId=requestAnimationFrame(draw);
-  document.getElementById("tugHint").textContent = "Click repeatedly to push through";
+  document.getElementById("tugHint").textContent = "Click or press Space repeatedly to push through";
 
   function endStr() {
     if (done) return; done=true;
-    cancelAnimationFrame(animId); canvas.removeEventListener("click",onClick); clearInterval(ticker);
+    cancelAnimationFrame(animId); canvas.removeEventListener("click",onClick); canvas.removeEventListener("keydown",onKey); clearInterval(ticker);
     const pct = Math.min(1, maxPos/100);
     stage2Score = Math.round(pct*15);
     const won = maxPos >= WIN_THRESHOLD;
@@ -867,6 +966,7 @@ function startBoardingStr() {
     );
     updateTally(stage1Score,stage2Score);
     document.getElementById("boardingFeedback").textContent = won ? "BROKE THROUGH · " + stage2Score + " / 15 pts" : "Held off · " + stage2Score + " / 15 pts";
+    announce("Boarding over — " + (won ? "broke through" : "Haldor held the plank") + ", " + stage2Score + " of 15 points.");
     setTimeout(() => { goToScreen("screen-dialogue2"); showDialogue(1); }, 2200);
   }
 }
@@ -896,20 +996,38 @@ function startBoardingDex() {
 
   canvas.style.cursor = "pointer";
   canvas.addEventListener("click", onCanvasClick);
+  canvas.addEventListener("keydown", onKey);
+  canvas.setAttribute("aria-label", "Boarding contest against Haldor. Press the left or right arrow key to dodge to that side.");
+  canvas.focus();
 
   // Left/right click zones
   function onCanvasClick(e) {
     if (done || roundPhase!=="warn") return;
     const r = canvas.getBoundingClientRect();
     const mx=(e.clientX-r.left)*(CW/r.width);
-    playerClicked = mx < CW/2 ? "left" : "right";
+    dodge(mx < CW/2 ? "left" : "right");
+  }
+
+  // The arrow keys pick a side the same way the two click zones do — same window,
+  // same scoring, no second copy of it.
+  function onKey(e) {
+    if (e.key!=="ArrowLeft" && e.key!=="ArrowRight") return;
+    e.preventDefault();
+    if (done || roundPhase!=="warn") return;
+    dodge(e.key==="ArrowLeft" ? "left" : "right");
+  }
+
+  function dodge(side) {
+    playerClicked = side;
     const success = playerClicked !== warnSide; // counter = opposite side
     if (success) {
       countered++;
       setDialogue(countered >= 3 ? cfg.greatD + " Counter!" : cfg.goodD);
       document.getElementById("boardingFeedback").textContent = countered + " / " + ROUNDS + " counters";
+      announce("Round " + round + " countered — " + countered + " / " + ROUNDS);
     } else {
       setDialogue(cfg.failD);
+      announce("Round " + round + " — he lands it.");
     }
     roundPhase = "result";
     setTimeout(nextRound, 700);
@@ -922,10 +1040,14 @@ function startBoardingDex() {
     warnSide = Math.random() < 0.5 ? "left" : "right";
     playerClicked = null;
     roundPhase = "warn";
+    // The side to dodge is only drawn on the canvas. Numbered by round so two
+    // identical calls in a row are still two separate announcements.
+    announce("Round " + round + " — dodge " + (warnSide==="left" ? "right" : "left"));
     setTimeout(() => {
       if (roundPhase==="warn" && !playerClicked) {
         // Missed window — Haldor "lands"
         setDialogue(cfg.failD + " — too slow.");
+        announce("Round " + round + " missed.");
         roundPhase = "result";
         setTimeout(nextRound, 700);
       }
@@ -1001,7 +1123,7 @@ function startBoardingDex() {
 
   function endDex() {
     if (done) return; done=true;
-    cancelAnimationFrame(animId); canvas.removeEventListener("click",onCanvasClick); clearInterval(ticker);
+    cancelAnimationFrame(animId); canvas.removeEventListener("click",onCanvasClick); canvas.removeEventListener("keydown",onKey); clearInterval(ticker);
     stage2Score = Math.round((countered/ROUNDS)*15);
     const won = countered >= 3;
     setDialogue(won
@@ -1012,6 +1134,7 @@ function startBoardingDex() {
     );
     updateTally(stage1Score,stage2Score);
     document.getElementById("boardingFeedback").textContent = countered + " / " + ROUNDS + " counters · " + stage2Score + " / 15 pts";
+    announce("Boarding over — " + countered + " of " + ROUNDS + " countered, " + stage2Score + " of 15 points.");
     setTimeout(() => { goToScreen("screen-dialogue2"); showDialogue(1); }, 2200);
   }
 }

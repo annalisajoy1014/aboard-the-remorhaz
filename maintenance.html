@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
 <title>Day 2 · Ship Maintenance — Aboard the Remorhaz</title>
 <link rel="stylesheet" href="shared.css">
 <script src="state.js"></script>
@@ -305,6 +306,10 @@
 
 <button class="back-btn" id="backBtn">← Return to Deck</button>
 
+<!-- Every stage outcome on this page is a canvas pixel or a CSS bar width, so
+     none of it reaches a screen reader on its own. It routes through here. -->
+<div id="liveRegion" class="sr-only" role="status" aria-live="polite"></div>
+
 <div class="stage">
   <div class="game-area">
 
@@ -327,7 +332,11 @@
       <!-- STAGE 1: ROPE INSPECTION -->
       <div class="screen" id="screen-rope">
         <div class="screen-title">— STAGE I · ROPE INSPECTION —</div>
-        <canvas class="stage-canvas" id="ropeCanvas" width="480" height="252"></canvas>
+        <!-- role="application" so a screen reader hands the arrow keys to the stage
+             instead of keeping them for its own reading cursor. -->
+        <canvas class="stage-canvas" id="ropeCanvas" width="480" height="252"
+                tabindex="0" role="application"
+                aria-label="Rope inspection. Left and right arrow keys move the cursor between the wear points currently glowing. Enter or Space marks the one under the cursor."></canvas>
         <div class="stage-feedback" id="ropeFeedback"></div>
         <div class="timer-bar-wrap"><div class="timer-bar-fill" id="ropeTimerFill"></div></div>
       </div>
@@ -336,14 +345,18 @@
       <div class="screen" id="screen-sail">
         <div class="screen-title">— STAGE II · SAIL REPAIR —</div>
         <div class="seam-progress" id="seamProgress"></div>
-        <canvas class="stage-canvas" id="sailCanvas" width="480" height="252"></canvas>
-        <div class="stitch-hint" id="stitchHint">Click each glowing stitch dot to drive the needle.</div>
+        <canvas class="stage-canvas" id="sailCanvas" width="480" height="252"
+                tabindex="0" role="application"
+                aria-label="Sail stitching. One stitch dot glows at a time. Press Enter or Space while it glows to drive the needle."></canvas>
+        <div class="stitch-hint" id="stitchHint">Click each glowing stitch dot — or press Enter — to drive the needle.</div>
       </div>
 
       <!-- STAGE 3: HULL REPAIR -->
       <div class="screen" id="screen-hull">
         <div class="screen-title">— STAGE III · HULL REPAIR —</div>
-        <canvas class="stage-canvas" id="hullCanvas" width="480" height="252"></canvas>
+        <canvas class="stage-canvas" id="hullCanvas" width="480" height="252"
+                tabindex="0" role="application"
+                aria-label="Hull repair. Arrow keys move the cursor between open cracks. Press Enter or Space to tap a small crack shut, and hold Enter or Space to seal a large one."></canvas>
         <div class="stage-feedback" id="hullFeedback"></div>
         <div class="integrity-row">
           <span>HULL</span>
@@ -762,6 +775,15 @@ function setDialogue(text) {
   el.style.opacity = "0";
   setTimeout(() => { el.textContent = '"' + text + '"'; el.style.opacity = "1"; }, 260);
 }
+// One place to say a thing out loud. Interface text only — outcomes, counts and
+// the integrity gauge, which are otherwise silent.
+function announce(msg) {
+  const el = document.getElementById("liveRegion");
+  // A polite region only speaks when its text changes, so the same message
+  // twice running — two dropped stitches, two large cracks — would be heard
+  // once. The trailing space toggles, which makes it a change either way.
+  el.textContent = (el.textContent === msg) ? msg + "\u00A0" : msg;
+}
 function setPhase(p, instHtml) {
   document.getElementById("phaseLabel").textContent       = p;
   document.getElementById("instructionLabel").innerHTML = instHtml;
@@ -825,6 +847,16 @@ function showDialogue(idx) {
     });
     choicesEl.appendChild(btn);
   });
+
+  // The stage screen the player came from is about to be display:none, which
+  // drops focus to the top of the page — one Tab away from "Return to Deck".
+  // Put it on the first choice instead. Comfortably after goToScreen's 380ms
+  // swap: focus() on a display:none button is a silent no-op, so the margin
+  // has to survive timer jitter.
+  setTimeout(() => {
+    const first = choicesEl.querySelector(".dialogue-btn");
+    if (first) first.focus();
+  }, 600);
 }
 
 /* ══════════════════════════════════════════
@@ -860,6 +892,18 @@ document.getElementById("backBtn").addEventListener("click", () => { _navigateTo
    CANVAS HELPERS
 ══════════════════════════════════════════ */
 function lerp(a, b, t) { return a + (b-a) * Math.max(0, Math.min(1, t)); }
+
+// The keyboard cursor, drawn in the lamp colour the page uses for :focus-visible
+// so a ring on a canvas reads as focus and not as part of the scene.
+function drawCursorRing(ctx, x, y, r) {
+  ctx.save();
+  ctx.strokeStyle = "rgba(243,195,118,0.95)";
+  ctx.lineWidth = 2;
+  ctx.setLineDash([5, 4]);
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+}
 
 // Draw a braided horizontal rope from (x0,y) to (x1,y)
 function drawBraidedRope(ctx, x0, x1, y) {
@@ -957,6 +1001,11 @@ function startRopeInspection() {
 
   canvas.style.cursor = "crosshair";
   canvas.addEventListener("click", onRopeClick);
+  canvas.addEventListener("keydown", onRopeKey);
+  canvas.focus();   // the screen has just swapped, and nothing else on it takes focus
+
+  let kbTarget = null;   // the wear point under the keyboard cursor
+  let kbUsed   = false;  // no ring until the player is actually on the keys
 
   function onRopeClick(e) {
     if (done) return;
@@ -965,15 +1014,45 @@ function startRopeInspection() {
     const my = (e.clientY - rect.top)  * (CH / rect.height);
     for (const s of spots) {
       if (s.clicked || s.faded) continue;
-      if (Math.hypot(mx - s.x, my - s.y) < s.radius + 10) {
-        s.clicked = true; spotted++;
-        document.getElementById("ropeFeedback").textContent = spotted + " / " + TOTAL + " wear points found";
-        // No verdict mid-stage. Wear points are still surfacing, so anything she
-        // says here about what was missed counts things she has not shown the
-        // player yet. Her assessment waits for endRopeStage, where it is true.
-        break;
-      }
+      if (Math.hypot(mx - s.x, my - s.y) < s.radius + 10) { markSpot(s); break; }
     }
+  }
+
+  // The wear points still glowing, ordered along the rope, so left and right
+  // mean what they look like they mean.
+  function liveSpots() {
+    return spots.filter(s => !s.clicked && !s.faded).sort((a, b) => a.x - b.x);
+  }
+  function moveCursor(step) {
+    const live = liveSpots();
+    if (!live.length) { kbTarget = null; return; }
+    const at = live.indexOf(kbTarget);
+    kbTarget = at < 0 ? live[step > 0 ? 0 : live.length - 1]
+                      : live[(at + step + live.length) % live.length];
+  }
+  function onRopeKey(e) {
+    if (done) return;
+    const k = e.key;
+    if (k !== "ArrowRight" && k !== "ArrowDown" && k !== "ArrowLeft" &&
+        k !== "ArrowUp" && k !== "Enter" && k !== " ") return;
+    e.preventDefault();
+    kbUsed = true;
+    if (k === "ArrowRight" || k === "ArrowDown")   moveCursor(1);
+    else if (k === "ArrowLeft" || k === "ArrowUp") moveCursor(-1);
+    // No free aim: the cursor has to be sitting on a point that is still
+    // glowing, exactly as a click has to land on one.
+    else if (kbTarget && !kbTarget.clicked && !kbTarget.faded) markSpot(kbTarget);
+  }
+
+  // Mouse and keyboard both score here, so neither can drift from the other.
+  function markSpot(s) {
+    s.clicked = true; spotted++;
+    const tally = spotted + " / " + TOTAL + " wear points found";
+    document.getElementById("ropeFeedback").textContent = tally;
+    announce(tally);
+    // No verdict mid-stage. Wear points are still surfacing, so anything she
+    // says here about what was missed counts things she has not shown the
+    // player yet. Her assessment waits for endRopeStage, where it is true.
   }
 
   function draw(ts) {
@@ -1059,6 +1138,11 @@ function startRopeInspection() {
       ctx.restore();
     }
 
+    // Keyboard cursor, drawn after the spots so it is never buried under a glow.
+    if (kbUsed && kbTarget && !kbTarget.clicked && !kbTarget.faded &&
+        document.activeElement === canvas)
+      drawCursorRing(ctx, kbTarget.x, kbTarget.y, kbTarget.radius + 8);
+
     // Vignette
     const vig = ctx.createRadialGradient(CW*0.5, CH*0.5, CW*0.18, CW*0.5, CH*0.5, CW*0.72);
     vig.addColorStop(0, "transparent"); vig.addColorStop(1, "rgba(0,0,0,0.52)");
@@ -1079,6 +1163,7 @@ function startRopeInspection() {
     done = true;
     cancelAnimationFrame(animId);
     canvas.removeEventListener("click", onRopeClick);
+    canvas.removeEventListener("keydown", onRopeKey);
     clearInterval(timerInterval);
 
     const pct    = spotted / TOTAL;
@@ -1094,7 +1179,9 @@ function startRopeInspection() {
 
     showScoreTally();
     updateTally(stage1Score, null, null);
-    document.getElementById("ropeFeedback").textContent = `${spotted} / ${TOTAL} found · ${stage1Score} / 15 pts`;
+    const ropeSummary = `${spotted} / ${TOTAL} found · ${stage1Score} / 15 pts`;
+    document.getElementById("ropeFeedback").textContent = ropeSummary;
+    announce(ropeSummary.replace(/ · /g, ", "));   // the dot is a separator, not a word
 
     setTimeout(() => {
       goToScreen("screen-dialogue1");
@@ -1155,42 +1242,70 @@ function startSailRepair() {
 
   canvas.style.cursor = "crosshair";
   canvas.addEventListener("click", onSailClick);
+  canvas.addEventListener("keydown", onSailKey);
+  canvas.focus();   // the screen has just swapped, and nothing else on it takes focus
+
+  let kbUsed = false;   // no ring until the player is actually on the keys
+
+  // The one dot the needle can go into right now, or nothing.
+  function activeDot() {
+    const tear = TEARS[currentTear];
+    if (!tear || dotSpawnedAt === null) return null;
+    const dot = tear.points[currentDot];
+    return (dot && !dot.stitched) ? dot : null;
+  }
 
   function onSailClick(e) {
     if (done) return;
-    const tear = TEARS[currentTear];
-    const dot  = tear.points[currentDot];
-    if (!dot || dot.stitched) return;
-    if (dotSpawnedAt === null) return;
+    const dot = activeDot();
+    if (!dot) return;
 
     const rect = canvas.getBoundingClientRect();
     const mx = (e.clientX - rect.left) * (CW / rect.width);
     const my = (e.clientY - rect.top)  * (CH / rect.height);
     const dist = Math.hypot(mx - dot.x, my - dot.y);
 
-    if (dist < 22) {
-      dot.stitched = true;
-      totalHit++;
-      dotSpawnedAt = null;
+    if (dist < 22) driveNeedle(dot);
+  }
 
-      currentDot++;
-      if (currentDot >= tear.points.length) {
-        // Tear done
-        document.getElementById(`pip-${currentTear}`).classList.remove("active");
-        document.getElementById(`pip-${currentTear}`).classList.add("done");
-        currentTear++;
-        currentDot = 0;
-        if (currentTear >= TEARS.length) {
-          endSailStage();
-          return;
-        }
-        document.getElementById(`pip-${currentTear}`).classList.add("active");
-        setDialogue(currentTear === 1 ? "Second tear. Keep the same rhythm." :
-                    currentTear === 2 ? "Last one. Make it clean." : cfg.kaltGoodD);
+  function onSailKey(e) {
+    if (done) return;
+    const k = e.key;
+    if (k !== "Enter" && k !== " " && k.slice(0, 5) !== "Arrow") return;
+    e.preventDefault();
+    kbUsed = true;
+    // Only one dot is live at a time, so the arrows have nothing to move
+    // between — they only say the keyboard is in use. Enter and Space stitch.
+    if (k !== "Enter" && k !== " ") return;
+    const dot = activeDot();
+    if (dot) driveNeedle(dot);
+  }
+
+  // Both inputs drive the needle through here, inside the same timing window.
+  function driveNeedle(dot) {
+    const tear = TEARS[currentTear];
+    dot.stitched = true;
+    totalHit++;
+    dotSpawnedAt = null;
+    announce(`Stitch ${totalHit} of ${totalDots} placed.`);
+
+    currentDot++;
+    if (currentDot >= tear.points.length) {
+      // Tear done
+      document.getElementById(`pip-${currentTear}`).classList.remove("active");
+      document.getElementById(`pip-${currentTear}`).classList.add("done");
+      currentTear++;
+      currentDot = 0;
+      if (currentTear >= TEARS.length) {
+        endSailStage();
+        return;
       }
-      // Spawn next dot after brief pause
-      setTimeout(() => { if (!done) dotSpawnedAt = performance.now(); }, 340);
+      document.getElementById(`pip-${currentTear}`).classList.add("active");
+      setDialogue(currentTear === 1 ? "Second tear. Keep the same rhythm." :
+                  currentTear === 2 ? "Last one. Make it clean." : cfg.kaltGoodD);
     }
+    // Spawn next dot after brief pause
+    setTimeout(() => { if (!done) dotSpawnedAt = performance.now(); }, 340);
   }
 
   function draw(ts) {
@@ -1319,6 +1434,11 @@ function startSailRepair() {
         ctx.stroke();
         ctx.restore();
 
+        // Keyboard cursor. There is only ever one target here, so the ring says
+        // "this is what Enter hits" rather than picking between targets.
+        if (kbUsed && document.activeElement === canvas)
+          drawCursorRing(ctx, dot.x, dot.y, 16);
+
         // Dot times out
         if (age > life && !dot.stitched) {
           // missed — advance silently. "You missed some" is a verdict on the
@@ -1326,6 +1446,9 @@ function startSailRepair() {
           // full, counting every stitch dropped. No mutter per dropped stitch.
           dot.stitched = false; // keep unstitched (missed)
           dotSpawnedAt = null;
+          // Silent on screen, but a player who cannot see the dot fade needs
+          // to know the window closed and the next one is coming.
+          announce(`Stitch missed. ${totalHit} of ${totalDots} placed.`);
           currentDot++;
           if (currentDot >= TEARS[currentTear].points.length) {
             document.getElementById(`pip-${currentTear}`).classList.remove("active");
@@ -1359,6 +1482,7 @@ function startSailRepair() {
     done = true;
     cancelAnimationFrame(animId);
     canvas.removeEventListener("click", onSailClick);
+    canvas.removeEventListener("keydown", onSailKey);
 
     const pct    = totalHit / totalDots;
     stage2Score  = Math.round(Math.min(15, pct * 15));
@@ -1373,7 +1497,9 @@ function startSailRepair() {
     setDialogue(dialogue);
 
     updateTally(stage1Score, stage2Score, null);
-    document.getElementById("stitchHint").textContent = `${totalHit} / ${totalDots} stitches · ${stage2Score} / 15 pts`;
+    const sailSummary = `${totalHit} / ${totalDots} stitches · ${stage2Score} / 15 pts`;
+    document.getElementById("stitchHint").textContent = sailSummary;
+    announce(sailSummary.replace(/ · /g, ", "));
 
     setTimeout(() => {
       goToScreen("screen-dialogue2");
@@ -1419,6 +1545,9 @@ function startHullRepair() {
     const pct = Math.max(0, 100 - hullDamage);
     document.getElementById("integrityFill").style.width = pct + "%";
     document.getElementById("integrityVal").textContent   = Math.round(pct) + "%";
+    // Only called when a crack breaches, and what it moves is a bar width and a
+    // number — neither of which says anything out loud.
+    announce(`Hull breached. Integrity ${Math.round(pct)} percent.`);
     // Color shift: green→amber→red handled by gradient
     const fill = document.getElementById("integrityFill");
     if (pct < 35)      fill.style.background = "linear-gradient(to right, #7a1008, #c03020)";
@@ -1445,6 +1574,9 @@ function startHullRepair() {
   let stageTimeLeft = STAGE_DURATION;
   const stageTimer = setInterval(() => {
     stageTimeLeft -= 100;
+    // The canvas already flashes FINISH THE REPAIRS at this mark. Same warning,
+    // for a player who cannot see it.
+    if (stageTimeLeft === 8000) announce("Eight seconds left.");
     if (stageTimeLeft <= 0) { clearInterval(stageTimer); endHullStage(); }
   }, 100);
 
@@ -1454,6 +1586,16 @@ function startHullRepair() {
   canvas.addEventListener("pointerdown", onHullDown);
   document.addEventListener("pointerup",   onHullUp);
   document.addEventListener("pointercancel", onHullUp);
+
+  // Keyboard events
+  canvas.addEventListener("keydown", onHullKeyDown);
+  canvas.addEventListener("keyup",   onHullKeyUp);
+  canvas.addEventListener("blur",    onHullBlur);
+  canvas.focus();   // the screen has just swapped, and nothing else on it takes focus
+
+  let kbTarget  = null;   // the crack under the keyboard cursor
+  let kbUsed    = false;  // no ring until the player is actually on the keys
+  let kbHolding = false;  // Enter or Space is down on a crack right now
 
   function getCrackAt(mx, my) {
     for (let i = cracks.length-1; i >= 0; i--) {
@@ -1471,20 +1613,30 @@ function startHullRepair() {
     const my = (e.clientY - rect.top)  * (CH / rect.height);
     const idx = getCrackAt(mx, my);
     if (idx < 0) return;
+    beginRepair(idx);
+  }
 
+  function onHullUp() { releaseRepair(); }
+
+  // A pointer press and a held Enter both arrive here, so a large crack costs
+  // the same HOLD_NEEDED whichever way the player is holding it shut.
+  function beginRepair(idx) {
     const c = cracks[idx];
+    if (!c || c.patched || c.breached) return;
     if (!c.isLarge) {
       // Small crack: instant seal
       c.patched = true; patchedCracks++;
       spawnSealParticles(c.x, c.y);
+      announce(`Crack sealed. ${patchedCracks} of ${totalCracks} sealed.`);
       setDialogue(patchedCracks % 3 === 0 ? cfg.kaltGoodD : "");
     } else {
       // Large crack: hold required
       holdTarget = { crackIdx: idx, startTime: performance.now() };
+      announce("Large crack. Keep holding until it seals.");
     }
   }
 
-  function onHullUp() {
+  function releaseRepair() {
     if (holdTarget) {
       const elapsed = performance.now() - holdTarget.startTime;
       if (elapsed >= HOLD_NEEDED * 0.92) {
@@ -1493,13 +1645,61 @@ function startHullRepair() {
         if (c && !c.patched && !c.breached) {
           c.patched = true; patchedCracks++;
           spawnSealParticles(c.x, c.y);
+          announce(`Crack sealed. ${patchedCracks} of ${totalCracks} sealed.`);
           setDialogue(cfg.kaltGoodD);
         }
       } else {
+        announce(`Let go too early. ${patchedCracks} of ${totalCracks} sealed.`);
         setDialogue(cfg.kaltFailD);
       }
       holdTarget = null;
     }
+  }
+
+  // ── KEYBOARD PATH ──
+  // The open cracks in reading order, so the arrows walk the hull the way the
+  // eye does rather than in the order they happened to spawn.
+  function liveCracks() {
+    return cracks.filter(c => !c.patched && !c.breached)
+                 .sort((a, b) => a.y - b.y || a.x - b.x);
+  }
+  function moveCursor(step) {
+    if (kbHolding) return;   // a hand holding a crack shut does not wander off it
+    const live = liveCracks();
+    if (!live.length) { kbTarget = null; return; }
+    const at = live.indexOf(kbTarget);
+    kbTarget = at < 0 ? live[step > 0 ? 0 : live.length - 1]
+                      : live[(at + step + live.length) % live.length];
+  }
+  function onHullKeyDown(e) {
+    if (done) return;
+    const k = e.key;
+    if (k !== "ArrowRight" && k !== "ArrowDown" && k !== "ArrowLeft" &&
+        k !== "ArrowUp" && k !== "Enter" && k !== " ") return;
+    e.preventDefault();
+    kbUsed = true;
+    if (k === "ArrowRight" || k === "ArrowDown") { moveCursor(1);  return; }
+    if (k === "ArrowLeft"  || k === "ArrowUp")   { moveCursor(-1); return; }
+    // Auto-repeat is the key still being held down, not a second press — the
+    // hold has to run its full HOLD_NEEDED, same as a held mouse button.
+    if (e.repeat || kbHolding) return;
+    const idx = cracks.indexOf(kbTarget);
+    if (idx < 0) return;
+    kbHolding = true;
+    beginRepair(idx);
+  }
+  function onHullKeyUp(e) {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    if (!kbHolding) return;
+    kbHolding = false;
+    releaseRepair();
+  }
+  // Focus can leave mid-hold — a Tab, a click elsewhere — and then no keyup
+  // ever arrives, so the hold is let go here rather than left hanging open.
+  function onHullBlur() {
+    if (!kbHolding) return;
+    kbHolding = false;
+    releaseRepair();
   }
 
   // Seal spark particles
@@ -1666,6 +1866,7 @@ function startHullRepair() {
         if (hp >= 1 && !c.patched) {
           c.patched = true; patchedCracks++;
           spawnSealParticles(c.x, c.y);
+          announce(`Crack sealed. ${patchedCracks} of ${totalCracks} sealed.`);
           holdTarget = null;
           // Said on every sealed breach, the compliment she gives least often
           // stops being a compliment. Once a stage — after that, a sealed breach
@@ -1675,6 +1876,11 @@ function startHullRepair() {
         }
       }
     });
+
+    // Keyboard cursor, at the same radius the hit test uses.
+    if (kbUsed && kbTarget && !kbTarget.patched && !kbTarget.breached &&
+        document.activeElement === canvas)
+      drawCursorRing(ctx, kbTarget.x, kbTarget.y, kbTarget.isLarge ? 26 : 20);
 
     // Seal spark particles
     sealParticles = sealParticles.filter(p => p.life > 0);
@@ -1715,6 +1921,9 @@ function startHullRepair() {
     canvas.removeEventListener("pointerdown", onHullDown);
     document.removeEventListener("pointerup",    onHullUp);
     document.removeEventListener("pointercancel", onHullUp);
+    canvas.removeEventListener("keydown", onHullKeyDown);
+    canvas.removeEventListener("keyup",   onHullKeyUp);
+    canvas.removeEventListener("blur",    onHullBlur);
 
     const integrityPct = Math.max(0, 100 - hullDamage);
     stage3Score = Math.round(Math.min(15, (patchedCracks / Math.max(1, totalCracks)) * 15));
@@ -1727,8 +1936,10 @@ function startHullRepair() {
     setDialogue(dialogue);
 
     updateTally(stage1Score, stage2Score, stage3Score);
-    document.getElementById("hullFeedback").textContent =
+    const hullSummary =
       `${patchedCracks} / ${totalCracks} sealed · Hull ${Math.round(integrityPct)}% · ${stage3Score} / 15 pts`;
+    document.getElementById("hullFeedback").textContent = hullSummary;
+    announce(hullSummary.replace(/ · /g, ", "));
 
     setTimeout(() => {
       goToScreen("screen-result");
@@ -1797,6 +2008,11 @@ function showResult() {
 
   document.getElementById("toHubBtn").addEventListener("click", () => { _navigateTo("index.html"); });
   document.getElementById("retryBtn").addEventListener("click", () => { _navigateTo(window.location.href); });
+
+  // The card is a block of unfocusable text, so the score is said out loud and
+  // focus lands on the card's own first control rather than back at the top.
+  announce(`${tier.tag}. ${total} of 45 points. Kalt: ${rapportLabel}.`);
+  document.getElementById("toHubBtn").focus();
 }
 
 })();
