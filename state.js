@@ -404,6 +404,17 @@
       return "";
     },
 
+    // Some motion is built in JavaScript rather than CSS — the Day 7 storm
+    // creates a full-screen flash element per lightning strike, and a CSS rule
+    // can only shorten that, not decide not to have it. Pages that generate
+    // their own motion check here and skip it outright.
+    reducedMotion: function () {
+      try {
+        return !!(global.matchMedia &&
+                  global.matchMedia("(prefers-reduced-motion: reduce)").matches);
+      } catch (e) { return false; }
+    },
+
     /* Bonuses ------------------------------------------------------ */
 
     // Ursula's Navigator's Favour: +1 to later navigation and observation

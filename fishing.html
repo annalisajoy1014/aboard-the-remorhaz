@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
 <title>Day 1 · Fishing — Aboard the Remorhaz</title>
 <link rel="stylesheet" href="shared.css">
 <script src="state.js"></script>
@@ -941,12 +942,18 @@ body.splash-active .back-btn { visibility: hidden; opacity: 0; }
 
 <button class="back-btn" id="backBtn">← Return to Deck</button>
 
+<!-- Everything this page tells the player happens on a canvas, or in a banner
+     that appears without focus ever moving: the sign in the water, the rope's
+     surges and slips, the catch itself. Each of them is spoken here as well. -->
+<div class="sr-only" id="srLive" aria-live="polite" aria-atomic="true"></div>
+<div class="sr-only" id="srStatus" aria-live="polite" aria-atomic="true"></div>
+
 <div class="stage">
   <div class="game-area">
 
     <!-- LEFT: ocean scene container -->
     <div class="ocean-panel" id="oceanPanel">
-      <canvas id="oceanCanvas"></canvas>
+      <canvas id="oceanCanvas" role="img" aria-label="The black water off the starboard rail. Watch for the water to move, then click it or press Space to haul the net."></canvas>
 
       <!-- Persistent phase banner across all acts -->
       <div class="phase-banner" id="phaseBanner">
@@ -989,7 +996,7 @@ body.splash-active .back-btn { visibility: hidden; opacity: 0; }
               </li>
               <li>
                 <span class="cl-num">ACT II</span>
-                <span><span class="cl-keys"><span class="kbd">Click</span></span> rapidly for sharp tugs, or <span class="cl-keys"><span class="kbd">Hold</span></span> the mouse / <span class="cl-keys"><span class="kbd">Space</span></span> for a steady haul.</span>
+                <span><span class="cl-keys"><span class="kbd">Click</span> <span class="kbd">Space</span></span> rapidly for sharp tugs, or <span class="cl-keys"><span class="kbd">Hold</span></span> either for a steady haul.</span>
               </li>
               <li>
                 <span class="cl-num">ACT III</span>
@@ -1039,7 +1046,7 @@ body.splash-active .back-btn { visibility: hidden; opacity: 0; }
             <span class="readout-val" id="readoutPulls">0</span>
           </div>
         </div>
-        <div class="pull-prompt" id="pullPrompt">Click rapidly — or hold — to haul</div>
+        <div class="pull-prompt" id="pullPrompt">Click or press Space rapidly — or hold — to haul</div>
         <div class="rope-kbd-hint">
           <span class="kbd">Click</span>
           <span>or</span>
@@ -1146,6 +1153,32 @@ const WORK_DAY = (Remorhaz.load().currentDay || 1) >= 8 ? 8 : 1;
 })();
 
 /* ──────────────────────────────────────────────
+   LIVE REGION
+   Act I turns on one shimmer in the water and Act II on a rope read by eye
+   alone. Both are drawn, not written, so what they show is spoken here too —
+   in the moment it is drawn, never a beat earlier and never a beat longer.
+─────────────────────────────────────────────── */
+const srLive   = document.getElementById("srLive");
+const srStatus = document.getElementById("srStatus");
+
+function _say(node, msg) {
+  if (!node) return;
+  // A live region only speaks when its text changes, so a line that repeats —
+  // a second surge, say — is nudged with a trailing space to count as new.
+  node.textContent = (node.textContent === msg) ? msg + " " : msg;
+}
+
+// Events: things that just happened. The rope slipped, the fish surged, the
+// tell showed. These must not be lost.
+function announce(msg) { _say(srLive, msg); }
+
+// Status: the continuously-changing tension readout. It lives on its own node
+// because the Act II ticker writes both in the same synchronous callback, and
+// the accessibility tree is reconciled once per task — sharing a node meant the
+// status always won and the event was never spoken.
+function announceStatus(msg) { _say(srStatus, msg); }
+
+/* ──────────────────────────────────────────────
    CANVAS
 ─────────────────────────────────────────────── */
 const canvas = document.getElementById("oceanCanvas");
@@ -1180,6 +1213,7 @@ let lastTs        = null;
 let windowStart   = 4500 + Math.random() * 5000;   // 4.5–9.5 s
 let windowLen     = (2400 + Math.random() * 1200) * _diffFactor('intelligence');   // modified by INT
 let act1Clicked   = false;
+let tellSpoken    = false;   // the sign in the water is spoken once, as it opens
 let animId        = null;
 
 // Act 2
@@ -1675,6 +1709,17 @@ function drawFrame(ts) {
   if (!act1Clicked) {
     if (inWindow) {
       pulseEye.classList.add("visible");
+      // The sign is a shimmer on the water and a glow in the net, and the act is
+      // lost without it. Spoken as the window opens it buys no extra time — the
+      // same seconds a sighted player gets, reachable without eyes. Which is
+      // why it is five words with the imperative first: the window can be under
+      // two seconds on a low INT, and a sentence that explains the keys would
+      // still be talking when it shut. The keys are on the canvas label and the
+      // controls card, where there is room for them.
+      if (!tellSpoken) {
+        tellSpoken = true;
+        announce("Haul now — the water moves.");
+      }
       if (netPulse > 0.5) setDialogue("Now — feel that? The net's speakin'. Pull, lad, PULL!");
     } else {
       if (!inWindow && watchMs > windowStart) {
@@ -1819,7 +1864,7 @@ function startRopePull() {
     mouseHolding = false;
     ropeScene.classList.remove("holding");
     if (!pullDone && !keyHolding) {
-      document.getElementById("pullPrompt").textContent = "Click rapidly — or hold — to haul";
+      document.getElementById("pullPrompt").textContent = "Click or press Space rapidly — or hold — to haul";
     }
   };
   ropeScene.addEventListener("pointerdown", onDown);
@@ -1906,6 +1951,7 @@ function showSurge() {
   banner.textContent = "— NET SURGES —";
   banner.classList.remove("slip");
   banner.classList.add("show", "surge");
+  announce("Net surges.");
   clearTimeout(banner._t);
   banner._t = setTimeout(() => banner.classList.remove("show", "surge"), 850);
 }
@@ -1915,6 +1961,7 @@ function showSlip(amount) {
   banner.textContent = "— ROPE SLIPS —";
   banner.classList.remove("surge");
   banner.classList.add("show", "slip");
+  announce("Rope slips.");
   clearTimeout(banner._t);
   banner._t = setTimeout(() => banner.classList.remove("show", "slip"), 900);
   const knot = document.getElementById("ropeKnot");
@@ -1993,6 +2040,7 @@ function showReveal(success, reason) {
     };
     const [head, body] = msgs[reason] || msgs.missed;
     setPhase("— No Catch —", "");
+    announce("Nets empty. " + body + " Choose where to go next.");
     html = `
       <div class="catch-card is-fail">
         <div class="wax-seal">∅</div>
@@ -2028,6 +2076,8 @@ function showReveal(success, reason) {
         <button class="btn-secondary" id="revealBack">Return to Deck</button>
       </div>`;
     setDialogue(c.haldor);
+    announce("Roll " + roll + ". " + c.name + ", " + c.quality + ". Feeds " +
+             c.feeds + ". " + c.desc + " Choose where to go next.");
   }
 
   scene.innerHTML = html;
@@ -2118,9 +2168,9 @@ function setBannerAct2() {
   b.innerHTML = `
     <span>ACT II · THE HAUL</span>
     <span class="pb-sep"></span>
-    <span><span class="pb-key">CLICK</span> RAPIDLY</span>
+    <span><span class="pb-key">CLICK</span> OR <span class="pb-key">SPACE</span> RAPIDLY</span>
     <span>— OR —</span>
-    <span><span class="pb-key">HOLD</span> / <span class="pb-key">SPACE</span> TO PULL STEADY</span>`;
+    <span><span class="pb-key">HOLD</span> EITHER TO PULL STEADY</span>`;
 }
 function setBannerAct3() {
   const b = document.getElementById("phaseBanner");
@@ -2136,12 +2186,19 @@ function showActToast() {
   const toast = document.getElementById("actToast");
   document.getElementById("actToastTitle").textContent = "Act II · The Haul";
   document.getElementById("actToastBody").innerHTML =
-    `Pull the rope back from the net. <span class="kbd">Click</span> rapidly, <span class="kbd">Hold</span> the mouse, or press <span class="kbd">Space</span> — don't let it slip.`;
+    `Pull the rope back from the net. <span class="kbd">Click</span> or press <span class="kbd">Space</span> rapidly, or <span class="kbd">Hold</span> either — don't let it slip.`;
   toast.classList.add("show");
+  // The spoken line is shorter than the printed one on purpose. Act II starts
+  // 800ms from here and can be over in five seconds, so anything longer than
+  // the beat the toast itself occupies would still be reading out the controls
+  // while the rope was slipping.
+  announce("Act II, the haul. Press or hold Space.");
   setTimeout(() => toast.classList.remove("show"), 2400);
 }
 
 /* Update tension % and pull counter */
+let spokenBand   = null;   // the tension band last announced
+let spokenBandAt = 0;
 function updateReadout() {
   const t = Math.max(0, Math.min(1, tension));
   const tEl = document.getElementById("readoutTension");
@@ -2151,6 +2208,17 @@ function updateReadout() {
   tEl.classList.toggle("warn", t < 0.30);
   tEl.classList.toggle("good", t > 0.70);
   pEl.textContent = String(pullCount);
+  // The rope is width and colour and nothing besides. It is read out in the
+  // same three bands the readout colours itself by, spoken with the number on
+  // every change — throttled, because a tap landing on a boundary would
+  // otherwise cross it several times a second.
+  const band = t < 0.30 ? "low" : t > 0.70 ? "high" : "holding";
+  const now  = performance.now();
+  if (band !== spokenBand && now - spokenBandAt > 1400) {
+    spokenBand   = band;
+    spokenBandAt = now;
+    announceStatus("Tension " + band + ", " + Math.round(t * 100) + " percent.");
+  }
 }
 
 /* Click ripple on the ocean panel */
@@ -2191,15 +2259,22 @@ document.addEventListener("keydown", (e) => {
     // steady haul is applied by the main ticker while keyHolding is true
   }
 });
+/* Letting go of a steady haul. The pointer path gives up its hold on blur as
+   well as on pointerup; the key path only ever listened for the keyup, so
+   alt-tabbing mid-haul left Space held down for good and the net came in on
+   its own — a pull no mouse could match. Both let go the same way now. */
+function releaseKeyHold() {
+  if (!keyHolding) return;
+  keyHolding = false;
+  const ropeScene = document.getElementById("ropeScene");
+  if (!mouseHolding) ropeScene.classList.remove("holding");
+  if (!pullDone && !mouseHolding) document.getElementById("pullPrompt").textContent = "Click or press Space rapidly — or hold — to haul";
+}
 document.addEventListener("keyup", (e) => {
   if (e.code !== "Space") return;
-  if (phase === PHASE.PULL) {
-    keyHolding = false;
-    const ropeScene = document.getElementById("ropeScene");
-    if (!mouseHolding) ropeScene.classList.remove("holding");
-    if (!pullDone && !mouseHolding) document.getElementById("pullPrompt").textContent = "Click rapidly — or hold — to haul";
-  }
+  if (phase === PHASE.PULL) releaseKeyHold();
 });
+window.addEventListener("blur", releaseKeyHold);
 
 /* ──────────────────────────────────────────────
    ASSETS & BACK BUTTON

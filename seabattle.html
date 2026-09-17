@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
 <title>Day 6 · Sea Monster Battle — Aboard the Remorhaz</title>
 <link rel="stylesheet" href="shared.css">
 <script src="state.js"></script>
@@ -358,6 +359,9 @@
   z-index: 50;
 }
 .action-btn-wrap:hover .action-tip { display: block; }
+/* Hover is a mouse-only affordance, and the tip is where the real hit odds live —
+   show it for the button that has keyboard focus too. */
+.action-btn-wrap:focus-within .action-tip { display: block; }
 
 /* ── TUTORIAL GLOW ── */
 @keyframes tutorial-pulse {
@@ -661,13 +665,73 @@
   font-style: italic; font-size: 14px;
   color: var(--paper-deep);
 }
+
+/* ── NARROW SCREENS ──
+   The stage is one fixed full-screen layer: the HUD floats over the bottom of the map
+   and the initiative panel over its right edge. On a phone those two cover the deck
+   and each other. Below the shared 860px breakpoint the page scrolls instead and the
+   three stack in DOM order — map, initiative, HUD — so every action button is reachable
+   by scrolling rather than by finding a gap between panels. */
+@media (max-width: 860px) {
+  :root { --map-h: max(58vh, 300px); }
+  html, body { height: auto; min-height: 100%; }
+
+  .stage {
+    position: static;
+    overflow: visible;
+    display: flex; flex-direction: column;
+    min-height: 100vh;
+  }
+  #map-viewport {
+    position: relative;
+    inset: auto;
+    height: var(--map-h);
+    /* pans by finger, and still pinch-zooms; the page takes over at the edge */
+    touch-action: pan-x pan-y pinch-zoom;
+  }
+
+  .initiative-panel {
+    position: static; transform: none;
+    width: 100%; min-width: 0; max-height: none;
+  }
+  /* The entries hang off #init-list, not off the panel, so that is what has to become
+     the row — eleven stacked entries would push the HUD off the bottom of the phone. */
+  #init-list { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 14px; }
+  .init-title { text-align: left; margin-bottom: 0; }
+  .init-entry { border-bottom: none; padding: 2px 0; }
+
+  .battle-hud {
+    position: static;
+    height: auto;
+    flex-direction: column; align-items: stretch;
+    padding: 12px 12px 22px;
+    gap: 10px;
+  }
+  .hud-round { position: static; align-self: flex-end; }
+  .hud-player { min-width: 0; }
+  .hud-log { width: 100%; max-height: 150px; }
+
+  /* Sits outside .stage, so it cannot follow the map by flow — park it on the map's
+     bottom corner with the same height the map was given. */
+  .zoom-controls {
+    position: absolute;
+    top: calc(var(--map-h) - 46px); bottom: auto; right: 10px;
+  }
+
+  /* 480px of fixed-width cinematic clips its own quote on a 360px phone. */
+  .cin-battle-content { width: 100%; max-width: 480px; padding: 40px 24px; }
+}
 </style>
 </head>
 <body>
 <div id="page-fade" class="page-fade in"></div>
 
+<!-- Every overlay below is only faded out, never removed, so its button stays in the
+     tab order: without inert a keyboard player could Tab into the invisible defeat
+     screen and reload the battle. Each one is un-inerted as it is shown. -->
+
 <!-- OPENING CINEMATIC: URSULA -->
-<div id="cin-ursula" class="cin-battle">
+<div id="cin-ursula" class="cin-battle" inert>
   <div class="cin-battle-bg" style="background-image: url('assets/ursula-cin.jpg')"></div>
   <div class="cin-battle-gradient"></div>
   <div class="cin-battle-content">
@@ -680,7 +744,7 @@
 </div>
 
 <!-- OPENING CINEMATIC: HALDOR -->
-<div id="cin-haldor" class="cin-battle">
+<div id="cin-haldor" class="cin-battle" inert>
   <div class="cin-battle-bg" style="background-image: url('assets/haldor-cin.jpg')"></div>
   <div class="cin-battle-gradient"></div>
   <div class="cin-battle-content">
@@ -693,7 +757,7 @@
 </div>
 
 <!-- ATTACK ALERT -->
-<div id="alert-overlay" class="alert-overlay">
+<div id="alert-overlay" class="alert-overlay" inert>
   <div class="alert-card">
     <div class="alert-eyebrow">— Day 6 · Open Sea —</div>
     <div class="alert-title">You Are Under Attack!</div>
@@ -704,7 +768,7 @@
 </div>
 
 <!-- TUTORIAL -->
-<div id="tutorial-overlay" class="tutorial-overlay">
+<div id="tutorial-overlay" class="tutorial-overlay" inert>
   <div class="tutorial-card">
     <div class="tutorial-title">How to Fight</div>
     <div class="tutorial-body" id="tutorial-text">Loading...</div>
@@ -747,9 +811,9 @@
 
     <!-- Actions -->
     <div class="hud-actions">
-      <div class="hud-phase-label" id="hud-phase-label">YOUR TURN</div>
+      <div class="hud-phase-label" id="hud-phase-label" aria-live="polite">YOUR TURN</div>
       <div class="action-btns" id="action-btns"></div>
-      <div class="target-hint" id="target-hint">Click an enemy token to target it, then choose an action.</div>
+      <div class="target-hint" id="target-hint" aria-live="polite">Click an enemy token to target it, or press the bracket keys [ and ] to cycle targets — then choose an action.</div>
       <button class="end-turn-btn" id="end-turn-btn" disabled>End Turn →</button>
     </div>
 
@@ -757,18 +821,22 @@
     <div class="hud-log">
       <div class="hud-log-title">BATTLE LOG</div>
       <div id="log-lines"></div>
+      <!-- The visible log is rewritten whole on every entry, so marking it live would
+           re-read all five lines each time. This region only ever gains the newest line,
+           and an addition is all a polite region announces. -->
+      <div id="log-live" class="sr-only" aria-live="polite"></div>
     </div>
   </div>
 </div>
 
 <!-- ZOOM CONTROLS -->
 <div class="zoom-controls">
-  <button class="zoom-btn" id="zoom-out" title="Zoom out">−</button>
-  <button class="zoom-btn" id="zoom-in" title="Zoom in">+</button>
+  <button class="zoom-btn" id="zoom-out" title="Zoom out" aria-label="Zoom out">−</button>
+  <button class="zoom-btn" id="zoom-in" title="Zoom in" aria-label="Zoom in">+</button>
 </div>
 
 <!-- VICTORY -->
-<div id="screen-victory" class="end-screen">
+<div id="screen-victory" class="end-screen" inert>
   <div class="end-card">
     <div class="end-tag">VICTORY · DAY 6</div>
     <div class="end-title">The Sea Runs Clear</div>
@@ -780,7 +848,7 @@
 </div>
 
 <!-- DEFEAT -->
-<div id="screen-defeat" class="end-screen">
+<div id="screen-defeat" class="end-screen" inert>
   <div class="end-card">
     <div class="end-tag">FALLEN · DAY 6</div>
     <div class="end-title">Claimed by the Current</div>
@@ -1096,7 +1164,11 @@ function _navigateTo(url) {
   let lastValidX = player.x, lastValidY = player.y;
   const playerTok = tokenEls.player;
 
-  playerTok.addEventListener("mousedown", e => {
+  // Pointer events, not mouse events: a phone fires no mousedown, so the token could
+  // not be moved at all by touch. Touch pointers capture to the token implicitly, and
+  // shared.css already sets touch-action:none on .token so the drag does not scroll the
+  // map out from under the finger.
+  playerTok.addEventListener("pointerdown", e => {
     // Movement is part of your turn. Ungated, the player could slide out of a Revenant's
     // reach mid-enemy-turn, or wander the deck all through the crew's turns.
     if (!combatStarted || !isPlayerTurn() || turnInProgress) return;
@@ -1108,7 +1180,7 @@ function _navigateTo(url) {
     dragOffY = (e.clientY - rect.top)  / rect.height * 100 - player.y;
     e.preventDefault();
   });
-  document.addEventListener("mousemove", e => {
+  document.addEventListener("pointermove", e => {
     if (!dragging) return;
     const rect = tokenLayer.getBoundingClientRect();
     player.x = Math.max(2, Math.min(98, (e.clientX - rect.left) / rect.width * 100 - dragOffX));
@@ -1116,7 +1188,7 @@ function _navigateTo(url) {
     playerTok.style.left = player.x + "%";
     playerTok.style.top  = player.y + "%";
   });
-  document.addEventListener("mouseup", () => {
+  function endTokenDrag() {
     if (dragging) {
       dragging = false;
       const snapped = snapToGrid(player.x, player.y);
@@ -1134,7 +1206,11 @@ function _navigateTo(url) {
       playerTok.style.left = player.x + "%";
       playerTok.style.top  = player.y + "%";
     }
-  });
+  }
+  document.addEventListener("pointerup", endTokenDrag);
+  // A touch drag that leaves the surface, or is stolen by the browser, ends in
+  // pointercancel and never in pointerup — without this the token stays glued to it.
+  document.addEventListener("pointercancel", endTokenDrag);
 
   /* ── MAP DRAG-TO-PAN ── */
   const mapViewport = document.getElementById("map-viewport");
@@ -1231,6 +1307,11 @@ function _navigateTo(url) {
   });
 
   /* ── TARGET SELECTION ── */
+  // The Revenants all carry the same label, so the hint numbers them — otherwise
+  // "Target: Revenant" names nothing a player cycling with [ and ] can tell apart,
+  // and the number keys below would have nothing to refer to.
+  function enemyOrdinal(entity) { return enemies.indexOf(entity) + 1; }
+
   function selectTarget(entity, el) {
     if (!combatStarted || !isPlayerTurn() || entity.dead || turnInProgress) return;
     // Clear old
@@ -1239,9 +1320,35 @@ function _navigateTo(url) {
     }
     selectedTarget = entity;
     el.classList.add("selected-target");
-    document.getElementById("target-hint").textContent = "Target: " + entity.label + " · " + entity.hp + "/" + entity.maxHp + " HP";
+    document.getElementById("target-hint").textContent = "Target: " + entity.label + " " + enemyOrdinal(entity) + " · " + entity.hp + "/" + entity.maxHp + " HP";
     refreshActionBtns();
   }
+
+  /* Targeting used to be mouse-only while every offensive action refuses to run without
+     a target — so a keyboard player could move, press Attack, and never deal damage.
+     [ and ] walk the selection through the living Revenants and the number keys jump
+     straight to one; both go through selectTarget, the same path a click takes, and the
+     hint they write is a polite live region, so the choice is spoken as well as ringed. */
+  function cycleTarget(step) {
+    const alive = enemies.filter(e => !e.dead);
+    if (!alive.length) return;
+    const at = selectedTarget ? alive.indexOf(selectedTarget) : -1;
+    const next = at === -1 ? (step > 0 ? 0 : alive.length - 1)
+                           : (at + step + alive.length) % alive.length;
+    selectTarget(alive[next], tokenEls[alive[next].id]);
+  }
+
+  document.addEventListener("keydown", e => {
+    if (!combatStarted || !isPlayerTurn() || turnInProgress) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key === "]") { e.preventDefault(); cycleTarget(1);  return; }
+    if (e.key === "[") { e.preventDefault(); cycleTarget(-1); return; }
+    const n = Number(e.key);
+    if (n >= 1 && n <= enemies.length && !enemies[n - 1].dead) {
+      e.preventDefault();
+      selectTarget(enemies[n - 1], tokenEls[enemies[n - 1].id]);
+    }
+  });
 
   /* ── HUD ── */
   function refreshHud() {
@@ -1282,6 +1389,14 @@ function _navigateTo(url) {
     container.innerHTML = logLines.map(l =>
       `<div class="log-line ${l.cls}">${l.text}</div>`
     ).join("");
+    // Announce the new line only. Appending a node — rather than rewriting the region —
+    // keeps a screen reader from re-reading all five, and keeps a line that repeats
+    // (four Revenants circling on the same round) a fresh addition each time.
+    const live = document.getElementById("log-live");
+    const entry = document.createElement("div");
+    entry.textContent = text;
+    live.appendChild(entry);
+    while (live.childElementCount > 5) live.removeChild(live.firstElementChild);
   }
 
   /* ── INITIATIVE ── */
@@ -1316,13 +1431,19 @@ function _navigateTo(url) {
     endBtn.disabled = actionUsed ? false : true;
 
     const glowClass = (!tutorialShown && !actionUsed) ? " glow-tutorial" : "";
+    // Rebuilding the row discards whichever button held focus, which drops a keyboard
+    // player back at the top of the document in the middle of their own turn. Picking a
+    // target rebuilds it too, so remember which action they were on, not just that they
+    // were on one.
+    const hadFocus = container.contains(document.activeElement);
+    const heldAction = hadFocus ? document.activeElement.dataset.action : null;
     container.innerHTML = CD.actions.map(a => {
       const disabled = actionUsed || (a.needsEnemy && !selectedTarget);
       return `<div class="action-btn-wrap">
-        <button class="action-btn${actionUsed ? " btn-used" : ""}${glowClass}" data-action="${a.id}" ${disabled ? "disabled" : ""}>
+        <button class="action-btn${actionUsed ? " btn-used" : ""}${glowClass}" data-action="${a.id}" aria-describedby="tip-${a.id}" ${disabled ? "disabled" : ""}>
           ${a.label}
         </button>
-        <div class="action-tip">${a.desc}</div>
+        <div class="action-tip" id="tip-${a.id}" role="tooltip">${a.desc}</div>
       </div>`;
     }).join("");
 
@@ -1332,6 +1453,13 @@ function _navigateTo(url) {
         doPlayerAction(btn.dataset.action);
       });
     });
+
+    // Same button if it is still live; otherwise the action is spent and End Turn is
+    // the only move left, so send focus on to that.
+    if (hadFocus) {
+      const same = heldAction && container.querySelector(`.action-btn[data-action="${heldAction}"]:not([disabled])`);
+      (same || container.querySelector(".action-btn:not([disabled])") || endBtn).focus();
+    }
   }
 
   /* ── COMBAT ACTIONS ── */
@@ -2022,7 +2150,7 @@ function _navigateTo(url) {
       playerTok.classList.add("active-turn");
       setActionEnabled(true);
       document.getElementById("end-turn-btn").disabled = true;
-      document.getElementById("target-hint").textContent = "Click an enemy token to target it, then choose an action.";
+      document.getElementById("target-hint").textContent = "Click an enemy token to target it, or press the bracket keys [ and ] to cycle targets — then choose an action.";
       selectedTarget = null;
       refreshActionBtns();
     } else {
@@ -2050,7 +2178,11 @@ function _navigateTo(url) {
   }
 
   function setPhaseLabel(text) {
-    document.getElementById("hud-phase-label").textContent = text;
+    // A polite live region: writing the same two words again is still a mutation, and a
+    // screen reader re-reads it. advanceTurn says "CREW TURN" once per crew member and
+    // "ENEMY TURN" once per Revenant, so unguarded this drowns out the battle log.
+    const el = document.getElementById("hud-phase-label");
+    if (el.textContent !== text) el.textContent = text;
   }
 
   /* ── WIN/LOSE ── */
@@ -2101,7 +2233,10 @@ function _navigateTo(url) {
     Remorhaz.recordWork("ursula", 6, verdictTier >= 2 ? 1 : (verdictTier === 1 ? 0 : -1));
 
     setTimeout(() => {
-      document.getElementById("screen-victory").classList.add("visible");
+      const el = document.getElementById("screen-victory");
+      el.classList.add("visible");
+      el.inert = false;
+      document.getElementById("victory-btn").focus();
     }, 600);
   }
 
@@ -2114,7 +2249,10 @@ function _navigateTo(url) {
     // button below can still earn Day 6 back.
     Remorhaz.recordWork("ursula", 6, -1);
     setTimeout(() => {
-      document.getElementById("screen-defeat").classList.add("visible");
+      const el = document.getElementById("screen-defeat");
+      el.classList.add("visible");
+      el.inert = false;
+      document.getElementById("defeat-retry-btn").focus();
     }, 800);
   }
 
@@ -2138,21 +2276,31 @@ function _navigateTo(url) {
     document.getElementById("tutorial-text").innerHTML =
       `${CD.tutorialText}
       <div class="tut-actions">${btns}</div>
+      <strong>Keyboard:</strong> press the bracket keys <strong>[</strong> or <strong>]</strong> to cycle targets, or a number key to pick one.<br><br>
       Click <em>End Turn →</em> when done. Your crew will act, then the Revenants.`;
-    document.getElementById("tutorial-overlay").classList.add("visible");
+    const overlay = document.getElementById("tutorial-overlay");
+    overlay.classList.add("visible");
+    overlay.inert = false;
+    document.getElementById("tutorial-close").focus();
   }
   document.getElementById("tutorial-close").addEventListener("click", () => {
     tutorialShown = true;
-    document.getElementById("tutorial-overlay").classList.remove("visible");
+    const overlay = document.getElementById("tutorial-overlay");
+    overlay.classList.remove("visible");
+    overlay.inert = true;
     startCombat();
   });
 
   /* ── ATTACK ALERT ── */
   function showAttackAlert() {
-    document.getElementById("alert-overlay").classList.add("visible");
+    const el = document.getElementById("alert-overlay");
+    el.classList.add("visible");
+    el.inert = false;
+    document.getElementById("alert-next").focus();
   }
   document.getElementById("alert-next").addEventListener("click", () => {
     const el = document.getElementById("alert-overlay");
+    el.inert = true;
     el.style.transition = "opacity 0.5s ease";
     el.style.opacity = "0";
     setTimeout(() => {
@@ -2170,15 +2318,21 @@ function _navigateTo(url) {
   function startOpeningCinematic() {
     const ursula = document.getElementById("cin-ursula");
     ursula.classList.add("visible");
+    ursula.inert = false;
+    document.getElementById("cin-ursula-next").focus();
 
     document.getElementById("cin-ursula-next").addEventListener("click", () => {
+      ursula.inert = true;
       ursula.style.transition = "opacity 0.5s ease";
       ursula.style.opacity = "0";
       setTimeout(() => {
         ursula.style.display = "none";
         const haldor = document.getElementById("cin-haldor");
         haldor.classList.add("visible");
+        haldor.inert = false;
+        document.getElementById("cin-haldor-next").focus();
         document.getElementById("cin-haldor-next").addEventListener("click", () => {
+          haldor.inert = true;
           haldor.style.transition = "opacity 0.5s ease";
           haldor.style.opacity = "0";
           setTimeout(() => {

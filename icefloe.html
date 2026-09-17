@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
 <title>Day 5 · Ice Floe Navigation — Aboard the Remorhaz</title>
 <link rel="stylesheet" href="shared.css">
 <script src="state.js"></script>
@@ -200,6 +201,28 @@
 }
 .transition-overlay.fade-in { opacity:1; pointer-events:auto; }
 
+/* ── RESPONSIVE ──
+   The panel is a fixed-height box full of absolutely-positioned screens, so on
+   a phone or a short laptop window the roll button, the outcome or Continue
+   were simply cut off the bottom with no way to scroll to them — the player
+   stranded mid-hazard. Below the shared breakpoint the screens go back into
+   normal flow and the stage becomes the thing that scrolls. */
+@media (max-width: 860px), (max-height: 680px) {
+  .stage {
+    overflow-y: auto;
+    /* Centred content taller than a fixed layer clips at the TOP, where no
+       scroll can reach it. Start at the top and let the overflow fall below. */
+    align-items: flex-start;
+    align-items: safe center;
+    padding: 96px 12px 36px;
+  }
+  .game-area { height: auto; max-height: none; }
+  .screen { position: static; padding: 24px 18px; }
+  .roll-meta { flex-wrap: wrap; justify-content: center; }
+  /* The opening card has the same trap and holds the only way in. */
+  .cin-ice { overflow-y: auto; justify-content: flex-start; justify-content: safe center; padding: 48px 20px 32px; }
+}
+
 </style>
 </head>
 <body>
@@ -209,6 +232,11 @@
 <div class="snow" id="snow"></div>
 <span class="corner tl"></span><span class="corner tr"></span>
 <span class="corner bl"></span><span class="corner br"></span>
+
+<!-- The whole of this day is three d20 rolls: the die, the verdict and the
+     outcome are all injected text that a screen reader never hears arrive.
+     Sits outside .stage, which goes inert while the cinematic is up. -->
+<div class="sr-only" id="sr-live" aria-live="polite" aria-atomic="true"></div>
 
 <div class="page-header">
   <div class="eyebrow">— Glassblade Charter Vessel —</div>
@@ -229,7 +257,7 @@
     plates of sea ice. From the deck you can already feel how they move — slow,
     grinding, unpredictable. One wrong call and the hull gets pinned.
   </div>
-  <button class="cin-ice-btn" id="cin-enter">Take the Bow →</button>
+  <button class="cin-ice-btn" id="cin-enter" aria-describedby="cin-ice-text">Take the Bow →</button>
 </div>
 
 <!-- MAIN LAYOUT -->
@@ -277,8 +305,8 @@
         <div class="roll-equation" id="h1-eq"></div>
         <div class="outcome-banner" id="h1-banner"></div>
         <div class="outcome-text" id="h1-outcome"></div>
-        <button class="roll-btn" id="h1-roll-btn">Roll d20 →</button>
-        <button class="next-btn" id="h1-next-btn">Press On →</button>
+        <button class="roll-btn" id="h1-roll-btn" aria-describedby="h1-desc">Roll d20 →</button>
+        <button class="next-btn" id="h1-next-btn" inert>Press On →</button>
         <div class="transition-overlay" id="h1-trans"></div>
       </div>
 
@@ -307,8 +335,8 @@
         <div class="roll-equation" id="h2-eq"></div>
         <div class="outcome-banner" id="h2-banner"></div>
         <div class="outcome-text" id="h2-outcome"></div>
-        <button class="roll-btn" id="h2-roll-btn">Roll d20 →</button>
-        <button class="next-btn" id="h2-next-btn">Hold Course →</button>
+        <button class="roll-btn" id="h2-roll-btn" aria-describedby="h2-desc">Roll d20 →</button>
+        <button class="next-btn" id="h2-next-btn" inert>Hold Course →</button>
         <div class="transition-overlay" id="h2-trans"></div>
       </div>
 
@@ -337,8 +365,8 @@
         <div class="roll-equation" id="h3-eq"></div>
         <div class="outcome-banner" id="h3-banner"></div>
         <div class="outcome-text" id="h3-outcome"></div>
-        <button class="roll-btn" id="h3-roll-btn">Roll d20 →</button>
-        <button class="next-btn" id="h3-next-btn">Through the Gap →</button>
+        <button class="roll-btn" id="h3-roll-btn" aria-describedby="h3-desc">Roll d20 →</button>
+        <button class="next-btn" id="h3-next-btn" inert>Through the Gap →</button>
         <div class="transition-overlay" id="h3-trans"></div>
       </div>
 
@@ -393,8 +421,19 @@
   </div><!-- /game-area -->
 </div><!-- /stage -->
 
-<script src="shared.js"></script>
 <script>
+/* ── PAGE TRANSITIONS ──
+   This page linked a shared.js that never shipped, so _navigateTo was undefined
+   and the opening fade was never lifted — the day sat behind a black overlay
+   that swallowed every click. Same block as the other pages, inline. */
+const _pf = document.getElementById("page-fade");
+setTimeout(() => { if (_pf) _pf.classList.remove("in"); }, 50);
+function _navigateTo(url) {
+  if (!_pf) { window.location.href = url; return; }
+  _pf.classList.add("in");
+  _pf.addEventListener("transitionend", () => { window.location.href = url; }, { once: true });
+}
+
 /* ── SNOW ── */
 (function(){
   const el = document.getElementById("snow");
@@ -441,6 +480,11 @@ function saveState(s) {
   const FAVOUR = Remorhaz.navigatorFavour();
 
   function fmtMod(n) { return n >= 0 ? "+" + n : "" + n; }
+
+  /* Everything a sighted player reads off the panel — the die, the arithmetic,
+     the verdict, the outcome — goes through here as well. */
+  const liveEl = document.getElementById("sr-live");
+  function announce(text) { liveEl.textContent = text; }
 
   /* Character-specific flavour text */
   const CHAR = {
@@ -520,16 +564,32 @@ function saveState(s) {
   /* ── SCREEN SWITCHER ── */
   function goToScreen(id) {
     document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
-    document.getElementById(id).classList.add("active");
+    const screen = document.getElementById(id);
+    screen.classList.add("active");
+    // The screen we just hid held the focused button, so focus would otherwise
+    // fall to <body>. Every screen reached this way opens on a single control.
+    const entry = screen.querySelector(".roll-btn");
+    if (entry) entry.focus();
   }
 
   /* ── OPENING CINEMATIC ── */
   const cin = document.getElementById("cin-ice");
+  const stageEl = document.querySelector(".stage");
   document.getElementById("cin-ice-text").textContent = C.intro;
-  setTimeout(() => cin.classList.add("visible"), 120);
+  // The card covers the stage but does not remove it: without this a keyboard
+  // player could tab straight past it and start the day from a screen they
+  // cannot see.
+  stageEl.setAttribute("inert", "");
+  setTimeout(() => {
+    cin.classList.add("visible");
+    document.getElementById("cin-enter").focus();
+  }, 120);
   document.getElementById("cin-enter").addEventListener("click", () => {
     cin.style.transition = "opacity 0.5s";
     cin.style.opacity = "0";
+    cin.setAttribute("inert", "");          // half a second of fade is half a second of tab target
+    stageEl.removeAttribute("inert");
+    document.getElementById("intro-start-btn").focus();
     setTimeout(() => { cin.style.display = "none"; }, 520);
   });
 
@@ -572,21 +632,33 @@ function saveState(s) {
       const nat20 = roll === 20;
       const nat1  = roll === 1;
 
-      // Animate die
-      dieFace.classList.add("rolling");
-      let ticker = 0;
-      const interval = setInterval(() => {
-        dieFace.textContent = Math.floor(Math.random() * 20) + 1;
-        ticker++;
-        if (ticker >= 10) {
-          clearInterval(interval);
-          dieFace.classList.remove("rolling");
-          dieFace.textContent = roll;
-          dieFace.classList.toggle("nat20", nat20);
-          dieFace.classList.toggle("nat1", nat1);
-        }
-      }, 55);
+      // Animate die. The shared rule collapses the spin, but the half-second
+      // of scrambling digits is built here rather than in CSS — with motion off
+      // the die simply lands, and the settle the tenth tick used to do has to
+      // happen anyway or the face still reads "d20".
+      const spin = !Remorhaz.reducedMotion();
+      if (spin) {
+        dieFace.classList.add("rolling");
+        let ticker = 0;
+        const interval = setInterval(() => {
+          dieFace.textContent = Math.floor(Math.random() * 20) + 1;
+          ticker++;
+          if (ticker >= 10) {
+            clearInterval(interval);
+            dieFace.classList.remove("rolling");
+            dieFace.textContent = roll;
+            dieFace.classList.toggle("nat20", nat20);
+            dieFace.classList.toggle("nat1", nat1);
+          }
+        }, 55);
+      } else {
+        dieFace.textContent = roll;
+        dieFace.classList.toggle("nat20", nat20);
+        dieFace.classList.toggle("nat1", nat1);
+      }
 
+      // The reveal is a plain timeout, so it completes either way; with the die
+      // already settled there is nothing left to wait for.
       setTimeout(() => {
         eqEl.textContent = roll
           + (modifier !== 0 ? (modifier >= 0 ? " + " + modifier : " − " + Math.abs(modifier)) : "")
@@ -637,7 +709,22 @@ function saveState(s) {
         // player can read as live.
         rollBtn.style.display = "none";
         nextBtn.classList.add("visible");
-      }, 660);
+        nextBtn.removeAttribute("inert");
+        // The roll button just left the layout with focus on it, which drops
+        // focus to <body>; hand it to the one control that is now live.
+        nextBtn.focus();
+
+        // Spoken rather than glyphic — the equation line uses − and =, which
+        // read poorly aloud. Built from the same numbers, so the two cannot
+        // disagree. Announced after the focus move: a focus change interrupts
+        // speech, and the outcome is the longer thing to hear.
+        const spoken = opts.label + ". Rolled " + roll
+          + (modifier !== 0 ? (modifier >= 0 ? ", plus " + modifier : ", minus " + Math.abs(modifier)) : "")
+          + (FAVOUR ? ", plus " + FAVOUR + " Navigator's Favour" : "")
+          + ", total " + total + " against DC " + DC + ". "
+          + bannerText + ". " + outcomeText;
+        setTimeout(() => announce(spoken), 120);
+      }, spin ? 660 : 0);
     });
 
     nextBtn.addEventListener("click", () => {
@@ -650,7 +737,7 @@ function saveState(s) {
   setupHazardRoll({
     dieFaceId: "h1-die", rollBtnId: "h1-roll-btn", nextBtnId: "h1-next-btn",
     equationId: "h1-eq", bannerId: "h1-banner", outcomeId: "h1-outcome", transId: "h1-trans",
-    modifier: INT, logId: "log-h1",
+    modifier: INT, logId: "log-h1", label: "Hazard one of three, Rocky Outcrop",
     passText: C.h1Pass, failText: C.h1Fail, nat20Text: C.h1Nat20, nat1Text: C.h1Nat1,
     sidebarLines: {
       pass: "Good call. Keep your eyes ahead — the current's next.",
@@ -667,7 +754,7 @@ function saveState(s) {
   setupHazardRoll({
     dieFaceId: "h2-die", rollBtnId: "h2-roll-btn", nextBtnId: "h2-next-btn",
     equationId: "h2-eq", bannerId: "h2-banner", outcomeId: "h2-outcome", transId: "h2-trans",
-    modifier: WIS, logId: "log-h2",
+    modifier: WIS, logId: "log-h2", label: "Hazard two of three, Rogue Current",
     passText: C.h2Pass, failText: C.h2Fail, nat20Text: C.h2Nat20, nat1Text: C.h2Nat1,
     sidebarLines: {
       pass: "That's what I'm talking about. One more — the plates are closing ahead.",
@@ -684,7 +771,7 @@ function saveState(s) {
   setupHazardRoll({
     dieFaceId: "h3-die", rollBtnId: "h3-roll-btn", nextBtnId: "h3-next-btn",
     equationId: "h3-eq", bannerId: "h3-banner", outcomeId: "h3-outcome", transId: "h3-trans",
-    modifier: INT, logId: "log-h3",
+    modifier: INT, logId: "log-h3", label: "Hazard three of three, Closing Ice Plate",
     passText: C.h3Pass, failText: C.h3Fail, nat20Text: C.h3Nat20, nat1Text: C.h3Nat1,
     sidebarLines: {
       pass: "We're through. Nice work up there. I mean it.",
@@ -768,6 +855,13 @@ function saveState(s) {
     }
 
     goToScreen("screen-result");
+    // Same order as the hazards: the screen swap moves focus to Continue first,
+    // then the report is spoken, so the focus change cannot cut it off.
+    const notice = damage === 0 ? noteEl.textContent : warnEl.textContent;
+    setTimeout(() => {
+      announce(damEl.textContent + " " + subEl.textContent + ". "
+        + verdictEl.textContent + " " + notice);
+    }, 120);
   }
 
 })(); /* end IIFE */

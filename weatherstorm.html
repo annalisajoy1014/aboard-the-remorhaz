@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
 <title>Day 7 · Weather the Storm — Aboard the Remorhaz</title>
 <link rel="stylesheet" href="shared.css">
 <script src="state.js"></script>
@@ -40,6 +41,10 @@
   background: linear-gradient(to bottom, oklch(0.10 0.03 220), oklch(0.07 0.02 220));
 }
 .screen.active { display: flex; }
+/* Each screen is handed the focus on arrival so a keyboard player and a screen
+   reader both land on the new stage. They are landing spots rather than
+   controls, so they do not wear the focus ring — and Tab can never reach one. */
+.screen[tabindex="-1"]:focus { outline: none; }
 
 /* ── SIDEBAR ── */
 .storm-sidebar {
@@ -174,7 +179,12 @@
   background: rgba(255,255,255,0.07);
   border-color: var(--paper);
 }
-.roll-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+/* Spent rather than disabled: a disabled button leaves the tab order the instant
+   it is pressed, which throws a keyboard player's focus back to the top of the
+   page in the middle of their own roll. */
+.roll-btn:disabled,
+.roll-btn[aria-disabled="true"] { opacity: 0.35; cursor: not-allowed; }
+.roll-btn[aria-disabled="true"]:hover { background: transparent; border-color: var(--paper-deep); }
 
 /* Result reveal */
 .check-result {
@@ -207,6 +217,10 @@
 }
 .next-btn.visible { opacity: 1; pointer-events: auto; }
 .next-btn:hover { border-color: var(--paper); background: rgba(255,255,255,0.06); }
+/* Backs the inert attribute each stage button carries until its roll resolves —
+   an invisible button that still takes focus let a keyboard player tab straight
+   through all three checks and reach the verdict without rolling once. */
+.next-btn[inert] { pointer-events: none; }
 
 /* ── RESULT SCREEN ── */
 .result-card {
@@ -286,13 +300,38 @@
   pointer-events: none; opacity: 1;
   transition: opacity 0.25s ease;
 }
+
+/* ── NARROW SCREENS ──
+   The shared 860px breakpoint stacks the sidebar, but this page centres its
+   game-area inside a fixed, full-viewport .stage and lays every screen out at
+   position:absolute — once stacked, the panel has no in-flow content to give it
+   height and whatever spills past the window cannot be scrolled to. So let the
+   stage flow, let the showing screen flow inside it, and let the roll-meta row
+   wrap: on a 390px phone its three boxes are sharing about 59px otherwise. */
+@media (max-width: 860px) {
+  .stage { position: relative; display: block; padding: 16px 0 28px; }
+  .game-area { margin: 0 auto; }
+  .screen { position: static; padding: 22px 18px; min-height: 58vh; }
+  .challenge-wrap { gap: 13px; }
+  .roll-meta { flex-wrap: wrap; justify-content: center; gap: 14px 22px; }
+  .challenge-desc, .outcome-text, .intro-body { max-width: 100%; }
+  .cin-storm { overflow-y: auto; }
+  .cin-storm-content { width: 100%; padding: 40px 26px; }
+  .cin-storm-name { font-size: 26px; }
+}
 </style>
 </head>
 <body>
 <div id="page-fade" class="page-fade in"></div>
 
+<!-- The whole set-piece — the roll, the arithmetic, the verdict and what it did
+     to the ship — is text injected without a focus change, so a screen reader is
+     told none of it unless it is routed through here. Lives outside .stage,
+     which goes inert behind the opening cinematic. -->
+<div id="storm-live" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+
 <!-- Rain canvas -->
-<canvas id="rain-canvas"></canvas>
+<canvas id="rain-canvas" aria-hidden="true"></canvas>
 <div class="storm-bg"></div>
 
 <!-- Opening cinematic -->
@@ -308,15 +347,16 @@
   </div>
 </div>
 
-<!-- Game -->
-<div class="stage">
+<!-- Game — inert until the cinematic is dismissed. The overlay hides the deck
+     from a sighted player, but every button behind it stayed tabbable. -->
+<div class="stage" inert>
   <div class="game-area">
 
     <!-- Main panel -->
     <div class="game-panel">
 
       <!-- Intro -->
-      <div class="screen active" id="screen-intro">
+      <div class="screen active" id="screen-intro" tabindex="-1">
         <div class="intro-icon">⛈</div>
         <div class="mood-tag">DAY 7 · THE TEMPEST</div>
         <div class="intro-title">All Hands on Deck</div>
@@ -328,7 +368,7 @@
       </div>
 
       <!-- Stage 1: Cargo — STR -->
-      <div class="screen" id="screen-cargo">
+      <div class="screen" id="screen-cargo" tabindex="-1">
         <div class="challenge-wrap">
           <div class="stage-tag">STAGE 1 OF 3 · SECURING THE CARGO</div>
           <div class="challenge-title">The Lower Decks</div>
@@ -351,12 +391,12 @@
           <div class="check-result" id="cargo-result"></div>
           <p class="outcome-text" id="cargo-outcome"></p>
           <button class="roll-btn" id="cargo-roll-btn">Roll d20 →</button>
-          <button class="next-btn" id="cargo-next">Stage Two: The Rigging →</button>
+          <button class="next-btn" id="cargo-next" inert>Stage Two: The Rigging →</button>
         </div>
       </div>
 
       <!-- Stage 2: Rigging — DEX -->
-      <div class="screen" id="screen-rigging">
+      <div class="screen" id="screen-rigging" tabindex="-1">
         <div class="challenge-wrap">
           <div class="stage-tag">STAGE 2 OF 3 · REEFING THE SAILS</div>
           <div class="challenge-title">Into the Rigging</div>
@@ -379,12 +419,12 @@
           <div class="check-result" id="rig-result"></div>
           <p class="outcome-text" id="rig-outcome"></p>
           <button class="roll-btn" id="rig-roll-btn">Roll d20 →</button>
-          <button class="next-btn" id="rig-next">Stage Three: The Helm →</button>
+          <button class="next-btn" id="rig-next" inert>Stage Three: The Helm →</button>
         </div>
       </div>
 
       <!-- Stage 3: Helm — WIS -->
-      <div class="screen" id="screen-helm">
+      <div class="screen" id="screen-helm" tabindex="-1">
         <div class="challenge-wrap">
           <div class="stage-tag">STAGE 3 OF 3 · HOLDING THE HELM</div>
           <div class="challenge-title">The Wheel</div>
@@ -407,12 +447,12 @@
           <div class="check-result" id="helm-result"></div>
           <p class="outcome-text" id="helm-outcome"></p>
           <button class="roll-btn" id="helm-roll-btn">Roll d20 →</button>
-          <button class="next-btn" id="helm-next">See Your Fate →</button>
+          <button class="next-btn" id="helm-next" inert>See Your Fate →</button>
         </div>
       </div>
 
       <!-- Result -->
-      <div class="screen" id="screen-result">
+      <div class="screen" id="screen-result" tabindex="-1">
         <div class="result-card" id="result-card">
           <div class="result-tag">DAY 7 · THE TEMPEST</div>
           <div class="result-score" id="result-score">—</div>
@@ -503,6 +543,11 @@ function _navigateTo(url) {
 })();
 
 function flashLightning(strong) {
+  // The shared stylesheet hides .lightning-flash under prefers-reduced-motion,
+  // but the element was still built every strike — and a strong one queues a
+  // second. A photosensitivity risk is not a styling question, so the flash is
+  // declined here rather than painted and hidden.
+  if (Remorhaz.reducedMotion()) return;
   const fl = document.createElement("div");
   fl.className = "lightning-flash";
   fl.style.background = strong ? "rgba(220,240,255,0.55)" : "rgba(200,220,255,0.3)";
@@ -601,12 +646,19 @@ function flashLightning(strong) {
 
   /* ── OPENING CINEMATIC ── */
   const cin = document.getElementById("cin-storm");
+  const stageEl = document.querySelector(".stage");
   setTimeout(() => cin.classList.add("visible"), 120);
 
   document.getElementById("cin-enter").addEventListener("click", () => {
     cin.style.transition = "opacity 0.5s";
     cin.style.opacity = "0";
-    setTimeout(() => { cin.style.display = "none"; }, 520);
+    setTimeout(() => {
+      cin.style.display = "none";
+      // The deck was inert while the cinematic covered it; hand it back now,
+      // and hand focus to the one control standing on it.
+      stageEl.removeAttribute("inert");
+      document.getElementById("begin-btn").focus();
+    }, 520);
   });
 
   /* ── INIT SCREENS ── */
@@ -626,7 +678,20 @@ function flashLightning(strong) {
   /* ── SCREEN SWITCHER ── */
   function goToScreen(id) {
     document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
-    document.getElementById(id).classList.add("active");
+    const next = document.getElementById(id);
+    next.classList.add("active");
+    // The screen being left goes display:none, taking the button that was just
+    // pressed — and the focus on it — down with it. Land on the new screen
+    // instead: a keyboard player tabs on from here, a reader reads on from here.
+    next.focus();
+  }
+
+  /* ── ANNOUNCER ──
+     One polite region for the whole set-piece, populated after the page has
+     already been written so the announcement matches what is on screen. */
+  const liveEl = document.getElementById("storm-live");
+  function announce(msg) {
+    if (liveEl) liveEl.textContent = msg;
   }
 
   if (himmselkSpotted) {
@@ -650,7 +715,11 @@ function flashLightning(strong) {
     const outEl    = document.getElementById(stageId + "-outcome");
     const nextBtn  = document.getElementById(stageId + "-next");
 
-    rollBtn.disabled = true;
+    // Marked spent rather than disabled — disabling drops the button out of the
+    // tab order the instant it is pressed and dumps a keyboard player's focus on
+    // the body, mid-roll. aria-disabled says the same thing and holds the focus.
+    if (rollBtn.getAttribute("aria-disabled") === "true") return;
+    rollBtn.setAttribute("aria-disabled", "true");
     dieEl.classList.add("spinning");
     numEl.textContent = "?";
     eqEl.textContent  = "";
@@ -705,6 +774,13 @@ function flashLightning(strong) {
             outEl.style.transition = "opacity 0.5s";
             outEl.style.opacity = "1";
             nextBtn.classList.add("visible");
+            // Only now has the stage actually been played, so only now does its
+            // button rejoin the tab order.
+            nextBtn.removeAttribute("inert");
+            // onDone has just written the outcome into the page — read the four
+            // pieces of the check back out of it, in the order a sighted player
+            // meets them, rather than re-deriving any of it here.
+            announce(`Rolled ${roll}. ${eqEl.textContent}. ${resultEl.textContent}. ${outEl.textContent}`);
           }, 300);
         }, 200);
       }
@@ -726,6 +802,7 @@ function flashLightning(strong) {
     });
   });
   document.getElementById("cargo-next").addEventListener("click", () => {
+    if (!results.cargo) return; // no stage is leavable until its own roll has resolved
     setSidebar("The mainsail is bellying and snapping. If it shreds, you lose all steering. Someone has to go up there — in this — and bring it down.", "STAGE 2 OF 3 · RIGGING", "Climb the ice-slick shrouds and reef the sail before the wind takes the rig.");
     goToScreen("screen-rigging");
     flashLightning();
@@ -746,6 +823,7 @@ function flashLightning(strong) {
     });
   });
   document.getElementById("rig-next").addEventListener("click", () => {
+    if (!results.rig) return;
     setSidebar("The helmsman is down. The wheel is spinning free. A rogue wave is coming — forty feet if it's an inch. Someone has to take the helm RIGHT NOW.", "STAGE 3 OF 3 · THE HELM", "Read the swells. Face the waves head-on. Keep her upright.");
     goToScreen("screen-helm");
     flashLightning(true);
@@ -766,6 +844,7 @@ function flashLightning(strong) {
     }, navFavour, "(Navigator's Favour)");
   });
   document.getElementById("helm-next").addEventListener("click", () => {
+    if (!results.helm) return; // reaching the verdict with three null results scored 0
     showResult();
   });
 
@@ -887,6 +966,9 @@ function flashLightning(strong) {
           : "The storm passes as storms do — indifferent to what they have broken. She holds together. Just.";
     setSidebar(sidebarMsg, "DAY 7 · COMPLETE", isHighScore ? "Smooth sailing ahead." : "The worst is over.");
     goToScreen("screen-result");
+    // The card renders the score as a bare numeral above a bare "/ 10", which
+    // reads as two loose numbers. Say it once, after the screen has the focus.
+    announce(`Score ${verdict.scoreDisplay} of 10. ${verdict.title}.`);
     flashLightning(successes >= 2);
   }
 
