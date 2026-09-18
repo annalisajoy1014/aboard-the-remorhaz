@@ -1989,7 +1989,7 @@ function showResult() {
   } else if (total >= 35) {
     tag = "PROFICIENT";
     verdict = "The crew will eat well tonight. You have proven you can cook — or at least, that you can follow instruction.";
-    ingridFinal = "You have thirty-five points. Here are the utensils. Learn to use them properly.";
+    ingridFinal = `You have ${total} points. Here are the utensils. Learn to use them properly.`;
   } else if (total >= 28) {
     tag = "ACCEPTABLE";
     verdict = "The fish is cooked. The seasoning is not criminal. The presentation leaves something to be desired.";

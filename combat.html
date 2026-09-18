@@ -817,7 +817,7 @@ function startDrills() {
     setDialogue(
       pct>=1   ? "Every target. Aye — that's the drill done right." :
       pct>=0.8 ? `${TOTAL_TARGETS-hits} missed. The ones that got away would've gotten away in the real thing too. Fix that.` :
-      pct>=0.5 ? "Half. Enough to slow someone down. Not enough to stop them." :
+      pct>=0.5 ? "Enough to slow someone down. Not enough to stop them." :
                  "Too many misses. We'll cover the basics again before we're done."
     );
     showScoreTally(); updateTally(stage1Score,null);
