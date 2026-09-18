@@ -1046,7 +1046,7 @@ function startBoardingDex() {
     setTimeout(() => {
       if (roundPhase==="warn" && !playerClicked) {
         // Missed window — Haldor "lands"
-        setDialogue(cfg.failD + " — too slow.");
+        setDialogue(cfg.failD + " Too slow.");
         announce("Round " + round + " missed.");
         roundPhase = "result";
         setTimeout(nextRound, 700);
