@@ -1840,7 +1840,7 @@ function _navigateTo(url) {
         },
         9: {
           low:  "There. Syrinlya. Nine days, and we are still in one piece — more than I expected from this crossing. Get your things. When the gangplank drops, you are no longer my problem.",
-          mid:  "Nine days on this water and we brought her in clean. Syrinlya is ahead — the last outpost before Foren. Whatever brought you north, it is out there waiting for you now. Go meet it.",
+          mid:  "Nine days on this water and we brought her in clean. Syrinlya is ahead — the last outpost before the interior of Foren. Whatever brought you north, it is out there waiting for you now. Go meet it.",
           high: "There she is. Nine days. I have made this crossing forty times and it does not get shorter, but this voyage — this one was something. You did well. Better than well. Syrinlya is just ahead. Whatever waits on Foren, I think you are ready for it. I am glad you were on this ship.",
         },
       },
@@ -1980,7 +1980,7 @@ function _navigateTo(url) {
           delta: -1,
         },
         placating: {
-          relyt: "Feeding a crew this far from civilization — that's a real skill. I respect it.",
+          relyt: "Feeding a crew this far from civilisation — that's a real skill. I respect it.",
           lucy:  "This smells better than anything I've had in months. You're clearly very good at this.",
           irene: "The work you do here keeps this crew alive. I want to understand what goes into that.",
           npc:   "Ah, you zink you can flatter your way into a better meal, non? You can try ze compliments while you chop ze onions.",
@@ -2026,7 +2026,7 @@ function _navigateTo(url) {
           relyt: "Ready to work. Just show me what needs doing.",
           lucy:  "I'm here to help. What's the most urgent thing?",
           irene: "I'll do whatever is most useful. Where should I start?",
-          npc:   "Da. We start wiz the mainmast shrouds. Come.",
+          npc:   "Da. We start with the mainmast shrouds. Come.",
           delta: 0,
         },
         argumentative: {
@@ -2430,7 +2430,7 @@ function _navigateTo(url) {
       const _isD8req = repairDayRequired && state.currentDay === 8 && (DAYS.find(d => d.n === 8)?.npcs || []).includes(zone);
       pStatus.textContent = _isD8req
         ? "Emergency work complete — well done."
-        : `You have already worked with ${SHORT_NAME[zone] || eff.name.split(" ")[0]} today.`;
+        : `You have already worked with ${SHORT_NAME[zone] || eff.name.split(" ")[0]}.`;
     } else if (state.currentDay >= npc.day || isRequiredToday) {
       pBegin.textContent = "SPEAK WITH THEM";
       const _isD8req = repairDayRequired && state.currentDay === 8 && (DAYS.find(d => d.n === 8)?.npcs || []).includes(zone);

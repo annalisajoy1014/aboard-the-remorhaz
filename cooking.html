@@ -941,7 +941,7 @@ setDialogue(cfg.ingridIntro);
 // 2nd-person narrative per catch type
 const CATCH_NARRATIVES = {
   1: "You carry the meagre haul below deck, the silver fish barely filling the bucket. Ingrid looks at them for a long moment. She does not look at you.",
-  2: "You carry the writhing catch below deck, drawing alarmed looks from every crewmember you pass. In the galley, Ingrid's expression does not change. She reaches for a very large pan.",
+  2: "You carry the writhing catch below deck, drawing alarmed looks from every crew member you pass. In the galley, Ingrid's expression does not change. She reaches for a very large pan.",
   3: "You carry the halibut below deck. The galley smells of wood smoke and rendered fat. Ingrid stands at the central worksurface with a knife already in her hand.",
   4: "You carry the char below deck. For once the galley almost feels welcoming. Ingrid looks at the catch and, briefly, almost smiles.",
 };
@@ -1392,7 +1392,7 @@ let seasoningDone  = false;
 
 function startSeasoning() {
   setPhase("Stage II — The Seasoning", _cookArrow('wisdom') + "Wisdom Check · Hold a jar to pour, its meter to scrape back");
-  setDialogue("The size of the fish determines how much it needs. Too much salt and you are seasoning the ocean. Too little and it is flavorless — and you will answer for it.");
+  setDialogue("The size of the fish determines how much it needs. Too much salt and you are seasoning the ocean. Too little and it is flavourless — and you will answer for it.");
   document.getElementById("seasonFishPreview").textContent = CATCH_ICONS[catchRoll] || "🐠";
   buildSpiceRow();
   updateSeasonSubmit();

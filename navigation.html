@@ -297,7 +297,7 @@ ursulaMood = Math.max(-1, Math.min(2, ursulaMood));
 
 const CFGS = {
   "-1": {
-    label: "SKEPTICAL · URSULA HAS DOUBTS",
+    label: "SCEPTICAL · URSULA HAS DOUBTS",
     chartHitR: 18, chartTimePer: 2800,
     spyVisDur: 2000, spyFog: 0.50,
     intro:   "Captain asked me to take you in hand. I've taught harder cases. Possibly.",
@@ -318,7 +318,7 @@ const CFGS = {
     failD:   "That's not it.",
     goodD:   "Correct.",
     greatD:  "Well spotted.",
-    final:   ["A poor start. We'll practice more.", "You managed the basics.", "Good comprehension.", "You have a natural aptitude for this.", "Exceptional. The sea will teach you the rest."],
+    final:   ["A poor start. We'll practise more.", "You managed the basics.", "Good comprehension.", "You have a natural aptitude for this.", "Exceptional. The sea will teach you the rest."],
   },
   "1": {
     label: "ENGAGED · URSULA SEES PROMISE",
@@ -789,7 +789,7 @@ function startChartReading() {
       pct>=1    ? "Every marker. You read that chart like you've studied it before." :
       pct>=0.8  ? "Almost everything. You have the pattern. The rest is practice." :
       pct>=0.6  ? "Most of them. The gaps will matter at sea — keep studying." :
-      pct>=0.4  ? "You found half. A navigator needs to find all of them." :
+      pct>=0.4  ? "You found less than half. A navigator needs to find all of them." :
                   "You struggled with the chart. That's honest information. Use it."
     );
     showScoreTally(); updateTally(stage1Score,null);

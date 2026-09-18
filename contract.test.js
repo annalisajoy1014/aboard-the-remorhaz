@@ -241,5 +241,66 @@ function codeLines(file) {
   check('JS-built motion honours prefers-reduced-motion', problems.length === 0, problems.join('\n'));
 }
 
+/* ── 11. House style: British English in prose ────────────────────────
+   The writing is British throughout — grey thirteen times and gray never,
+   traveller, favour, defence. A stray American spelling is the kind of thing
+   nobody notices until a reader does, and then it is all they notice.
+
+   Deliberately conservative. Extracting prose from a file that is HTML, CSS
+   and JS at once is easy to get wrong: an earlier version of this check also
+   matched single-quoted strings, and every apostrophe in the writing
+   ("Ursula's", "doesn't") closed a quote it had never opened, producing spans
+   that ran through hundreds of lines of code and reported `addColorStop` as a
+   spelling mistake. Double quotes and backticks only, and anything carrying
+   code punctuation is discarded rather than guessed at. Missing a real hit
+   costs a proofread; a false one costs trust in the whole file. */
+{
+  const AMERICAN = [
+    ['color', 'colour'], ['colors', 'colours'], ['colored', 'coloured'],
+    ['favor', 'favour'], ['favors', 'favours'], ['favorite', 'favourite'],
+    ['honor', 'honour'], ['gray', 'grey'], ['traveler', 'traveller'],
+    ['realize', 'realise'], ['realized', 'realised'], ['recognize', 'recognise'],
+  ];
+
+  // Inline CSS built in template strings is the main thing that reads like a
+  // sentence without being one — gradients in particular are mostly lowercase
+  // words and commas.
+  const CODEY = /[{}<>=;]|\bpx\b|\bvar\(|:\s*#|https?:|\.\w+\(|\w+:\s*\d|color-mix|oklch|rgba?\(|gradient|deg,/;
+
+  function proseOf(file) {
+    let src = fs.readFileSync(path.join(DIR, file), 'utf8');
+    src = src.replace(/<style[\s\S]*?<\/style>/g, '');
+    src = src.replace(/<!--[\s\S]*?-->/g, '');
+    src = src.replace(/\/\*[\s\S]*?\*\//g, '');
+    src = src.replace(/(^|[^:\w])\/\/[^\n]*/g, '$1');
+
+    const out = [];
+    const STR = /"((?:[^"\\\n]|\\.){12,}?)"|`((?:[^`\\]|\\.){12,}?)`/g;
+    let m;
+    while ((m = STR.exec(src))) {
+      const t = m[1] || m[2];
+      if (!/[a-z] [a-z]/.test(t)) continue;   // not a sentence
+      if (CODEY.test(t)) continue;            // markup, style, or a call
+      out.push(t);
+    }
+    const body = src.replace(/<script[\s\S]*?<\/script>/g, '');
+    (body.match(/>[^<>{}]{15,}</g) || []).forEach(t => out.push(t));
+    return out.join('\n');
+  }
+
+  const hits = [];
+  PAGES.forEach(f => {
+    const text = proseOf(f);
+    AMERICAN.forEach(([us, uk]) => {
+      const m = new RegExp('\\b' + us + '\\b', 'i').exec(text);
+      if (m) {
+        const at = Math.max(0, m.index - 45);
+        hits.push(`${f}: "${m[0]}" should be "${uk}"  …${text.slice(at, m.index + 45).replace(/\s+/g, ' ')}…`);
+      }
+    });
+  });
+  check('prose uses British spelling throughout', hits.length === 0, hits.join('\n'));
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

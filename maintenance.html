@@ -660,7 +660,7 @@ const DIALOGUE_SETS = [
         kaltReply: {
           "-2": "You're asking me. Fine. Watch the batten seams first.",
           "-1": "The stitching tells you more than the canvas itself.",
-           "0": "Along the tear lines. Follow them from edge to center.",
+           "0": "Along the tear lines. Follow them from edge to centre.",
            "1": "Aye. The batten edges first, then the middle seams.",
            "2": "You're already thinking. Good.",
         },
@@ -862,7 +862,7 @@ function showDialogue(idx) {
 /* ══════════════════════════════════════════
    INTRO SCREEN
 ══════════════════════════════════════════ */
-const CATCH_NAMES = { 1:"Silver Fish", 2:"Sea Eel", 3:"Arctic Halibut", 4:"Arctic Char" };
+const CATCH_NAMES = { 1:"Silver Fish", 2:"Giant Sea Eel", 3:"Arctic Halibut", 4:"Arctic Char" };
 const MOOD_LABELS = ["Contemptuous","Dismissive","Watching","Reserved","Grudgingly Impressed"];
 
 // Your read on the day first, then hers.
@@ -1956,7 +1956,7 @@ function showResult() {
   const earned = total >= cfg.winThreshold && rapport >= 0;
 
   const TIERS = [
-    { min:42, tag:"MASTERWORK",           verdict:`Every task completed with a standard that surprised even Kalt. The crew has noticed. They respect you now — and that respect is not easily given on the Remorhaz.` },
+    { min:42, tag:"MASTERWORK",           verdict:`Every task completed to a standard that surprised even Kalt. The crew has noticed. They respect you now — and that respect is not easily given on the Remorhaz.` },
     { min:35, tag:"COMPETENT CREW",       verdict:`The ropes are checked, the sail is stitched, and the hull holds water. You have done real work today. The ship is sound — and Kalt knows it.` },
     { min:27, tag:"ADEQUATE",             verdict:`The ship is in acceptable condition. You missed things — Kalt noticed every one — but the vessel will reach port. That has to be enough for now.` },
     { min:18, tag:"ROUGH EDGES",          verdict:`You completed the tasks, after a fashion. Kalt has quietly fixed most of what you missed. The crew watched. They are... withholding judgment.` },
