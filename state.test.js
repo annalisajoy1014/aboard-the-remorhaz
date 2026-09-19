@@ -150,5 +150,93 @@ store={};
 R.markSpokenTo('ursula',3);
 eq(R.hasSpokenTo('ursula',3,'scene'),false,'navigation can still credit its own dialogue');
 
+/* ===== nextStep(): the voyage must always have a next step ===== */
+const setState = o => { store.remorhaz = JSON.stringify(o); };
+
+// Walk the voyage doing exactly what nextStep() says, as a player would.
+function walk(seed, maxSteps = 120) {
+  let s = Object.assign({ currentDay: 1, completed: [], completedDays: [] }, seed);
+  setState(s);
+  const trail = [];
+  for (let i = 0; i < maxSteps; i++) {
+    const n = R.nextStep();
+    if (!n.label) return { ok: false, why: `day ${n.day} had no label`, trail };
+    trail.push(`${n.day}:${n.action}`);
+    if (n.action === 'voyage-over') return { ok: true, trail };
+    if (n.action === 'sail-on') {
+      s = R.load();
+      s.completedDays = [...new Set([...(s.completedDays || []), n.day])];
+      s.currentDay = n.day + 1;
+      setState(s); continue;
+    }
+    if (!n.primary) return { ok: false, why: `day ${n.day} has no primary and cannot sail on`, trail };
+    s = R.load();
+    if (n.action === 'brief') s.captainSpokenDay = n.day;
+    else {
+      s.completed = [...new Set([...(s.completed || []), n.primary])];
+      if (n.action === 'landfall') {
+        s.completedDays = [...new Set([...(s.completedDays || []), 9])];
+        s.currentDay = 10;
+      }
+    }
+    setState(s);
+  }
+  return { ok: false, why: `did not finish in ${maxSteps} steps`, trail };
+}
+
+// 12. a clean voyage reaches landfall
+eq(walk({}).ok, true, 'clean voyage completes');
+eq(walk({ d5KaltRequired: true }).ok, true, 'ice-damage voyage completes');
+
+// 13. the captain briefs before the crew works, every day
+store = {}; setState({ currentDay: 3, completed: [], completedDays: [] });
+eq(R.nextStep().action, 'brief', 'day 3 opens with the captain');
+eq(R.nextStep().primary, 'thorgrim', 'captain is the primary before briefing');
+setState({ currentDay: 3, completed: [], completedDays: [], captainSpokenDay: 3 });
+eq(R.nextStep().action, 'work', 'after briefing, the day is work');
+eq(R.nextStep().primary, 'ursula', 'day 3 work is Ursula');
+
+// 14. exactly one primary at a time on a multi-NPC day
+setState({ currentDay: 1, completed: [], completedDays: [], captainSpokenDay: 1 });
+let n1 = R.nextStep();
+eq(n1.primary, 'haldor', 'day 1 starts with Haldor, not both');
+eq(n1.zones.length, 2, 'both day-1 crew are still outstanding');
+setState({ currentDay: 1, completed: ['haldor'], completedDays: [], captainSpokenDay: 1 });
+eq(R.nextStep().primary, 'ingrid', 'day 1 moves to Ingrid after Haldor');
+
+// 15. REGRESSION: a mid storm score must not strand the voyage on Day 8.
+//     Scores 4-8 set neither skipToSyrinlya nor repairDayRequired, which left
+//     Day 8 with no required crew and no advance path. The player could not
+//     finish the voyage at all. nextStep() must offer a way onward.
+const day8 = (flags, completed) => {
+  setState(Object.assign({
+    currentDay: 8, captainSpokenDay: 8,
+    completed: completed || ['haldor', 'ingrid', 'kalt', 'ursula'],
+    completedDays: [1, 2, 3, 4, 5, 6, 7]
+  }, flags));
+  return R.nextStep();
+};
+eq(day8({}).action, 'sail-on', 'mid storm: Day 8 sails on rather than stranding');
+eq(day8({ skipToSyrinlya: true }).action, 'sail-on', 'high storm: Day 8 sails on');
+eq(day8({ repairDayRequired: true }, ['haldor', 'ingrid', 'ursula']).primary, 'kalt',
+   'poor storm: Day 8 sends you to Kalt');
+eq(day8({ repairDayRequired: true, refishRequired: true, recookRequired: true },
+        ['ursula']).zones, ['kalt', 'haldor', 'ingrid'],
+   'poor storm with lost stores: all three are outstanding');
+
+// 16. every day of every branch yields a usable instruction
+[{}, { d5KaltRequired: true }, { skipToSyrinlya: true },
+ { repairDayRequired: true }, { repairDayRequired: true, refishRequired: true }
+].forEach((flags, fi) => {
+  for (let d = 1; d <= 9; d++) {
+    setState(Object.assign({ currentDay: d, completed: [], completedDays: [] }, flags));
+    const n = R.nextStep();
+    eq(!!n.label && n.label.length > 10, true, `branch ${fi} day ${d} has a real label`);
+    eq(n.primary !== null || n.action === 'sail-on', true,
+       `branch ${fi} day ${d} has somewhere to go`);
+  }
+});
+
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail?1:0);

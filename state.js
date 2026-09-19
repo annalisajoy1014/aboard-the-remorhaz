@@ -330,6 +330,120 @@
       return s;
     },
 
+    /* What to do next ---------------------------------------------- */
+
+    // The voyage is nine days, and on any given day exactly one thing is the
+    // next thing. Every surface that tells the player what to do — the gold
+    // ring on the hub, the objective banner above it, the status line inside a
+    // crew panel, the button on a minigame's result card — reads this one
+    // function, so none of them can contradict another. Before this existed the
+    // panel computed its own answer and the ring computed a different one, and
+    // the ring could pulse on a crew member whose panel said NOT YET.
+    //
+    // Order within a day is fixed: the captain's briefing first, because he
+    // sets the day's terms, then the crew whose work the day actually is. Only
+    // the current step comes back as `primary` — one gold ring at a time, since
+    // three at once is not guidance. `zones` carries everything still
+    // outstanding, for callers that want to mark the rest without pulsing them.
+    DAYS: [
+      { n: 1, label: "Fishing & Cooking",     npcs: ["haldor", "ingrid"] },
+      { n: 2, label: "Ship Maintenance",      npcs: ["kalt"] },
+      { n: 3, label: "Navigation",            npcs: ["ursula"] },
+      { n: 4, label: "Maritime Combat",       npcs: ["haldor"] },
+      { n: 5, label: "Ice Floes",             npcs: ["ursula"] },
+      { n: 6, label: "Sea Monster Attack",    npcs: ["ursula"] },
+      { n: 7, label: "Weather the Storm",     npcs: ["ursula"] },
+      { n: 8, label: "Skirting the Shelf",    npcs: [] },
+      { n: 9, label: "Landfall · Eiselcross", npcs: ["thorgrim"] }
+    ],
+
+    STATIONS: {
+      thorgrim: { name: "Captain Thorgrim", where: "at the helm" },
+      haldor:   { name: "Haldor",           where: "on the main deck" },
+      ingrid:   { name: "Ingrid",           where: "in the galley" },
+      kalt:     { name: "Kalt",             where: "in the rigging" },
+      ursula:   { name: "Ursula",           where: "in the crow’s nest" }
+    },
+
+    // The day table with the voyage's branches applied. Day 5 can add Kalt if
+    // the ice opened the hull; Day 8 is either emergency repairs, fair winds,
+    // or an uneventful passage, depending on how the storm went.
+    daysFor: function (s) {
+      s = s || this.load();
+      var days = this.DAYS.map(function (d) {
+        return { n: d.n, label: d.label, npcs: d.npcs.slice() };
+      });
+      var d5 = days[4], d8 = days[7], d9 = days[8];
+      if (s.d5KaltRequired && d5.npcs.indexOf("kalt") === -1) d5.npcs.push("kalt");
+      if (s.repairDayRequired) {
+        d8.label = "Emergency Repairs";
+        d8.npcs  = ["kalt"];
+        if (s.refishRequired) d8.npcs.push("haldor");
+        if (s.recookRequired) d8.npcs.push("ingrid");
+      } else if (s.skipToSyrinlya) {
+        d8.label = "Fair Winds";
+        d9.label = "Arrival at Syrinlya";
+      }
+      return days;
+    },
+
+    nextStep: function () {
+      var s         = this.load();
+      var day       = clamp(toNum(s.currentDay, 1), 1, 9);
+      var completed = Array.isArray(s.completed) ? s.completed : [];
+      var doneDays  = Array.isArray(s.completedDays) ? s.completedDays : [];
+      var St        = this.STATIONS;
+      function has(z) { return completed.indexOf(z) !== -1; }
+      function at(z) { return St[z].name + " " + St[z].where; }
+
+      if (toNum(s.currentDay, 1) > 9 || doneDays.indexOf(9) !== -1) {
+        return { day: 9, dayLabel: "Landfall", primary: null, zones: [],
+                 action: "voyage-over", short: "The voyage is over",
+                 instruction: "The voyage is over.",
+                 label: "The voyage is over." };
+      }
+
+      var entry = this.daysFor(s)[day - 1];
+
+      // Day 9 is the captain, and only the captain.
+      if (day === 9) {
+        return { day: day, dayLabel: entry.label, primary: "thorgrim", zones: ["thorgrim"],
+                 action: "landfall", short: "Speak with " + St.thorgrim.name,
+                 instruction: "Syrinlya is in sight. Speak with " + at("thorgrim") + ".",
+                 label: "Day 9 of 9 · Syrinlya is in sight. Speak with " +
+                        at("thorgrim") + "." };
+      }
+
+      // The captain's briefing opens every other day.
+      if (toNum(s.captainSpokenDay, 0) < day) {
+        var rest = entry.npcs.filter(function (z) { return !has(z); });
+        return { day: day, dayLabel: entry.label, primary: "thorgrim",
+                 zones: ["thorgrim"].concat(rest), action: "brief",
+                 short: "Speak with " + St.thorgrim.name,
+                 instruction: "Speak with " + at("thorgrim") + " for today\u2019s orders.",
+                 label: "Day " + day + " of 9 · " + entry.label +
+                        ". Speak with " + at("thorgrim") + " for today’s orders." };
+      }
+
+      // Then the day's work, in the order the day lists it.
+      var pending = entry.npcs.filter(function (z) { return !has(z); });
+      if (pending.length) {
+        return { day: day, dayLabel: entry.label, primary: pending[0], zones: pending,
+                 action: "work", short: "Speak with " + St[pending[0]].name,
+                 instruction: "Speak with " + at(pending[0]) + ".",
+                 label: "Day " + day + " of 9 · " + entry.label +
+                        ". Speak with " + at(pending[0]) + "." };
+      }
+
+      // Nothing outstanding. Day 8 reaches this on an uneventful passage; the
+      // hub advances the day on load, so this is the moment in between.
+      return { day: day, dayLabel: entry.label, primary: null, zones: [],
+               action: "sail-on", short: "The ship sails on",
+               instruction: "The work is done \u2014 the Remorhaz sails on.",
+               label: "Day " + day + " of 9 · " + entry.label +
+                      ". The work is done — the Remorhaz sails on." };
+    },
+
     // Has the player already had this particular exchange with this crew member
     // today?
     //

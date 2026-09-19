@@ -703,23 +703,106 @@
   }
   .restart-btn:hover { background: var(--blood); border-color: var(--blood); opacity: 1; }
 
-  /* ── FIRST-VISIT GOLD GLOW ON THORGRIM ── */
-  @keyframes goldPulse {
-    0%, 100% { opacity: 0.7; }
-    50%       { opacity: 1.0; }
+  /* ── OBJECTIVE BAR — the hub always says what to do next ──
+     The hub used to explain itself in a bottom-left note in a handwriting face
+     that opened "Hover over any of the crew members" — an instruction a touch
+     player cannot follow and a mouse player had to go looking for. This is the
+     same job done where a player actually looks, naming the next step instead
+     of the controls. Its text comes from Remorhaz.nextStep(), the same answer
+     that decides which ring is glowing, so the two cannot disagree. */
+  .objective-bar {
+    position: fixed; z-index: 9;
+    top: 16px; left: 50%; transform: translateX(-50%);
+    max-width: min(92vw, 760px);
+    padding: 9px 28px 11px;
+    text-align: center;
+    background: linear-gradient(180deg,
+      color-mix(in oklch, var(--plank) 94%, transparent),
+      color-mix(in oklch, var(--sea-deep) 96%, transparent));
+    border: 1px solid color-mix(in oklch, var(--lamp) 42%, transparent);
+    border-radius: 3px;
+    box-shadow: 0 6px 26px rgba(0,0,0,0.55), inset 0 0 22px rgba(0,0,0,0.35);
+    /* Never intercepts a click: it sits over the top of the rigging, and the
+       crow's nest hotspot is up there. */
+    pointer-events: none;
   }
-  .hotspot.first-visit-glow .ring-inner {
-    opacity: 0.9 !important;
-    stroke: #d4af37 !important;
-    stroke-width: 3.5 !important;
-    animation: goldPulse 1.8s ease-in-out infinite;
+  .objective-bar .obj-day {
+    display: block;
+    font-family: "IM Fell English SC", serif;
+    font-size: 14px; letter-spacing: 0.22em;
+    color: var(--lamp);
+    margin-bottom: 2px;
   }
-  .hotspot.first-visit-glow .ring-outer {
-    opacity: 0.75 !important;
-    stroke: #d4af37 !important;
-    animation: goldPulse 1.8s ease-in-out infinite;
+  .objective-bar .obj-text {
+    display: block;
+    font-family: "IM Fell English", serif;
+    font-size: 22px; line-height: 1.35;
+    color: var(--paper);
   }
-  .hotspot.first-visit-glow .glow { opacity: 0.85 !important; }
+  .objective-bar.is-resting .obj-text {
+    color: var(--paper-dim); font-style: italic;
+  }
+  @media (max-width: 860px) {
+    html .objective-bar { top: 8px; padding: 7px 14px 9px; max-width: 95vw; }
+    html .objective-bar .obj-text { font-size: 18px; }
+    html .objective-bar .obj-day  { font-size: 12px; letter-spacing: 0.16em; }
+  }
+
+  /* ── "DO THIS NEXT" — ONE GOLD RING AT A TIME ──
+     Driven by Remorhaz.nextStep(), so the ring, the objective banner and the
+     crew panel can never disagree about whose turn it is. This replaces a glow
+     that only ever appeared on Thorgrim: every other day of the voyage, the
+     player had to guess who to click.
+
+     The expanding ping is its own circle so the portrait and its rings are
+     untouched. SVG elements need transform-box: fill-box or they scale from
+     the canvas origin instead of their own centre. */
+  @keyframes attnPulse {
+    0%, 100% { opacity: 0.78; }
+    50%      { opacity: 1; }
+  }
+  @keyframes attnPing {
+    0%   { transform: scale(1);    opacity: 0.55; }
+    70%  { transform: scale(1.75); opacity: 0; }
+    100% { transform: scale(1.75); opacity: 0; }
+  }
+  .hotspot.needs-attention .ring-inner {
+    opacity: 1;
+    stroke: var(--lamp);
+    stroke-width: 4;
+    animation: attnPulse 1.9s ease-in-out infinite;
+  }
+  .hotspot.needs-attention .ring-outer {
+    opacity: 0.9;
+    stroke: var(--lamp);
+    stroke-width: 2.5;
+  }
+  .hotspot.needs-attention .glow { opacity: 0.9; }
+  .attn-ping {
+    fill: none; stroke: var(--lamp); stroke-width: 3;
+    opacity: 0; pointer-events: none;
+    transform-box: fill-box; transform-origin: center;
+  }
+  .hotspot.needs-attention .attn-ping {
+    animation: attnPing 2.4s cubic-bezier(0.2, 0.6, 0.35, 1) infinite;
+  }
+  /* Labels are hover-only, and a touch player never hovers — so the ring that
+     is asking to be clicked says who it belongs to, always. */
+  .hotspot.needs-attention + .hotspot-label {
+    opacity: 1;
+    fill: var(--lamp);
+  }
+  /* The indicator must survive motion removal; it just stops moving. The
+     global reduce rule in shared.css only shortens durations, which would
+     leave this as an invisible one-frame flicker. */
+  @media (prefers-reduced-motion: reduce) {
+    .hotspot.needs-attention .ring-inner {
+      animation-name: none; opacity: 1; stroke-width: 5;
+    }
+    .hotspot.needs-attention .attn-ping {
+      animation-name: none; opacity: 0.5;
+    }
+  }
 
   /* ── NPC / CHARACTER CINEMATIC OVERLAY ── */
   .cin-npc {
@@ -1046,10 +1129,16 @@
   <span class="corner bl"></span>
   <span class="corner br"></span>
 
+  <!-- WHAT TO DO NEXT — the hub's one standing instruction -->
+  <div class="objective-bar" id="objectiveBar" role="status" aria-live="polite">
+    <span class="obj-day"  id="objectiveDay"></span>
+    <span class="obj-text" id="objectiveText"></span>
+  </div>
+
   <!-- Bottom-left logbook label -->
   <div class="chrome chrome-bottom-left">
     <div class="compass">LATITUDE 71° 14' N · LONGITUDE — UNCHARTED</div>
-    <div>Hover over any of the crew members to learn their name and responsibilities aboard the ship. Click on the token for any character to speak with that crew member.</div>
+    <div>Click any crew member to speak with them. The glowing gold ring marks whoever is waiting on you now.</div>
     <button class="restart-btn" id="restartBtn">↺ Restart Adventure</button>
   </div>
 
@@ -1561,6 +1650,7 @@
           <circle class="glow" r="74" fill="url(#lampGlow)" filter="url(#bigGlow)" opacity="0"/>
           <image href="assets/ursula.jpg" x="-46" y="-46" width="92" height="92" preserveAspectRatio="xMidYMid slice" clip-path="url(#clip-ursula)" class="portrait-clip-img"/>
           <circle class="ring-outer" r="52"/>
+          <circle class="attn-ping" r="52"/>
           <circle class="ring-inner" r="49"/>
           <circle r="46" fill="none" stroke="oklch(0.25 0.04 50)" stroke-width="2"/>
         </g>
@@ -1571,6 +1661,7 @@
           <circle class="glow" r="72" fill="url(#lampGlow)" filter="url(#bigGlow)" opacity="0"/>
           <image href="assets/thorgrim.png" x="-46" y="-46" width="92" height="92" preserveAspectRatio="xMidYMid slice" clip-path="url(#clip-thorgrim)" class="portrait-clip-img"/>
           <circle class="ring-outer" r="52"/>
+          <circle class="attn-ping" r="52"/>
           <circle class="ring-inner" r="49"/>
           <circle r="46" fill="none" stroke="oklch(0.25 0.04 50)" stroke-width="2"/>
         </g>
@@ -1582,6 +1673,7 @@
           <circle class="glow" r="72" fill="url(#lampGlow)" filter="url(#bigGlow)" opacity="0"/>
           <image href="assets/haldor.jpg" x="-46" y="-46" width="92" height="92" preserveAspectRatio="xMidYMid slice" clip-path="url(#clip-haldor)" class="portrait-clip-img"/>
           <circle class="ring-outer" r="52"/>
+          <circle class="attn-ping" r="52"/>
           <circle class="ring-inner" r="49"/>
           <circle r="46" fill="none" stroke="oklch(0.25 0.04 50)" stroke-width="2"/>
         </g>
@@ -1592,6 +1684,7 @@
           <circle class="glow" r="72" fill="url(#lampGlow)" filter="url(#bigGlow)" opacity="0"/>
           <image href="assets/kalt.jpg" x="-46" y="-46" width="92" height="92" preserveAspectRatio="xMidYMid slice" clip-path="url(#clip-kalt)" class="portrait-clip-img"/>
           <circle class="ring-outer" r="52"/>
+          <circle class="attn-ping" r="52"/>
           <circle class="ring-inner" r="49"/>
           <circle r="46" fill="none" stroke="oklch(0.25 0.04 50)" stroke-width="2"/>
         </g>
@@ -1602,6 +1695,7 @@
           <circle class="glow" r="78" fill="url(#lampGlow)" filter="url(#bigGlow)" opacity="0"/>
           <image href="assets/ingrid.png" x="-46" y="-46" width="92" height="92" preserveAspectRatio="xMidYMid slice" clip-path="url(#clip-ingrid)" class="portrait-clip-img"/>
           <circle class="ring-outer" r="52"/>
+          <circle class="attn-ping" r="52"/>
           <circle class="ring-inner" r="49"/>
           <circle r="46" fill="none" stroke="oklch(0.25 0.04 50)" stroke-width="2"/>
         </g>
@@ -2243,10 +2337,16 @@ function _navigateTo(url) {
     }
   }
 
-  // If all required Day 8 repairs are done, advance to Day 9
-  if (repairDayRequired && state.currentDay === 8) {
+  // Day 8 advances as soon as nothing is outstanding — which includes the case
+  // where nothing was ever required. A storm score of 4-8 sets neither
+  // skipToSyrinlya nor repairDayRequired, so Day 8 kept its authored empty crew
+  // list; the old `repairDayRequired &&` guard meant this block never ran, and
+  // `npcs.length > 0` would have blocked it anyway. The player sat on Day 8
+  // with no task, no way forward, and the day knots dev-gated. Five of the
+  // eleven storm scores could not finish the voyage at all.
+  if (state.currentDay === 8) {
     const _d8c = DAYS.find(d => d.n === 8);
-    if (_d8c && _d8c.npcs.length > 0 && _d8c.npcs.every(k => state.completed.has(k))) {
+    if (_d8c && _d8c.npcs.every(k => state.completed.has(k))) {
       state.completedDays.add(8);
       state.currentDay = 9;
       save();
@@ -2320,7 +2420,8 @@ function _navigateTo(url) {
       showTooltip(zone, rect.left + rect.width/2, rect.top);
     };
     const activate = () => {
-      el.classList.remove("first-visit-glow");
+      // The ring is cleared by finishing the work, not by opening the panel —
+      // otherwise a player who looked and backed out lost their only signpost.
       openPanel(zone);
     };
     el.addEventListener("mouseenter", reveal);
@@ -2421,26 +2522,34 @@ function _navigateTo(url) {
     const todayIsComplete  = state.completedDays.has(state.currentDay);
 
     pBegin.disabled = false;
+    // "THEM" made the player check which portrait they had open. The panel now
+    // names the person, and borrows nextStep() so it agrees with the gold ring.
+    const _who  = SHORT_NAME[zone] || eff.name.split(" ")[0];
+    const _step = Remorhaz.nextStep();
+    const _isNext = _step.primary === zone;
     if (npc.special) {
       pBegin.textContent = "SPEAK WITH THE CAPTAIN";
-      pStatus.textContent = "";
+      pStatus.textContent = _isNext ? _step.instruction : "";
     } else if (state.completed.has(zone) && (!isRequiredToday || todayIsComplete)) {
       // Already done and not needed again today
-      pBegin.textContent = "SPEAK WITH THEM";
+      pBegin.textContent = `SPEAK WITH ${_who.toUpperCase()}`;
       const _isD8req = repairDayRequired && state.currentDay === 8 && (DAYS.find(d => d.n === 8)?.npcs || []).includes(zone);
       pStatus.textContent = _isD8req
         ? "Emergency work complete — well done."
         : `You have already worked with ${SHORT_NAME[zone] || eff.name.split(" ")[0]}.`;
     } else if (state.currentDay >= npc.day || isRequiredToday) {
-      pBegin.textContent = "SPEAK WITH THEM";
+      pBegin.textContent = `SPEAK WITH ${_who.toUpperCase()}`;
       const _isD8req = repairDayRequired && state.currentDay === 8 && (DAYS.find(d => d.n === 8)?.npcs || []).includes(zone);
       pStatus.textContent = _isD8req
         ? "Required for repairs — the ship cannot sail without this."
-        : `Available now — Day ${state.currentDay} of nine.`;
+        : _isNext
+          ? `This is today's work — Day ${state.currentDay} of nine.`
+          : `Available now — Day ${state.currentDay} of nine.`;
     } else {
+      // A locked panel used to be a dead end. It now points at the open one.
       pBegin.textContent = "NOT YET";
       pBegin.disabled = true;
-      pStatus.textContent = `Held in reserve until Day ${npc.day}.`;
+      pStatus.textContent = `Held in reserve until Day ${npc.day}. ${_step.instruction}`;
     }
 
     document.querySelectorAll(".hotspot").forEach(h => {
@@ -2547,22 +2656,27 @@ function _navigateTo(url) {
   }
   renderKnots();
 
-  /* ============== FIRST-VISIT / DAILY THORGRIM GLOW ============== */
-  if (!_raw.hubFirstVisitShown) {
-    const _thEl = document.querySelector('[data-zone="thorgrim"]');
-    if (_thEl) _thEl.classList.add("first-visit-glow");
-    try {
-      const _fv = JSON.parse(localStorage.getItem("remorhaz") || "{}");
-      localStorage.setItem("remorhaz", JSON.stringify({ ..._fv, hubFirstVisitShown: true }));
-    } catch {}
-  } else {
-    // Glow on each new day until captain has been spoken to today
-    const _capSpokenDay = _raw.captainSpokenDay || 0;
-    if (_capSpokenDay < state.currentDay) {
-      const _thEl2 = document.querySelector('[data-zone="thorgrim"]');
-      if (_thEl2) _thEl2.classList.add("first-visit-glow");
-    }
+  /* ============== WHAT TO DO NEXT ============== */
+  // One question, one answer, three surfaces: the gold ring on the hub, the
+  // objective bar above it, and the status line inside a crew panel. Before
+  // this, only Thorgrim ever glowed — on every other day of the voyage the
+  // player had to work out who to click from a hover tooltip.
+  function renderNextStep() {
+    const step = Remorhaz.nextStep();
+    document.querySelectorAll(".hotspot").forEach(h => {
+      h.classList.toggle("needs-attention", h.dataset.zone === step.primary);
+    });
+    const dayEl  = document.getElementById("objectiveDay");
+    const textEl = document.getElementById("objectiveText");
+    const barEl  = document.getElementById("objectiveBar");
+    if (dayEl)  dayEl.textContent  = step.action === "voyage-over"
+      ? "THE VOYAGE IS OVER"
+      : "DAY " + step.day + " OF 9 \u00b7 " + step.dayLabel.toUpperCase();
+    if (textEl) textEl.textContent = step.instruction;
+    if (barEl)  barEl.classList.toggle("is-resting", !step.primary);
+    return step;
   }
+  renderNextStep();
 
   /* ============== NPC CINEMATIC ============== */
   const cinNpc         = document.getElementById("cin-npc");
@@ -2817,8 +2931,10 @@ function _navigateTo(url) {
         _raw.captainIntroSeen = true;
         _raw.captainSpokenDay = state.currentDay;
       } catch {}
-      document.querySelector('[data-zone="thorgrim"]')?.classList.remove("first-visit-glow");
     }
+    // Speaking to anyone can change whose turn it is — after the captain's
+    // briefing the ring moves on to the crew member whose day this is.
+    renderNextStep();
     cinNpc.classList.remove("active");
     cinNpc.setAttribute("aria-hidden", "true");
     const wasZone = _pendingZone;

@@ -27,7 +27,7 @@
   --ice-dim:      oklch(0.62 0.03 225);
   --paper:        oklch(0.90 0.035 78);
   --paper-dim:    oklch(0.74 0.04 75);
-  --paper-deep:   oklch(0.55 0.05 70);
+  --paper-deep:   oklch(0.66 0.05 70);
   --ink:          oklch(0.22 0.03 50);
   --rope:         oklch(0.66 0.07 70);
   --rope-dark:    oklch(0.42 0.06 60);
@@ -42,8 +42,10 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--sea-
 body {
   color: var(--paper);
   font-family: "IM Fell English", "EB Garamond", Georgia, serif;
-  font-size: 17px;
-  line-height: 1.5;
+  /* IM Fell is a historical face with a notably small x-height, so 17px read
+     nearer 14px. The atmosphere is the author's and stays; the size does not. */
+  font-size: 18px;
+  line-height: 1.6;
 }
 
 /* ── BACKDROP (aurora + stars) ── */
@@ -277,3 +279,32 @@ canvas, .stage-canvas, .food-token, .tray-token, .token { touch-action: none; }
   opacity: 0; transition: opacity 0.6s ease;
 }
 .page-fade.in { opacity: 1; pointer-events: auto; }
+
+
+/* ── READABILITY ──────────────────────────────────────────────────────
+   Every page defines these inline, and an inline <style> beats this file at
+   equal specificity, so each selector carries an `html ` prefix to outrank it
+   — the same trap that silently swallowed the responsive breakpoint.
+
+   Only the minigames are meant to be hard. Reading what the game is asking of
+   you is not part of the test: the instruction label and the dialogue prompt
+   were 14-15px handwriting at 4.2:1, which is the least legible combination in
+   the project, sitting on the text that explains what to do. The faces stay —
+   they are the author's voice — but not at that size or that contrast. */
+html .instruction-label,
+html .dialogue-prompt {
+  font-size: 16px;
+  letter-spacing: 0.02em;
+  color: var(--paper-dim);
+}
+html .instruction-text { font-size: 17px; line-height: 1.55; }
+html .npc-speech-bubble { font-size: 17px; line-height: 1.55; }
+html .dialogue-btn      { font-size: 15.5px; line-height: 1.45; }
+html .npc-role          { font-size: 15px; color: var(--paper-dim); }
+
+/* Prose wants a measure. Anything wider than about 70 characters costs the
+   reader the start of the next line. */
+html .instruction-text,
+html .npc-speech-bubble,
+html .result-verdict,
+html .panel-desc { max-width: 68ch; }

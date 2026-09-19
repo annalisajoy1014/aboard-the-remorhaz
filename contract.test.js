@@ -302,5 +302,67 @@ function codeLines(file) {
   check('prose uses British spelling throughout', hits.length === 0, hits.join('\n'));
 }
 
+/* 12. The hub always tells the player what to do next, and one thing at a time.
+   Three surfaces answer that question — the gold ring, the objective bar, and
+   the crew panel's status line. They agree only because all three read
+   Remorhaz.nextStep(). If a future edit computes the answer locally again, the
+   ring can pulse on a crew member whose own panel says NOT YET, which is
+   exactly the state this replaced. */
+{
+  const hub = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
+  const problems = [];
+
+  if (!/Remorhaz\.nextStep\(\)/.test(hub))
+    problems.push('index.html never calls Remorhaz.nextStep()');
+  if (!/needs-attention/.test(hub))
+    problems.push('no .needs-attention class — nothing marks the next crew member');
+  if (!/id="objectiveBar"/.test(hub))
+    problems.push('no objective bar in the hub');
+  if (/first-visit-glow/.test(hub))
+    problems.push('the old Thorgrim-only glow is back; it only ever marked one NPC');
+
+  // The ring is an indicator, not decoration: it has to survive motion removal.
+  const reduceBlocks = hub.match(/@media\s*\(prefers-reduced-motion[^{]*\)\s*\{[\s\S]*?\n  \}/g) || [];
+  if (!reduceBlocks.some(b => /needs-attention/.test(b) && /animation-name:\s*none/.test(b)))
+    problems.push('needs-attention has no reduced-motion fallback — the global rule in ' +
+                  'shared.css only shortens durations, leaving a one-frame flicker');
+
+  // Only one ring may pulse: the class is toggled against a single `primary`.
+  if (!/classList\.toggle\("needs-attention",\s*h\.dataset\.zone === step\.primary\)/.test(hub))
+    problems.push('needs-attention is not toggled against exactly one nextStep().primary');
+
+  check('hub states the next step, and marks exactly one crew member',
+        problems.length === 0, problems.join('\n'));
+}
+
+/* 13. No day of the voyage may be a dead end.
+   A storm score of 4-8 once left Day 8 with no required crew and no advance
+   path, and the day knots are dev-gated, so five of the eleven scores could
+   not finish the game. Day 8 must advance on an empty crew list. */
+{
+  const hub = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
+  const problems = [];
+  // Take the window that starts where Day 8 is evaluated and ends where the
+  // voyage advances. Other Day 8 conditions (clearing completed NPCs for
+  // repairs, labelling a panel) legitimately test repairDayRequired.
+  const at = hub.indexOf('if (state.currentDay === 8) {');
+  if (at === -1) problems.push('no ungated `if (state.currentDay === 8)` block');
+  else {
+    const to = hub.indexOf('currentDay = 9;', at);
+    if (to === -1 || to - at > 500)
+      problems.push('the Day 8 block does not advance the voyage to Day 9');
+    else {
+      const win = hub.slice(at, to);
+      if (/repairDayRequired/.test(win))
+        problems.push('Day 8 advance is gated on repairDayRequired, so an ' +
+                      'uneventful passage never advances');
+      if (/npcs\.length > 0/.test(win))
+        problems.push('Day 8 advance requires a non-empty crew list, so an ' +
+                      'uneventful passage strands the player');
+    }
+  }
+  check('Day 8 cannot strand the voyage', problems.length === 0, problems.join('\n'));
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
