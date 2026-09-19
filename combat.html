@@ -9,9 +9,14 @@
 <style>
 
 .stage { position: fixed; inset: 0; z-index: 1; display: flex; align-items: center; justify-content: center; }
-.game-area { display: flex; align-items: stretch; width: min(92vw, 1200px); height: min(76vh, 680px); box-shadow: 0 30px 80px rgba(0,0,0,0.6); }
+.game-area { display: flex; align-items: stretch; width: min(97vw, 1780px); height: min(93vh, 1060px); box-shadow: 0 30px 80px rgba(0,0,0,0.6); }
 .game-panel { flex: 1; position: relative; overflow: hidden; border: 1px solid color-mix(in oklch, var(--paper-deep) 25%, transparent); border-right: none; }
-.screen { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 28px; background: linear-gradient(to bottom, oklch(0.13 0.03 45), oklch(0.09 0.02 40)); }
+.screen { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: safe center; gap: 16px; padding: 28px; background: linear-gradient(to bottom, oklch(0.13 0.03 45), oklch(0.09 0.02 40));
+  overflow-y: auto;
+  /* safe center + scroll: content taller than the screen must stay reachable.
+     Plain `center` pushes overflow out of both ends and the top cannot be
+     scrolled back to, which hid the forward button on short windows. */
+}
 .screen.active { display: flex; }
 
 /* ── SIDEBAR ── */

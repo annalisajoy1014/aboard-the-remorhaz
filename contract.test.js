@@ -364,5 +364,47 @@ function codeLines(file) {
   check('Day 8 cannot strand the voyage', problems.length === 0, problems.join('\n'));
 }
 
+/* 14. Failure must never be a wall.
+   The skill checks do not have to be passed for the voyage to continue: every
+   failure needs a button that accepts the outcome and moves the story on, and
+   the day it belongs to has to finish. Two shipped cases broke this — losing
+   the sea battle offered only "Try Again" and never wrote Day 6, and an empty
+   net wrote no catch, so Ingrid refused to cook and Day 1 could not complete. */
+{
+  const problems = [];
+
+  // (a) no result card may offer a retry as its only control, or spending the
+  //     one retry leaves the player looking at a card with nothing to press.
+  PAGES.forEach(f => {
+    const src = fs.readFileSync(path.join(__dirname, f), 'utf8');
+    const re = /<button[^>]*id="([^"]*retry[^"]*)"[^>]*>/gi;
+    let m;
+    while ((m = re.exec(src))) {
+      const around = src.slice(Math.max(0, m.index - 700), m.index + 700);
+      const buttons = around.match(/<button[^>]*>/g) || [];
+      const forward = buttons.filter(b => !/retry/i.test(b));
+      if (forward.length === 0)
+        problems.push(`${f}: "${m[1]}" is the only button on its card — ` +
+                      `once the retry is spent there is no way forward`);
+    }
+  });
+
+  // (b) the two specific dead ends, by name, so they cannot come back.
+  const sea = fs.readFileSync(path.join(__dirname, 'seabattle.html'), 'utf8');
+  if (!/id="defeat-accept-btn"/.test(sea))
+    problems.push('seabattle.html: defeat has no accept-and-sail-on control');
+  if (!/completedDays[^\n]*6[\s\S]{0,400}?defeat|defeat[\s\S]{0,900}?completedDays/.test(sea))
+    problems.push('seabattle.html: losing the deck never completes Day 6');
+
+  const fish = fs.readFileSync(path.join(__dirname, 'fishing.html'), 'utf8');
+  const noCatch = /if \(!caught\) \{[\s\S]{0,1200}?\n    \}/.exec(fish);
+  if (!noCatch) problems.push('fishing.html: no explicit empty-net branch');
+  else if (!/markComplete\("haldor"\)/.test(noCatch[0]))
+    problems.push('fishing.html: an empty net does not finish Haldor\'s day, so ' +
+                  'Ingrid refuses to cook and Day 1 cannot complete');
+
+  check('failure always has a way forward', problems.length === 0, problems.join('\n'));
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

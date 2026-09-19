@@ -26,7 +26,7 @@
 }
 .game-area {
   display: flex; align-items: stretch;
-  width: min(92vw, 1200px); height: min(76vh, 680px);
+  width: min(97vw, 1780px); height: min(93vh, 1060px);
   box-shadow: 0 30px 80px rgba(0,0,0,0.7);
 }
 .game-panel {
@@ -36,9 +36,13 @@
 }
 .screen {
   position: absolute; inset: 0; display: none;
-  flex-direction: column; align-items: center; justify-content: center;
+  flex-direction: column; align-items: center; justify-content: safe center;
   gap: 16px; padding: 28px;
   background: linear-gradient(to bottom, oklch(0.10 0.03 220), oklch(0.07 0.02 220));
+  overflow-y: auto;
+  /* safe center + scroll: content taller than the screen must stay reachable.
+     Plain `center` pushes overflow out of both ends and the top cannot be
+     scrolled back to, which hid the forward button on short windows. */
 }
 .screen.active { display: flex; }
 /* Each screen is handed the focus on arrival so a keyboard player and a screen
@@ -921,7 +925,8 @@ function flashLightning(strong) {
       consequenceHtml = ` <em>A day of emergency repairs lies ahead before the Remorhaz can sail again. Kalt will be waiting.`;
       if (refishRequired) consequenceHtml += ` The storm destroyed most of the food stores — fishing and cooking must be repeated before you can depart.`;
       consequenceHtml += `</em>`;
-      document.getElementById("retry-btn").style.display = "";
+      Remorhaz.offerRetry(document.getElementById("retry-btn"), "weatherstorm",
+                          () => _navigateTo(window.location.href));
     }
 
     document.getElementById("result-score").textContent = verdict.scoreDisplay;
@@ -973,7 +978,7 @@ function flashLightning(strong) {
   }
 
   document.getElementById("hub-btn").addEventListener("click", () => _navigateTo("index.html"));
-  document.getElementById("retry-btn").addEventListener("click", () => _navigateTo(window.location.href));
+  // retry-btn is wired by offerRetry when the result card is built.
 
   /* ── SIDEBAR UPDATER ── */
   function setSidebar(dialogue, phase, inst) {

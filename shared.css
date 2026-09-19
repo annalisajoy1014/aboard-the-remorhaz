@@ -308,3 +308,64 @@ html .instruction-text,
 html .npc-speech-bubble,
 html .result-verdict,
 html .panel-desc { max-width: 68ch; }
+
+/* ── LEGIBILITY LAYER ─────────────────────────────────────────────────
+   Every page defines these inline, so each selector carries `html ` to
+   outrank an inline <style> at equal specificity.
+
+   Two different problems, two different fixes. Light text sits on the sea,
+   on canvas art and on lamplit gradients, where the background under any
+   given letter is unpredictable — that text gets a real outline, four
+   offset shadows plus a soft drop, so it holds its shape over anything.
+   Dark ink on the parchment cards already has contrast and would only be
+   muddied by a dark halo, so that text is simply made bigger. */
+
+/* Light on dark — outline. */
+html .splash-title,
+html .splash-eyebrow,
+html .splash-flavor,
+html .sck-prompt,
+html .sck-result-prose,
+html .act-label,
+html .pulse-eye,
+html .phase-label,
+html .instruction-label,
+html .instruction-text,
+html .npc-speech-bubble,
+html .dialogue-prompt,
+html .tug-click-hint,
+html .pull-prompt,
+html .banner-text {
+  text-shadow:
+    -1px -1px 0 rgba(2,6,12,0.92),  1px -1px 0 rgba(2,6,12,0.92),
+    -1px  1px 0 rgba(2,6,12,0.92),  1px  1px 0 rgba(2,6,12,0.92),
+     0    2px 7px rgba(2,6,12,0.78);
+}
+
+/* Bigger, across the board. These were set for a 680px-tall play area; the
+   area is now 1060px and the type was never scaled to match. */
+html .splash-title      { font-size: 34px; letter-spacing: 0.18em; }
+html .splash-eyebrow    { font-size: 18px; color: var(--paper-dim); }
+html .splash-flavor     { font-size: 18.5px; line-height: 1.62; max-width: 620px; }
+html .sck-prompt        { font-size: 17px; max-width: 460px; }
+html .sck-result-prose  { font-size: 17px; line-height: 1.55; }
+html .act-label,
+html .phase-label       { font-size: 15px; letter-spacing: 0.16em; }
+
+/* Dark ink on parchment — size only. The controls card carried the only
+   instructions in the game at 11px and 14px. */
+html .controls-title    { font-size: 15px; letter-spacing: 0.2em; }
+html .controls-list li  { font-size: 17px; line-height: 1.5; }
+html .controls-list     { gap: 10px; }
+html .kbd               { font-size: 14px; }
+html .result-npc        { font-size: 19px; }
+html .result-max        { font-size: 19px; }
+
+/* Buttons are the thing the player is looking for. */
+html .btn-begin,
+html .btn-primary,
+html .btn-secondary,
+html .result-btn,
+html .end-btn,
+html .back-btn          { font-size: 15px; letter-spacing: 0.16em; }
+html .btn-begin         { font-size: 17px; padding: 14px 34px; }

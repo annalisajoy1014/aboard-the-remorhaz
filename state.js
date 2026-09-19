@@ -59,6 +59,9 @@
   // How far ahead of his crew's opinion the captain's own regard may run.
   var THORGRIM_CREW_LEAD   = 2;
 
+  // One second attempt per scene, then the result stands.
+  var RETRY_BUDGET = 1;
+
   /* ── RAW I/O ─────────────────────────────────────────────────────── */
 
   function readRaw() {
@@ -328,6 +331,55 @@
       }
       writeRaw(s);
       return s;
+    },
+
+    /* Retry budget -------------------------------------------------- */
+
+    // Failure is a legitimate way through this story. Every minigame writes a
+    // score the crew reacts to, and several branch the voyage outright — a bad
+    // storm costs a day to repairs, a bad haul sends you back to the nets. None
+    // of that means anything if the player can press a button until the dice
+    // agree: an unlimited retry turns every check into a formality and costs
+    // the successes their weight along with the failures their sting.
+    //
+    // So: one second attempt. Then the result is the result, and the player
+    // carries it. The count is stored in the save rather than held in memory,
+    // because reloading the page was itself the unlimited retry.
+    retryKey: function (scene, day) {
+      var d = (day == null) ? (toNum(this.load().currentDay, 1)) : day;
+      return "retry:" + scene + ":" + d;
+    },
+
+    retriesLeft: function (scene, day) {
+      var used = toNum(this.load()[this.retryKey(scene, day)], 0);
+      return Math.max(0, RETRY_BUDGET - used);
+    },
+
+    spendRetry: function (scene, day) {
+      if (this.retriesLeft(scene, day) <= 0) return false;
+      var s = this.load(), k = this.retryKey(scene, day);
+      s[k] = toNum(s[k], 0) + 1;
+      writeRaw(s);
+      return true;
+    },
+
+    // Wires a result card's retry control to that budget. Returns whether the
+    // button survived, so the caller can make sure the player is never looking
+    // at a card with nothing on it to press.
+    offerRetry: function (btn, scene, onRetry) {
+      if (!btn) return false;
+      var self = this;
+      if (this.retriesLeft(scene) <= 0) {
+        btn.style.display = "none";
+        return false;
+      }
+      btn.style.display = "";
+      btn.textContent = "Try Again \u00b7 one attempt left";
+      btn.addEventListener("click", function () {
+        if (!self.spendRetry(scene)) { btn.style.display = "none"; return; }
+        onRetry();
+      });
+      return true;
     },
 
     /* What to do next ---------------------------------------------- */

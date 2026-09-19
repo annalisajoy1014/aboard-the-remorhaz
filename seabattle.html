@@ -854,6 +854,7 @@
     <div class="end-title">Claimed by the Current</div>
     <p class="end-body">The cold closes in. The Revenants pull you under — but the crew drags you back, half-drowned. You wake on the deck, gasping.</p>
     <button class="end-btn" id="defeat-retry-btn">Try Again →</button>
+    <button class="end-btn" id="defeat-accept-btn">Take the Loss · Sail On →</button>
   </div>
 </div>
 
@@ -2259,8 +2260,28 @@ function _navigateTo(url) {
   document.getElementById("victory-btn").addEventListener("click", () => {
     _navigateTo("index.html");
   });
-  document.getElementById("defeat-retry-btn").addEventListener("click", () => {
-    _navigateTo(window.location.href);
+  Remorhaz.offerRetry(document.getElementById("defeat-retry-btn"), "seabattle",
+                      () => _navigateTo(window.location.href));
+
+  // Losing the deck was the only failure in the game you could not walk away
+  // from: the defeat card carried a single Try Again, and showDefeat() never
+  // wrote Day 6, so the sea battle had to be WON for the voyage to continue.
+  // It does not. The crew drag you back half-drowned, the day is spent, and
+  // Ursula keeps the standing penalty showDefeat already recorded.
+  document.getElementById("defeat-accept-btn").addEventListener("click", () => {
+    try {
+      const ex = JSON.parse(localStorage.getItem("remorhaz") || "{}");
+      localStorage.setItem("remorhaz", JSON.stringify({
+        ...ex,
+        seaBattleScore: 0,
+        seaBattleLost: true,
+        seaBattleTutorialDone: true,
+        currentDay: Math.max(ex.currentDay || 6, 7),
+        completedDays: [...new Set([...(ex.completedDays || []), 6])],
+        completed: [...new Set([...(ex.completed || []), "ursula"])],
+      }));
+    } catch (e) {}
+    _navigateTo("index.html");
   });
 
   /* ── TUTORIAL ── */

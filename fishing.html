@@ -66,7 +66,7 @@
 /* ── GAME AREA ── */
 .game-area {
   display: flex; align-items: stretch;
-  width: min(92vw, 1200px); height: min(76vh, 680px);
+  width: min(97vw, 1780px); height: min(93vh, 1060px);
   box-shadow: 0 30px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,0,0,0.4);
   position: relative;
 }
@@ -125,13 +125,17 @@ canvas#oceanCanvas {
 .rope-scene {
   position: absolute; inset: 0; z-index: 5;
   display: none; flex-direction: column;
-  align-items: center; justify-content: center; gap: 26px;
+  align-items: center; justify-content: safe center; gap: 26px;
   background:
     radial-gradient(ellipse at 50% 0%, color-mix(in oklch, var(--lamp) 5%, transparent), transparent 60%),
     linear-gradient(to bottom,
       color-mix(in oklch, var(--sea-deep) 88%, transparent),
       color-mix(in oklch, var(--sea-mid)  92%, transparent));
   cursor: pointer; user-select: none;
+  overflow-y: auto;
+  /* safe center + scroll: content taller than the screen must stay reachable.
+     Plain `center` pushes overflow out of both ends and the top cannot be
+     scrolled back to, which hid the forward button on short windows. */
 }
 .rope-scene.active { display: flex; }
 
@@ -273,13 +277,17 @@ canvas#oceanCanvas {
 .reveal-scene {
   position: absolute; inset: 0; z-index: 6;
   display: none; flex-direction: column;
-  align-items: center; justify-content: center; gap: 22px;
+  align-items: center; justify-content: safe center; gap: 22px;
   padding: 36px;
   background:
     radial-gradient(ellipse at 50% 40%, color-mix(in oklch, var(--lamp) 6%, transparent), transparent 55%),
     radial-gradient(ellipse at 50% 50%,
       color-mix(in oklch, var(--sea-mid) 80%, transparent),
       color-mix(in oklch, var(--sea-deep) 95%, transparent));
+  overflow-y: auto;
+  /* safe center + scroll: content taller than the screen must stay reachable.
+     Plain `center` pushes overflow out of both ends and the top cannot be
+     scrolled back to, which hid the forward button on short windows. */
 }
 .reveal-scene.active { display: flex; }
 
@@ -532,9 +540,14 @@ canvas#oceanCanvas {
 /* The action row is a sibling of the card, sitting on the dark reveal scene and
    not on the parchment — so both exits keep the paper-on-dark secondary above. */
 
-/* Hide the page-level header chrome while the splash is up so it doesn't compete with the splash title */
-body.splash-active .page-header,
-body.splash-active .back-btn { visibility: hidden; opacity: 0; }
+/* The decorative header steps aside for the splash title. The back button does
+   NOT: it is the player's only way out of this screen, and hiding it meant a
+   splash whose Begin button had scrolled out of view was a sealed room. It
+   dims instead, so it still yields to the title without trapping anyone. */
+body.splash-active .page-header { visibility: hidden; opacity: 0; }
+body.splash-active .back-btn { opacity: 0.55; }
+body.splash-active .back-btn:hover,
+body.splash-active .back-btn:focus-visible { opacity: 1; }
 .page-header, .back-btn { transition: opacity 0.4s; }
 
 /* ── PHASE BANNER (always-on instruction bar at top of ocean panel) ── */
@@ -569,9 +582,16 @@ body.splash-active .back-btn { visibility: hidden; opacity: 0; }
 /* ── START SPLASH ── */
 .start-splash {
   position: absolute; inset: 0; z-index: 20;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  display: flex; flex-direction: column; align-items: center;
+  /* `safe center` centres only while the content fits. This splash lives inside
+     .ocean-panel (flex: 1, overflow: hidden), not the viewport — roughly 600px
+     on a laptop against ~850px of content once the skill-check result and the
+     controls card are both showing. Plain `center` pushes the overflow out of
+     BOTH ends, and the part above the start edge cannot be scrolled back to. */
+  justify-content: safe center;
   gap: 14px; padding: 26px 30px;
   overflow-y: auto;
+  overscroll-behavior: contain;
   background:
     radial-gradient(ellipse at 50% 45%, color-mix(in oklch, var(--lamp) 8%, transparent), transparent 55%),
     linear-gradient(to bottom, rgba(4,8,15,0.92), rgba(4,8,15,0.96));
@@ -665,7 +685,12 @@ body.splash-active .back-btn { visibility: hidden; opacity: 0; }
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.5);
 }
 
+/* Pinned to the bottom of the splash's own scroll area. The failure branch of
+   the perception check is two lines longer than the success branch, which was
+   enough to push this button past the fold — the player was told how to fish
+   and then given nothing to press. */
 .btn-begin {
+  position: sticky; bottom: 0; z-index: 2;
   font-family: "IM Fell English SC", serif; font-size: 13px;
   letter-spacing: 0.26em; color: var(--paper); background: var(--ink);
   border: 1px solid var(--ink); padding: 13px 32px; cursor: pointer;
@@ -2052,8 +2077,8 @@ function showReveal(success, reason) {
         <div class="catch-haldor-quote">Read the water, not the clock. Try again.</div>
       </div>
       <div class="catch-actions">
-        <button class="btn-primary" onclick="location.reload()">Try Again</button>
-        <button class="btn-secondary" id="revealBack">Return to Deck</button>
+        <button class="btn-primary" id="act1Retry">Try Again</button>
+        <button class="btn-secondary" id="revealBack">Take What Little There Is →</button>
       </div>`;
   } else {
     const roll = Math.ceil(Math.random() * 4);
@@ -2089,10 +2114,27 @@ function showReveal(success, reason) {
     // WORK_DAY, the day the captions name, so a retry after the clock has moved
     // on still revises Day 1's slot rather than opening one nothing reads.
     Remorhaz.recordWork("haldor", WORK_DAY, workDelta(caught));
-    if (!caught) return;                     // empty nets finish nothing
+    if (!caught) {
+      // Failure is a way through this story, not a wall. Empty nets used to
+      // finish nothing: no lastCatch, so Ingrid refused to cook ("you expect me
+      // to cook something up, out of ze air?"), so Day 1 never completed and the
+      // player bounced between the deck and the hub with no way to advance.
+      //
+      // Accepting the failed haul now yields the Meagre Haul — Haldor scrapes
+      // the barest catch off the boards, and his own line for it already reads
+      // as a consolation ("Barely worth the rope... she'll make somethin' of it.
+      // Maybe."). The cost is real and carried forward: the galley starts from
+      // the poorest table in the game, and his standing has already taken the
+      // worst delta recordWork can give.
+      Remorhaz.patch({ lastCatch: CATCHES[0], haulFailed: true });
+      Remorhaz.markComplete("haldor");
+      return;
+    }
     Remorhaz.patch({ lastCatch: caught });   // the object in scope, not re-read from the rendered tag
     Remorhaz.markComplete("haldor");         // idempotent, so a replay cannot duplicate the entry
   };
+  Remorhaz.offerRetry(document.getElementById("act1Retry"), "fishing",
+                      () => location.reload());
   document.getElementById("revealBack")?.addEventListener("click", () => {
     saveHaul();
     _navigateTo("index.html");
