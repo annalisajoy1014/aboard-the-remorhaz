@@ -15,7 +15,7 @@
 }
 .game-area {
   display: flex; align-items: stretch;
-  width: min(92vw, 1200px); height: min(76vh, 680px);
+  width: min(97vw, 1780px); height: min(93vh, 1060px);
   box-shadow: 0 30px 80px rgba(0,0,0,0.6);
 }
 .game-panel {
@@ -2037,9 +2037,9 @@ function showResult() {
   document.getElementById("toHubBtn").addEventListener("click", () => {
     _navigateTo("index.html");
   });
-  document.getElementById("retryBtn").addEventListener("click", () => {
-    _navigateTo(window.location.href);
-  });
+  // One retry, then Ingrid's verdict stands and the player carries it.
+  Remorhaz.offerRetry(document.getElementById("retryBtn"), "cooking",
+                      () => _navigateTo(window.location.href));
 }
 
 })();

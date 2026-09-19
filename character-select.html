@@ -217,10 +217,14 @@
 .cin-open-body {
   position: absolute; inset: 0; z-index: 3;
   display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
+  align-items: center; justify-content: safe center;
   text-align: center; padding: 10vh 14% 10vh; gap: 16px;
   opacity: 0;
   animation: cinBodyIn 2.4s ease 1s forwards;
+  overflow-y: auto;
+  /* safe center + scroll: content taller than the screen must stay reachable.
+     Plain `center` pushes overflow out of both ends and the top cannot be
+     scrolled back to, which hid the forward button on short windows. */
 }
 @keyframes cinBodyIn {
   from { opacity: 0; transform: translateY(26px); }
@@ -299,10 +303,14 @@
 .cin-voyage-body {
   position: absolute; inset: 0; z-index: 3;
   display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
+  align-items: center; justify-content: safe center;
   text-align: center; padding: 12vh 14% 12vh; gap: 24px;
   opacity: 0;
   transition: opacity 2s ease;
+  overflow-y: auto;
+  /* safe center + scroll: content taller than the screen must stay reachable.
+     Plain `center` pushes overflow out of both ends and the top cannot be
+     scrolled back to, which hid the forward button on short windows. */
 }
 .cin-voyage-body.visible { opacity: 1; }
 

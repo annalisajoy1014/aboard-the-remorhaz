@@ -14,7 +14,7 @@
 }
 .game-area {
   display: flex; align-items: stretch;
-  width: min(92vw, 1200px); height: min(76vh, 680px);
+  width: min(97vw, 1780px); height: min(93vh, 1060px);
   box-shadow: 0 30px 80px rgba(0,0,0,0.6);
 }
 .game-panel {
@@ -25,9 +25,13 @@
 .screen {
   position: absolute; inset: 0;
   display: none; flex-direction: column;
-  align-items: center; justify-content: center;
+  align-items: center; justify-content: safe center;
   gap: 16px; padding: 28px;
   background: linear-gradient(to bottom, oklch(0.13 0.03 45), oklch(0.09 0.02 40));
+  overflow-y: auto;
+  /* safe center + scroll: content taller than the screen must stay reachable.
+     Plain `center` pushes overflow out of both ends and the top cannot be
+     scrolled back to, which hid the forward button on short windows. */
 }
 .screen.active { display: flex; }
 
@@ -86,9 +90,13 @@
 /* ── HIMMSELK OVERLAY ── */
 .himmselk-overlay {
   position: absolute; inset: 0; z-index: 20;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  display: flex; flex-direction: column; align-items: center; justify-content: safe center;
   gap: 14px; background: rgba(3,6,14,0.9);
   opacity: 0; pointer-events: none; transition: opacity 0.55s;
+  overflow-y: auto;
+  /* safe center + scroll: content taller than the screen must stay reachable.
+     Plain `center` pushes overflow out of both ends and the top cannot be
+     scrolled back to, which hid the forward button on short windows. */
 }
 .himmselk-overlay.visible { opacity: 1; pointer-events: auto; }
 .himmselk-name { font-family: "IM Fell English SC", serif; font-size: 20px; letter-spacing: 0.2em; color: #e0f0ff; text-shadow: 0 0 24px rgba(160,220,255,0.9); }
@@ -1245,7 +1253,8 @@ function showResult() {
   }
 
   document.getElementById("toHubBtn").addEventListener("click", () => { _navigateTo("index.html"); });
-  document.getElementById("retryBtn").addEventListener("click", () => { _navigateTo(window.location.href); });
+  Remorhaz.offerRetry(document.getElementById("retryBtn"), "navigation",
+                      () => _navigateTo(window.location.href));
 }
 
 })();

@@ -15,7 +15,7 @@
 }
 .game-area {
   display: flex; align-items: stretch;
-  width: min(92vw, 1200px); height: min(78vh, 700px);
+  width: min(97vw, 1780px); height: min(93vh, 1060px);
   box-shadow: 0 30px 80px rgba(0,0,0,0.6);
 }
 .game-panel {
@@ -26,9 +26,13 @@
 .screen {
   position: absolute; inset: 0;
   display: none; flex-direction: column;
-  align-items: center; justify-content: center;
+  align-items: center; justify-content: safe center;
   gap: 18px; padding: 32px;
   background: linear-gradient(to bottom, oklch(0.10 0.06 230), oklch(0.07 0.04 230));
+  overflow-y: auto;
+  /* safe center + scroll: content taller than the screen must stay reachable.
+     Plain `center` pushes overflow out of both ends and the top cannot be
+     scrolled back to, which hid the forward button on short windows. */
 }
 .screen.active { display: flex; }
 
@@ -176,8 +180,12 @@
 .cin-ice {
   position: fixed; inset: 0; z-index: 60;
   background: linear-gradient(180deg, oklch(0.08 0.04 230) 0%, oklch(0.12 0.06 220) 60%, oklch(0.16 0.05 200) 100%);
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  display: flex; flex-direction: column; align-items: center; justify-content: safe center;
   gap: 20px; opacity: 0; pointer-events: none; transition: opacity 0.8s;
+  overflow-y: auto;
+  /* safe center + scroll: content taller than the screen must stay reachable.
+     Plain `center` pushes overflow out of both ends and the top cannot be
+     scrolled back to, which hid the forward button on short windows. */
 }
 .cin-ice.visible { opacity: 1; pointer-events: auto; }
 .cin-ice-glyph { font-size: 72px; filter: drop-shadow(0 0 32px rgba(160,230,255,0.7)); animation: iceFloat 3s ease-in-out infinite; }

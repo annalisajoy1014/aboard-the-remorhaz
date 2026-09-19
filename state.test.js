@@ -238,5 +238,21 @@ eq(day8({ repairDayRequired: true, refishRequired: true, recookRequired: true },
 });
 
 
+/* ===== retry budget: one second attempt, then the result stands ===== */
+store = {}; setState({ currentDay: 1 });
+eq(R.retriesLeft('fishing'), 1, 'a scene starts with one retry');
+eq(R.spendRetry('fishing'), true, 'the first retry is granted');
+eq(R.retriesLeft('fishing'), 0, 'and is the only one');
+eq(R.spendRetry('fishing'), false, 'a second retry is refused');
+
+// The budget lives in the save, because reloading the page WAS the retry.
+eq(JSON.parse(store.remorhaz)['retry:fishing:1'], 1, 'the spend is persisted');
+eq(R.retriesLeft('fishing'), 0, 'and survives a re-read');
+
+// Scenes and days are budgeted separately.
+eq(R.retriesLeft('cooking'), 1, 'a different scene has its own budget');
+eq(R.retriesLeft('fishing', 4), 1, 'a different day has its own budget');
+
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail?1:0);
