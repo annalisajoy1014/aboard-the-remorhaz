@@ -369,3 +369,93 @@ html .result-btn,
 html .end-btn,
 html .back-btn          { font-size: 15px; letter-spacing: 0.16em; }
 html .btn-begin         { font-size: 17px; padding: 14px 34px; }
+
+/* ── THE COACH BAR ────────────────────────────────────────────────────
+   One instruction surface for all eight minigames, built by coach.js so no
+   page carries its own markup and the eight cannot drift apart again.
+
+   Placed along the bottom edge, where a player's eye goes for controls and
+   where it sits clear of the play area rather than over it. It states the
+   verb first, as a chip, then the action — "CLICK · Haul the moment they
+   gather" — and it changes with the scene instead of being read once on a
+   splash and forgotten. */
+.coach-bar {
+  /* 210 clears the full-screen cinematics (weatherstorm's .cin-storm and
+     seabattle's .cin-battle both sit at 200) while staying under the end
+     screens at 300, so a scene that forgets to call Coach.hide() still cannot
+     float the bar over its own result card. Both pages had independently
+     patched this locally to the same number; it belongs here instead. */
+  position: fixed; z-index: 210;
+  left: 50%; bottom: 18px; transform: translateX(-50%) translateY(10px);
+  display: flex; align-items: center; gap: 14px;
+  max-width: min(94vw, 820px);
+  padding: 12px 24px 12px 14px;
+  background: linear-gradient(180deg, rgba(10,15,22,0.96), rgba(5,8,13,0.97));
+  border: 1px solid color-mix(in oklch, var(--lamp) 38%, transparent);
+  border-radius: 999px;
+  box-shadow: 0 10px 34px rgba(0,0,0,0.66);
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.25s ease, transform 0.25s ease, border-color 0.25s ease;
+}
+.coach-bar.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+.coach-chip {
+  flex: 0 0 auto;
+  font-family: "IM Fell English SC", serif;
+  font-size: 14px; letter-spacing: 0.16em;
+  padding: 7px 15px; border-radius: 999px;
+  color: #0d1017; background: var(--lamp);
+  white-space: nowrap;
+}
+/* One colour per verb, held to the same meaning everywhere. Colour is never
+   the only signal — the chip always spells the verb out as well. */
+.coach-chip[data-kind="hold"]  { background: var(--lamp-warm); }
+.coach-chip[data-kind="key"]   { background: var(--ice); }
+.coach-chip[data-kind="drag"]  { background: color-mix(in oklch, var(--aurora) 70%, white); }
+.coach-chip[data-kind="watch"] { background: var(--paper-dim); }
+
+.coach-text {
+  font-family: "IM Fell English", serif;
+  font-size: 19px; line-height: 1.35;
+  color: #efe6d2;                       /* ~15:1 on the bar */
+}
+
+/* Immediate confirmation. Green reads yes and red reads no, but the words
+   change too, so the meaning survives without colour. */
+.coach-bar.is-hit  { border-color: oklch(0.72 0.17 145); box-shadow: 0 0 30px oklch(0.62 0.16 145 / 0.5), 0 10px 34px rgba(0,0,0,0.66); }
+.coach-bar.is-miss { border-color: oklch(0.62 0.19 25);  box-shadow: 0 0 30px oklch(0.55 0.18 25 / 0.5),  0 10px 34px rgba(0,0,0,0.66); }
+.coach-bar.is-hit  .coach-text { color: oklch(0.88 0.14 145); }
+.coach-bar.is-miss .coach-text { color: oklch(0.82 0.13 25); }
+
+/* ── THE TARGET RING ──
+   Deliberately the same gold pulse the hub puts on the crew member whose turn
+   it is. The player learns "gold ring means act here" on the first screen of
+   the game; it keeps meaning that in every scene after. */
+.coach-target {
+  outline: 3px solid var(--lamp);
+  outline-offset: 4px;
+  border-radius: 5px;
+  animation: coachPulse 1.6s ease-in-out infinite;
+}
+@keyframes coachPulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklch, var(--lamp) 50%, transparent),
+                         0 0 16px color-mix(in oklch, var(--lamp) 30%, transparent); }
+  50%      { box-shadow: 0 0 0 12px transparent,
+                         0 0 34px color-mix(in oklch, var(--lamp) 62%, transparent); }
+}
+
+/* The ring is an instruction, not decoration, so it survives motion removal:
+   it stops moving and holds at full strength. */
+@media (prefers-reduced-motion: reduce) {
+  .coach-target {
+    animation-name: none;
+    box-shadow: 0 0 0 6px color-mix(in oklch, var(--lamp) 34%, transparent),
+                0 0 26px color-mix(in oklch, var(--lamp) 45%, transparent);
+  }
+}
+
+@media (max-width: 760px) {
+  html .coach-bar  { bottom: 10px; padding: 9px 16px 9px 10px; gap: 10px; }
+  html .coach-text { font-size: 16px; }
+  html .coach-chip { font-size: 12px; padding: 6px 11px; letter-spacing: 0.12em; }
+}

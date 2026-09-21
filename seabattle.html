@@ -6,6 +6,7 @@
 <title>Day 6 · Sea Monster Battle — Aboard the Remorhaz</title>
 <link rel="stylesheet" href="shared.css">
 <script src="state.js"></script>
+<script src="coach.js"></script>
 <style>
 /* ── BATTLE STAGE ── */
 .stage {
@@ -666,6 +667,53 @@
   color: var(--paper-deep);
 }
 
+/* ── THE INSTRUCTION BAR ON THIS SCENE ──
+   The shared bar lives on the bottom edge of the screen, which on every other
+   scene is empty air. Here it is the HUD. Lift the bar clear of the action
+   panel rather than letting it sit on top of the buttons it is describing.
+   Nothing about the bar itself is redefined — only where this page puts it.
+   (Clearing the opening cinematic is no longer done here: the shared bar sits
+   at z-index 210 for every scene, above .cin-battle and below .end-screen.) */
+/* Only once the HUD is actually on screen. During the cinematics and the
+   tutorial the deck is behind a full-screen card, and a bar lifted 202px would
+   sit across the middle of it — over the very button it is ringing. */
+@media (min-width: 861px) {
+  body.in-combat #coachBar { bottom: 202px; max-width: min(60vw, 620px); }
+}
+/* On a phone the whole page scrolls and the HUD is the last thing on it, so the
+   bar would cover End Turn. Leave a bar's worth of deck under it. The narrow
+   rules further down set `padding` whole, so this has to outrank them rather
+   than merely follow them. */
+@media (max-width: 860px) {
+  html .battle-hud { padding-bottom: 96px; }
+}
+
+/* ── TARGETABLE REVENANTS ──
+   While it is your turn and your action is unspent, every living Revenant can
+   be clicked. The dashed ring says which tokens those are; the bar says in
+   words what clicking one does, so the ring is never the only signal. It is
+   deliberately NOT gold: gold stays reserved for "act here next", and the red
+   ring stays "this one is your target". */
+.token-enemy.targetable .token-img {
+  outline: 2px dashed var(--ice);
+  outline-offset: 3px;
+  animation: targetable-pulse 1.6s ease-in-out infinite;
+}
+.token-enemy.targetable.selected-target .token-img {
+  outline: none;
+  animation: none;
+}
+@keyframes targetable-pulse {
+  0%, 100% { outline-color: color-mix(in oklch, var(--ice) 45%, transparent); }
+  50%      { outline-color: var(--ice); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .token-enemy.targetable .token-img {
+    animation-name: none;
+    outline-color: var(--ice);
+  }
+}
+
 /* ── NARROW SCREENS ──
    The stage is one fixed full-screen layer: the HUD floats over the bottom of the map
    and the initiative panel over its right edge. On a phone those two cover the deck
@@ -1031,6 +1079,80 @@ function _navigateTo(url) {
 
   function currentActor() { return initOrder[initIndex]; }
 
+  /* ── THE INSTRUCTION BAR ──
+     This is the most complicated scene in the game: turn order, a choice of
+     actions, a target to pick, and two sets of turns the player only watches.
+     So the bar is not written at a handful of scattered places — it is derived
+     from the state by coachPhase(), which is called at every transition. The
+     board and the instruction can then never disagree about whose turn it is or
+     what is left to do.
+
+     Three player-turn states, in the order they happen:
+       no target yet   → click a Revenant
+       target chosen   → choose an action
+       action spent    → End Turn
+     Everything else (crew turn, enemy turn, boarding) is a wait, and says so. */
+  let battleOver = false;      // a result card owns the screen; the bar stands down
+  let firstPlayerTurn = true;  // movement is taught on the first turn, just in time
+  let coachTimer = null;
+  let lastFlashAt = 0;
+
+  function clearCoachRefresh() {
+    if (coachTimer) { clearTimeout(coachTimer); coachTimer = null; }
+  }
+  function coachRefreshSoon() {
+    clearCoachRefresh();
+    coachTimer = setTimeout(() => { coachTimer = null; coachPhase(); }, 1250);
+  }
+  /* Every hit/miss stamps the clock. A result the player has just been shown —
+     "your swing misses", "a Revenant hits you for 14" — holds the bar for a
+     beat, so the next instruction cannot land on top of the answer they earned. */
+  const FLASH_HOLD = 1250;
+  function flashed() { lastFlashAt = Date.now(); }
+  function holdingResult() { return (Date.now() - lastFlashAt) < FLASH_HOLD; }
+
+  /* Which tokens are clickable right now. */
+  function markTargetable(on) {
+    enemies.forEach(e => {
+      const el = tokenEls[e.id];
+      if (el) el.classList.toggle("targetable", !!on && !e.dead);
+    });
+  }
+
+  function coachPhase() {
+    clearCoachRefresh();
+    if (battleOver || !combatStarted) return;
+
+    const mine = isPlayerTurn() && !turnInProgress;
+    markTargetable(mine && !actionUsed);
+    if (!mine) { Coach.untarget(); return; }
+
+    // Ring the next thing immediately either way; only the words wait.
+    if (actionUsed) {
+      Coach.target("#end-turn-btn");
+      if (holdingResult()) { coachRefreshSoon(); return; }
+      Coach.say("Action spent. Click End Turn.", "CLICK");
+    } else if (!selectedTarget) {
+      Coach.untarget();
+      if (holdingResult()) { coachRefreshSoon(); return; }
+      if (firstPlayerTurn) Coach.say("Drag your token to move, then click a Revenant.", "DRAG");
+      else                 Coach.say("Your turn. Click a Revenant to target it.", "CLICK");
+    } else {
+      Coach.target("#action-btns");
+      if (holdingResult()) { coachRefreshSoon(); return; }
+      Coach.say("Target set. Now choose an action.", "CLICK");
+    }
+  }
+
+  /* One sentence shape for every attack, whichever character is swinging — and
+     it names the kill, because a Revenant dropping is the thing the player most
+     needs to see happen. */
+  function attackResultLine(phrase, target, dmg) {
+    return target.dead
+      ? target.label + " " + enemyOrdinal(target) + " goes down!"
+      : phrase + " — " + dmg + " damage.";
+  }
+
   /* ── TOKEN DOM ── */
   const tokenLayer = document.getElementById("token-layer");
   const tokenEls = {};
@@ -1072,7 +1194,10 @@ function _navigateTo(url) {
 
     const lbl = document.createElement("div");
     lbl.className = "token-label";
-    lbl.textContent = entity.label;
+    // The Revenants all carry the one label, but the target line and the number
+    // keys both speak of "Revenant 3". Number the tokens so the player can match
+    // what they are told to what is on the deck.
+    lbl.textContent = isEnemy ? entity.label + " " + enemyOrdinal(entity) : entity.label;
     div.appendChild(lbl);
 
     if (isEnemy) {
@@ -1196,6 +1321,11 @@ function _navigateTo(url) {
       const snapX = snapped.x, snapY = snapped.y;
       if (!isOnShip(snapX, snapY)) {
         overboardYell(player.x, player.y);
+        // The token springing back is the only answer the player used to get for
+        // a move that was never allowed. Say why, then put the step back up.
+        flashed();
+        Coach.miss("That square is off the ship. Stay on deck.");
+        coachRefreshSoon();
         player.x = lastValidX;
         player.y = lastValidY;
       } else {
@@ -1304,6 +1434,10 @@ function _navigateTo(url) {
       playerTok.style.top  = player.y + "%";
     } else {
       overboardYell(snapped.x, snapped.y);
+      // Same answer for the same refusal, however the player asked for it.
+      flashed();
+      Coach.miss("That square is off the ship. Stay on deck.");
+      coachRefreshSoon();
     }
   });
 
@@ -1313,16 +1447,41 @@ function _navigateTo(url) {
   // and the number keys below would have nothing to refer to.
   function enemyOrdinal(entity) { return enemies.indexOf(entity) + 1; }
 
+  /* The hint quotes the target's health. Written once at selection it went
+     stale the instant you hit the thing — 88/88 under a Revenant you had just
+     taken twenty-six off. Same line, same shape, kept current instead. */
+  function updateTargetHint() {
+    if (!selectedTarget) return;
+    const n = enemyOrdinal(selectedTarget);
+    // Nothing more than the fact here: this line only ever reads "down" on the
+    // blow that killed it, and the bar is already saying what to do next.
+    document.getElementById("target-hint").textContent = selectedTarget.dead
+      ? selectedTarget.label + " " + n + " is down."
+      : "Target: " + selectedTarget.label + " " + n + " · " +
+        Math.max(0, selectedTarget.hp) + "/" + selectedTarget.maxHp + " HP";
+  }
+
   function selectTarget(entity, el) {
-    if (!combatStarted || !isPlayerTurn() || entity.dead || turnInProgress) return;
+    if (!combatStarted || battleOver || entity.dead) return;
+    // Clicking a Revenant while the Revenants are the ones acting used to do
+    // nothing at all, which is indistinguishable from a broken game. Same gate
+    // as before — it just answers now.
+    if (!isPlayerTurn() || turnInProgress) {
+      flashed();
+      Coach.miss("Not your turn yet. Wait for YOUR TURN.");
+      return;
+    }
     // Clear old
     if (selectedTarget) {
       tokenEls[selectedTarget.id]?.classList.remove("selected-target");
     }
     selectedTarget = entity;
     el.classList.add("selected-target");
-    document.getElementById("target-hint").textContent = "Target: " + entity.label + " " + enemyOrdinal(entity) + " · " + entity.hp + "/" + entity.maxHp + " HP";
+    updateTargetHint();
     refreshActionBtns();
+    // The ring moves off the deck and onto the actions: the target is settled,
+    // the next thing to do is pick what you do to it.
+    coachPhase();
   }
 
   /* Targeting used to be mouse-only while every offensive action refuses to run without
@@ -1380,7 +1539,10 @@ function _navigateTo(url) {
       // tokens carry an inline opacity:1 from the boarding fade-in, which would beat
       // .token.dead, so clear it and let the class do the dimming.
       el.style.opacity = "";
+      // Nothing dead is clickable, so nothing dead keeps the clickable ring.
+      el.classList.remove("targetable");
     }
+    if (entity === selectedTarget) updateTargetHint();
   }
 
   function addLog(text, cls) {
@@ -1407,9 +1569,12 @@ function _navigateTo(url) {
     list.innerHTML = initOrder.map((e, i) => {
       const isActive = (e === actor);
       const isEnemy = enemies.includes(e);
+      // Numbered here too, for the same reason as on the tokens: four rows all
+      // reading "Revenant" tell you nothing about which one is acting.
+      const name = isEnemy ? e.label + " " + enemyOrdinal(e) : e.label;
       return `<div class="init-entry${isActive ? " active" : ""}${e.dead ? " dead" : ""}${isEnemy ? " enemy" : ""}">
         <div class="init-dot"></div>
-        ${e.label}${e.dead ? " †" : ""}
+        ${name}${e.dead ? " †" : ""}
       </div>`;
     }).join("");
   }
@@ -1440,8 +1605,11 @@ function _navigateTo(url) {
     const heldAction = hadFocus ? document.activeElement.dataset.action : null;
     container.innerHTML = CD.actions.map(a => {
       const disabled = actionUsed || (a.needsEnemy && !selectedTarget);
+      // Gold means "act here". It must never sit on a button that cannot be
+      // pressed yet, or the one thing the player is being taught stops being true.
+      const glow = disabled ? "" : glowClass;
       return `<div class="action-btn-wrap">
-        <button class="action-btn${actionUsed ? " btn-used" : ""}${glowClass}" data-action="${a.id}" aria-describedby="tip-${a.id}" ${disabled ? "disabled" : ""}>
+        <button class="action-btn${actionUsed ? " btn-used" : ""}${glow}" data-action="${a.id}" aria-describedby="tip-${a.id}" ${disabled ? "disabled" : ""}>
           ${a.label}
         </button>
         <div class="action-tip" id="tip-${a.id}" role="tooltip">${a.desc}</div>
@@ -1476,18 +1644,27 @@ function _navigateTo(url) {
       case "lucy":  acted = doLucyAction(actionId);  break;
       case "irene": acted = doIreneAction(actionId); break;
     }
-    if (!acted) return;
+    // A refused action (no target) has already said so in the bar — put the
+    // standing instruction back once the player has read it.
+    if (!acted) { coachRefreshSoon(); return; }
 
     actionUsed = true;
     refreshActionBtns();
     document.getElementById("end-turn-btn").disabled = false;
     refreshHud();
+    // The ring moves to End Turn now; the words follow once the result has had
+    // its moment on the bar.
+    coachPhase();
     checkVictory();
   }
 
   function doRelytAction(id) {
     if (id === "attack") {
-      if (!selectedTarget || selectedTarget.dead) { addLog("Select an enemy to target first.", "log-miss"); return false; }
+      if (!selectedTarget || selectedTarget.dead) {
+        addLog("Select an enemy to target first.", "log-miss");
+        flashed(); Coach.miss("Click a Revenant first, then attack.");
+        return false;
+      }
       const hit = roll(0.70 * trainingMult);
       if (hit) {
         const dmg = randRange(23, 37);
@@ -1497,25 +1674,33 @@ function _navigateTo(url) {
         showSpellBlast(tokenEls[selectedTarget.id]);
         updateTokenHp(selectedTarget);
         addLog(`${CD.label} blasts ${selectedTarget.label} — ${final} dmg!`, "log-hit");
+        flashed(); Coach.hit(attackResultLine("Your blast hits", selectedTarget, final));
         player.channelActive = false;
       } else {
         showMissFloat(tokenEls[selectedTarget.id]);
         addLog(`${CD.label}'s spell arcs wide — miss.`, "log-miss");
+        flashed(); Coach.miss("Your blast misses.");
         maybeHaldorTaunt();
       }
       return true;
     } else if (id === "buff") {
       const alive = crew.filter(c => !c.dead);
-      if (alive.length === 0) { addLog("No crew left to empower.", "log-miss"); return false; }
+      if (alive.length === 0) {
+        addLog("No crew left to empower.", "log-miss");
+        flashed(); Coach.miss("No crew left to empower. Pick another action.");
+        return false;
+      }
       const target = alive[Math.floor(Math.random() * alive.length)];
       target.dmgBonus = 0.5;
       addLog(`${CD.label} empowers ${target.label} — next strike hits harder!`, "log-hit");
+      flashed(); Coach.hit("You empower " + target.label + ".");
       return true;
     } else if (id === "heal") {
       const gain = randRange(14, 22);
       player.hp = Math.min(player.maxHp, player.hp + gain);
       updateTokenHp(player);
       addLog(`${CD.label} draws on healing magic — +${gain} HP.`, "log-hit");
+      flashed(); Coach.hit("You heal " + gain + " HP.");
       return true;
     }
     return false;
@@ -1523,7 +1708,11 @@ function _navigateTo(url) {
 
   function doLucyAction(id) {
     if (id === "attack") {
-      if (!selectedTarget || selectedTarget.dead) { addLog("Select an enemy to target first.", "log-miss"); return false; }
+      if (!selectedTarget || selectedTarget.dead) {
+        addLog("Select an enemy to target first.", "log-miss");
+        flashed(); Coach.miss("Click a Revenant first, then attack.");
+        return false;
+      }
       const hit = roll(0.50 * trainingMult);
       if (hit) {
         const dmg = randRange(18, 28);
@@ -1532,9 +1721,11 @@ function _navigateTo(url) {
         showSlashEffect(tokenEls[selectedTarget.id]);
         updateTokenHp(selectedTarget);
         addLog(`${CD.label} strikes ${selectedTarget.label} — ${dmg} dmg!`, "log-hit");
+        flashed(); Coach.hit(attackResultLine("Your strike lands", selectedTarget, dmg));
       } else {
         showMissFloat(tokenEls[selectedTarget.id]);
         addLog(`${CD.label}'s strike deflects off the Revenant — miss.`, "log-miss");
+        flashed(); Coach.miss("Your strike misses.");
         maybeHaldorTaunt();
       }
       return true;
@@ -1543,17 +1734,24 @@ function _navigateTo(url) {
       // instead, which is a dodge, and a dodge does nothing about the drag overboard.
       player.defense = 0.5;
       addLog(`${CD.label} braces — incoming damage halved this round.`, "log-hit");
+      flashed(); Coach.hit("You brace. Damage halved this round.");
       return true;
     } else if (id === "stun") {
-      if (!selectedTarget || selectedTarget.dead) { addLog("Select an enemy to target first.", "log-miss"); return false; }
+      if (!selectedTarget || selectedTarget.dead) {
+        addLog("Select an enemy to target first.", "log-miss");
+        flashed(); Coach.miss("Click a Revenant first, then stun it.");
+        return false;
+      }
       const hit = roll(0.75 * trainingMult);
       if (hit) {
         selectedTarget.stunned = true;
         selectedTarget.stunnedUntilRound = round + 1;
         addLog(`${CD.label} locks down ${selectedTarget.label} — it cannot move or act until next round!`, "log-crit");
+        flashed(); Coach.hit("Stunned. It loses its next turn.");
       } else {
         showMissFloat(tokenEls[selectedTarget.id]);
         addLog(`${CD.label}'s stun attempt fails — the Revenant surges forward.`, "log-miss");
+        flashed(); Coach.miss("Your stun fails.");
         maybeHaldorTaunt();
       }
       return true;
@@ -1563,7 +1761,11 @@ function _navigateTo(url) {
 
   function doIreneAction(id) {
     if (id === "attack") {
-      if (!selectedTarget || selectedTarget.dead) { addLog("Select an enemy to target first.", "log-miss"); return false; }
+      if (!selectedTarget || selectedTarget.dead) {
+        addLog("Select an enemy to target first.", "log-miss");
+        flashed(); Coach.miss("Click a Revenant first, then attack.");
+        return false;
+      }
       const hit = roll(0.50 * trainingMult + player.hitBonus);
       if (hit) {
         let dmg = randRange(18, 28);
@@ -1574,9 +1776,11 @@ function _navigateTo(url) {
         showImpactEffect(tokenEls[selectedTarget.id]);
         updateTokenHp(selectedTarget);
         addLog(`${CD.label} hammers ${selectedTarget.label} — ${dmg} dmg!`, "log-hit");
+        flashed(); Coach.hit(attackResultLine("Your swing lands", selectedTarget, dmg));
       } else {
         showMissFloat(tokenEls[selectedTarget.id]);
         addLog(`${CD.label}'s swing crashes through water — miss.`, "log-miss");
+        flashed(); Coach.miss("Your swing misses.");
         maybeHaldorTaunt();
       }
       // Spent on the swing, hit or miss — the same way the crew spend theirs.
@@ -1586,10 +1790,12 @@ function _navigateTo(url) {
       // "all living allies" has to include the one doing the shouting.
       [player, ...crew].filter(c => !c.dead).forEach(c => { c.hitBonus = 0.2; c.dmgBonus = 0.2; });
       addLog(`${CD.label} ROARS — all crew gain +hit and +dmg this round!`, "log-crit");
+      flashed(); Coach.hit("The crew are fired up.");
       return true;
     } else if (id === "channel") {
       player.channelActive = true;
       addLog(`${CD.label} channels the storm — next attack deals +50% dmg!`, "log-hit");
+      flashed(); Coach.hit("Storm charged. Your next attack hits harder.");
       return true;
     }
     return false;
@@ -1982,12 +2188,18 @@ function _navigateTo(url) {
           updateTokenHp(player);
           refreshHud();
           addLog(`${enemy.label} constricts ${CD.label} — ${dmg} dmg!`, "log-enemy");
+          // The player is watching this turn, not playing it — so the bar has to
+          // tell them what was just done to them, and by which Revenant.
+          flashed();
+          Coach.miss(enemy.label + " " + enemyOrdinal(enemy) + " hits you — " + dmg + " damage.");
           if (player.hp <= 0) {
             player.dead = true;
             tokenEls.player?.classList.add("dead");
           }
         } else {
           addLog(`${enemy.label} lunges at ${CD.label} — deflected!`, "log-miss");
+          flashed();
+          Coach.hit("You deflect " + enemy.label + " " + enemyOrdinal(enemy) + ".");
         }
       }
     } else {
@@ -2008,6 +2220,9 @@ function _navigateTo(url) {
   /* ── DRAG OVERBOARD ── */
   async function doDragAttempt(enemy) {
     addLog(`${enemy.label} surges — trying to drag ${CD.label} over the side!`, "log-enemy");
+    // No chip: there is no verb here. Nothing the player presses changes this —
+    // it is resolved for them — and the bar should not imply otherwise.
+    Coach.say(enemy.label + " " + enemyOrdinal(enemy) + " has hold of you.");
     showWaterEffect(tokenEls["player"]);
     await delay(680);
 
@@ -2020,6 +2235,7 @@ function _navigateTo(url) {
     const dexSave = dexRoll >= DC;
 
     if (strSave || dexSave) {
+      flashed(); Coach.hit("You break the grip and stay aboard.");
       // Player survives — nudge token toward enemy then snap back
       const pEl = tokenEls["player"];
       if (pEl) {
@@ -2064,6 +2280,10 @@ function _navigateTo(url) {
       updateTokenHp(player);
       refreshHud();
       addLog(`${enemy.label} hauls ${CD.label} bodily to the rail — ${dmg} dmg!`, "log-enemy");
+      flashed();
+      Coach.miss(player.hp > 0
+        ? "Hauled to the rail — " + dmg + " damage. You hold on."
+        : "Hauled over the side — " + dmg + " damage.");
 
       if (player.hp > 0) {
         const heldMsgs = {
@@ -2154,6 +2374,8 @@ function _navigateTo(url) {
       document.getElementById("target-hint").textContent = "Click an enemy token to target it, or press the bracket keys [ and ] to cycle targets — then choose an action.";
       selectedTarget = null;
       refreshActionBtns();
+      // Your turn, stated as the one thing to do next.
+      coachPhase();
     } else {
       turnInProgress = false;
       advanceTurn();
@@ -2162,6 +2384,12 @@ function _navigateTo(url) {
 
   document.getElementById("end-turn-btn").addEventListener("click", () => {
     if (!isPlayerTurn() || turnInProgress) return;
+    // Movement was taught on the first turn; from here the bar leads with the
+    // step that has to happen.
+    firstPlayerTurn = false;
+    clearCoachRefresh();
+    Coach.untarget();
+    markTargetable(false);
     playerTok.classList.remove("active-turn");
     if (selectedTarget) {
       tokenEls[selectedTarget.id]?.classList.remove("selected-target");
@@ -2183,7 +2411,21 @@ function _navigateTo(url) {
     // screen reader re-reads it. advanceTurn says "CREW TURN" once per crew member and
     // "ENEMY TURN" once per Revenant, so unguarded this drowns out the battle log.
     const el = document.getElementById("hud-phase-label");
-    if (el.textContent !== text) el.textContent = text;
+    if (el.textContent === text) return;
+    el.textContent = text;
+    // The bar changes with the phase, on the same guard: one line per phase, not
+    // one per actor, or six Revenants would rewrite it six times a round. The
+    // player's own turn is richer than a single line, so coachPhase() owns that
+    // one and is called where the turn is actually set up.
+    if (battleOver || text === "YOUR TURN") return;
+    clearCoachRefresh();
+    markTargetable(false);
+    Coach.untarget();
+    if (text === "ENEMY TURN") {
+      Coach.say("The Revenants are attacking. Wait for your turn.", "WAIT");
+    } else if (text === "CREW TURN") {
+      Coach.say("Your crew are fighting. Wait for your turn.", "WAIT");
+    }
   }
 
   /* ── WIN/LOSE ── */
@@ -2202,6 +2444,16 @@ function _navigateTo(url) {
   let roundsToWin = round;
 
   function showVictory() {
+    // The battle is decided: no further instruction is true, and the card is
+    // about to own the screen.
+    battleOver = true;
+    clearCoachRefresh();
+    markTargetable(false);
+    // And drop the ring with them. coachPhase() put gold on End Turn the instant
+    // the action was spent, and the killing blow arrives a line later — without
+    // this it pulses on a button nobody can press for the beat before the card
+    // rises, which is the one thing the ring is never allowed to mean.
+    Coach.untarget();
     roundsToWin = round;
     const aliveEnemiesKilled = NUM_ENEMIES;
     const crewAlive = crew.filter(c => !c.dead).length;
@@ -2234,6 +2486,9 @@ function _navigateTo(url) {
     Remorhaz.recordWork("ursula", 6, verdictTier >= 2 ? 1 : (verdictTier === 1 ? 0 : -1));
 
     setTimeout(() => {
+      // Hidden with the card, not before it — the last result stays readable
+      // for the beat between the killing blow and the screen changing.
+      Coach.hide();
       const el = document.getElementById("screen-victory");
       el.classList.add("visible");
       el.inert = false;
@@ -2242,6 +2497,10 @@ function _navigateTo(url) {
   }
 
   function showDefeat() {
+    battleOver = true;
+    clearCoachRefresh();
+    markTargetable(false);
+    Coach.untarget();
     try {
       const ex = JSON.parse(localStorage.getItem("remorhaz") || "{}");
       localStorage.setItem("remorhaz", JSON.stringify({ ...ex, seaBattleTutorialDone: true }));
@@ -2250,6 +2509,7 @@ function _navigateTo(url) {
     // button below can still earn Day 6 back.
     Remorhaz.recordWork("ursula", 6, -1);
     setTimeout(() => {
+      Coach.hide();
       const el = document.getElementById("screen-defeat");
       el.classList.add("visible");
       el.inert = false;
@@ -2303,6 +2563,8 @@ function _navigateTo(url) {
     overlay.classList.add("visible");
     overlay.inert = false;
     document.getElementById("tutorial-close").focus();
+    Coach.say("Read how to fight, then click I'm Ready.", "CLICK");
+    Coach.target("#tutorial-close");
   }
   document.getElementById("tutorial-close").addEventListener("click", () => {
     tutorialShown = true;
@@ -2318,6 +2580,8 @@ function _navigateTo(url) {
     el.classList.add("visible");
     el.inert = false;
     document.getElementById("alert-next").focus();
+    Coach.say("Click Understood to go on.", "CLICK");
+    Coach.target("#alert-next");
   }
   document.getElementById("alert-next").addEventListener("click", () => {
     const el = document.getElementById("alert-overlay");
@@ -2341,6 +2605,10 @@ function _navigateTo(url) {
     ursula.classList.add("visible");
     ursula.inert = false;
     document.getElementById("cin-ursula-next").focus();
+    // The gold ring starts doing its one job on the very first screen: it is on
+    // the thing to click, and it will be on the thing to click all battle.
+    Coach.say("Click Battle Stations to go on.", "CLICK");
+    Coach.target("#cin-ursula-next");
 
     document.getElementById("cin-ursula-next").addEventListener("click", () => {
       ursula.inert = true;
@@ -2352,6 +2620,8 @@ function _navigateTo(url) {
         haldor.classList.add("visible");
         haldor.inert = false;
         document.getElementById("cin-haldor-next").focus();
+        Coach.say("Click To the Deck to go on.", "CLICK");
+        Coach.target("#cin-haldor-next");
         document.getElementById("cin-haldor-next").addEventListener("click", () => {
           haldor.inert = true;
           haldor.style.transition = "opacity 0.5s ease";
@@ -2366,6 +2636,8 @@ function _navigateTo(url) {
   }
 
   function startCombat() {
+    // The HUD owns the bottom of the screen from here, so the bar moves up off it.
+    document.body.classList.add("in-combat");
     refreshHud();
     // Scroll viewport to show mid-ship where enemies board
     requestAnimationFrame(() => {
@@ -2374,6 +2646,11 @@ function _navigateTo(url) {
       if (wH && vH) mapViewport.scrollTop = Math.max(0, wH * 0.42 - vH * 0.5);
     });
     addLog("Shapes rise from the deep — the Revenants are boarding!", "log-enemy");
+    // Four seconds of boarding animation in which nothing can be pressed. Say so,
+    // and say what comes after it, so the wait reads as the game working rather
+    // than as the game ignoring you.
+    Coach.untarget();
+    Coach.say("The Revenants are boarding. You act first.", "WAIT");
 
     enemies.forEach((e, i) => {
       const el = tokenEls[e.id];
@@ -2409,6 +2686,7 @@ function _navigateTo(url) {
       document.getElementById("end-turn-btn").disabled = true;
       refreshActionBtns();
       addLog("Battle begins — defend the Remorhaz!", "log-enemy");
+      coachPhase();
     }, animDuration);
   }
 

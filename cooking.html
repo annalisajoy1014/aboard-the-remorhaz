@@ -6,6 +6,7 @@
 <title>Day 1 · Cooking — Aboard the Remorhaz</title>
 <link rel="stylesheet" href="shared.css">
 <script src="state.js"></script>
+<script src="coach.js"></script>
 <style>
 
 /* ── LAYOUT ── */
@@ -34,7 +35,11 @@
      overflows, which would put ENTER THE GALLEY out of reach — so let it scroll
      instead, and keep the top edge reachable where "safe" is understood. */
   justify-content: safe center; overflow-y: auto;
-  gap: 22px; padding: 32px;
+  /* The coach bar is fixed to the bottom of the viewport and this panel runs to
+     93vh, so the last control on a screen — ENTER THE GALLEY, FINISHED
+     SEASONING, PRESENT THE DISH — was sitting behind it. Keep the instruction
+     clear of the thing it is instructing about. */
+  gap: 22px; padding: 32px 32px 96px;
   background: linear-gradient(to bottom, oklch(0.14 0.04 50), oklch(0.10 0.03 45));
 }
 .screen.active { display: flex; }
@@ -165,6 +170,14 @@
 }
 .eel-instruction {
   font-family: "Caveat", cursive; font-size: 18px; color: var(--paper-dim);
+}
+/* The bar under the counter is a five-second countdown and carried no caption at
+   all — a strip of colour draining for no stated reason. Name it. The negative
+   margin pulls it down onto its bar through the screen's 22px gap. */
+.eel-timer-label {
+  font-family: "IM Fell English SC", serif; font-size: 12px;
+  letter-spacing: 0.24em; color: var(--paper-deep);
+  margin-bottom: -16px;
 }
 
 /* ── SCREEN: STAGE 1 – HEAT ── */
@@ -506,7 +519,7 @@ canvas#heatCanvas {
   /* relative, not static: .backdrop is a positioned z-index:0 layer, and a
      static sidebar would paint underneath it. */
   .stage { position: relative; inset: auto; padding: 96px 0 36px; }
-  .screen { position: static; overflow: visible; padding: 26px 14px; }
+  .screen { position: static; overflow: visible; padding: 26px 14px 88px; }
   .screen.active { min-height: 60vh; }
 
   .spice-row { gap: 14px; flex-wrap: wrap; }
@@ -585,7 +598,7 @@ canvas#heatCanvas {
       <!-- STAGE 0: EEL SUBDUE (eel catch only) -->
       <div class="screen" id="screen-eel">
         <div class="screen-title">— BEFORE WE BEGIN —</div>
-        <div class="eel-instruction">It is still alive. Hold it down.</div>
+        <div class="eel-instruction">It is still alive, and it does not mean to stay on this counter.</div>
         <div class="eel-arena" id="eelArena">
           <!-- role=button rather than a real <button>: Enter and Space are handled
                in keydown here, and a native button would fire its own click on top
@@ -594,7 +607,8 @@ canvas#heatCanvas {
                aria-label="The eel" aria-describedby="eelKeyHint">🐍</div>
         </div>
         <div class="eel-counter" id="eelCounter">0 / 5 hits</div>
-        <div class="eel-timer-bar"><div class="eel-timer-fill" id="eelTimerFill"></div></div>
+        <div class="eel-timer-label">TIME LEFT</div>
+        <div class="eel-timer-bar" role="img" aria-label="Time left to subdue the eel"><div class="eel-timer-fill" id="eelTimerFill"></div></div>
         <div class="key-hint" id="eelKeyHint">Keyboard: Enter pins the eel. After each hit, press an arrow key to take hold again.</div>
       </div>
 
@@ -766,6 +780,8 @@ if (!lastCatch) {
     <button class="btn-primary" style="margin-top:18px;" onclick="window._navigateTo('index.html')">← Return to the Ship</button>
   `;
   window._navigateTo = _navigateTo;
+  Coach.say("No catch to cook. Click to head back up on deck.", "CLICK");
+  Coach.target("#screen-intro .btn-primary");
 }
 
 // Per-catch difficulty config
@@ -938,6 +954,13 @@ document.getElementById("instructionLabel").innerHTML =
   Remorhaz.arrow("charisma")  + "Charisma — 15 points a stage · 35 of 48 for proficiency";
 setDialogue(cfg.ingridIntro);
 
+// The galley opens on a skill check with no instruction attached to it, and the
+// button that starts the shift is not on screen yet. Name the one live control.
+if (lastCatch) {
+  Coach.say("Click Read the Room to size up what Ingrid wants.", "CLICK");
+  Coach.target("#btnRollInsight");
+}
+
 // 2nd-person narrative per catch type
 const CATCH_NARRATIVES = {
   1: "You carry the meagre haul below deck, the silver fish barely filling the bucket. Ingrid looks at them for a long moment. She does not look at you.",
@@ -973,6 +996,7 @@ document.getElementById("introBody").textContent = CATCH_NARRATIVES[catchRoll] |
 
   document.getElementById("btnRollInsight").addEventListener("click", function () {
     this.disabled = true;
+    Coach.untarget();
     const roll  = Math.ceil(Math.random() * 10);
     const total = roll + wisMod;
     const pass  = total >= DC;
@@ -991,6 +1015,8 @@ document.getElementById("introBody").textContent = CATCH_NARRATIVES[catchRoll] |
     const verdictEl = document.getElementById("wisckVerdict");
     verdictEl.textContent = pass ? "SUCCESS — DC MET" : "FAILURE — DC MISSED";
     verdictEl.classList.add(pass ? "pass" : "fail");
+    if (pass) Coach.hit("Insight check passed.");
+    else      Coach.miss("Insight check failed.");
 
     setTimeout(() => {
       resEl.textContent = (pass ? WISDOM_SUCCESS : WISDOM_FAILURE)[catchRoll] || (pass ? WISDOM_SUCCESS[3] : WISDOM_FAILURE[3]);
@@ -998,12 +1024,16 @@ document.getElementById("introBody").textContent = CATCH_NARRATIVES[catchRoll] |
 
       setTimeout(() => {
         document.querySelectorAll(".intro-reveal").forEach(el => el.classList.add("show"));
+        // Ringed only once it is visible — the ring draws nothing on a hidden button.
+        Coach.say("Click Enter the Galley to start the shift.", "CLICK");
+        Coach.target("#beginBtn");
       }, 900);
     }, 500);
   });
 })();
 
 document.getElementById("beginBtn").addEventListener("click", () => {
+  Coach.untarget();
   setDialogue(cfg.ingridPre);
   if (catchRoll === 2) {
     goToScreen("screen-eel");
@@ -1036,6 +1066,12 @@ function startEelSubdue() {
   updateEelCounter();
   moveEel();
 
+  // Both the caption above the arena and Ingrid say "hold it down", while the
+  // mechanic is five separate clicks on a target that jumps after each one. This
+  // bar is the only place the actual control is spelled out.
+  Coach.say("Click the eel. Five hits before the bar empties.", "CLICK");
+  Coach.target("#eelBody");
+
   eelTimerInterval = setInterval(() => {
     eelTimeLeft -= 100;
     const pct = Math.max(0, eelTimeLeft / 5000) * 100;
@@ -1061,18 +1097,29 @@ function onEelKey(e) {
     e.preventDefault();
     if (!eelGripped) {
       announce("Not holding it. Press an arrow key to take hold. " + eelHits + " of " + EEL_NEEDED + ".");
+      // Enter did nothing, and the bar was still reading "click it again" from
+      // onEelHit. Chipless: the chip is the verb, and neither CLICK nor HOLD is
+      // the verb here. Say what the key-hint says.
+      Coach.say("Not holding it — press an arrow key to take hold, then Enter to strike.");
+      Coach.miss();
       return;
     }
     onEelHit();
     if (eelHits < EEL_NEEDED) {
       eelGripped = false;
       announce("Hit " + eelHits + " of " + EEL_NEEDED + ". Press an arrow key to take hold again.");
+      // onEelHit just said "click it again", which is true for the pointer and
+      // wrong here: the grip is gone and Enter is dead until an arrow key. say()
+      // clears the green, hit() puts it back, so the flash survives the rewrite.
+      Coach.say("Hit " + eelHits + " of " + EEL_NEEDED + " — press an arrow key to take hold, then Enter to strike.");
+      Coach.hit();
     }
   } else if (e.key.indexOf("Arrow") === 0) {
     e.preventDefault();
     if (!eelGripped) {
       eelGripped = true;
       announce("Holding it — " + eelHits + " of " + EEL_NEEDED + ".");
+      Coach.say("Holding it — press Enter to strike.");
     }
   }
 }
@@ -1093,8 +1140,13 @@ function onEelHit() {
   updateEelCounter();
   moveEel();
   announce("Hit " + eelHits + " of " + EEL_NEEDED + ".");
+  if (eelHits < EEL_NEEDED) {
+    Coach.hit("Hit " + eelHits + " of " + EEL_NEEDED + " — it moved. Click it again.");
+  }
   if (eelHits >= EEL_NEEDED) {
     clearInterval(eelTimerInterval);
+    Coach.untarget();
+    Coach.hit("Pinned — " + EEL_NEEDED + " of " + EEL_NEEDED + ".");
     setDialogue("Good. Now it will not kill us. Mostly.");
     document.getElementById("eelBody").removeEventListener("click", onEelHit);
     document.getElementById("eelBody").removeEventListener("keydown", onEelKey);
@@ -1105,6 +1157,8 @@ function onEelHit() {
 function eelTimeout() {
   document.getElementById("eelBody").removeEventListener("click", onEelHit);
   document.getElementById("eelBody").removeEventListener("keydown", onEelKey);
+  Coach.untarget();
+  Coach.miss("It got away. The heat will be harder now.");
   setDialogue("It got away from you. This will make things... harder.");
   // penalty: tighten heat window slightly
   cfg.heatWindowMs = Math.max(1400, cfg.heatWindowMs - 400);
@@ -1140,6 +1194,12 @@ function startHeat() {
   // Same reason as the eel: the fish is already on the heat, and tabbing in from
   // the top of the page to find LIFT FROM HEAT burns the window.
   document.getElementById("liftBtn").focus();
+
+  // One control, one moment. Naming the button and what to watch is the control;
+  // judging when to press it is the stage, and stays with the player.
+  Coach.say("Watch the fish cook. Click Lift From Heat before it burns.", "CLICK");
+  Coach.target("#liftBtn");
+
   heatAnimId = requestAnimationFrame(drawHeat);
 }
 
@@ -1324,6 +1384,16 @@ function drawThermometer(c, x, y, w, h) {
   // Bulb at bottom
   c.fillStyle = heatLevel > 80 ? "#c03010" : heatLevel > 50 ? "#e07030" : "#2a8eff";
   c.beginPath(); c.arc(x + w/2, y + h + 10, 14, 0, Math.PI*2); c.fill();
+
+  // The gauge the whole stage is read off carried no caption — a coloured strip
+  // at the edge of the pan. Naming it costs nothing and marks nothing: where the
+  // fish is done is still entirely the player's to judge.
+  c.save();
+  c.font = "11px 'IM Fell English SC', Georgia, serif";
+  c.fillStyle = "#b8a687";
+  c.textAlign = "center";
+  c.fillText("HEAT", x + w / 2, y - 9);
+  c.restore();
 }
 
 function lerp(a, b, t) { return a + (b - a) * Math.max(0, Math.min(1, t)); }
@@ -1363,6 +1433,10 @@ function resolveHeat(heat) {
   stage1Score = score;
   document.getElementById("heatResultLabel").textContent = label;
   document.getElementById("liftBtn").disabled = true;
+  // The ring never sits on a dead control.
+  Coach.untarget();
+  if (heat >= perfectStart && heat <= perfectEnd) Coach.hit("Lifted in time — " + label + ".");
+  else                                            Coach.miss("Lifted at the wrong moment — " + label + ".");
   setDialogue(dialogue);
   showScoreTally(); updateTally(stage1Score, null, null);
 
@@ -1386,6 +1460,11 @@ const SPICES = [
 
 let spiceLevels    = { salt: 0, pepper: 0, herbs: 0 };
 let pouringKey     = null;
+// What the level was when the current hold began, and which way it was going, so
+// a hold that moved nothing can be told apart from a click too short to reach
+// the first pour tick. Read only to choose what the coach bar says.
+let pourStartLevel = 0;
+let pourWasAdd     = true;
 let pourInterval   = null;
 let tasteUsed      = false;
 let seasoningDone  = false;
@@ -1396,6 +1475,11 @@ function startSeasoning() {
   document.getElementById("seasonFishPreview").textContent = CATCH_ICONS[catchRoll] || "🐠";
   buildSpiceRow();
   updateSeasonSubmit();
+
+  // The whole stage turns on holding, and a click on a jar lets go before the
+  // first pour tick lands — the jar tilts and the meter does not move. Say HOLD.
+  Coach.say("Hold a jar down to pour. Let go to stop.", "HOLD");
+  Coach.target("#jar-" + SPICES[0].key);
 }
 
 function buildSpiceRow() {
@@ -1475,6 +1559,8 @@ function bindHoldKeys(btn, key, rate) {
 function startPour(key, rate) {
   if (seasoningDone) return;
   pouringKey = key;
+  pourStartLevel = spiceLevels[key];
+  pourWasAdd     = rate > 0;
   if (rate > 0) document.getElementById("jar-" + key).classList.add("pouring");
   clearInterval(pourInterval);
   pourInterval = setInterval(() => {
@@ -1491,6 +1577,39 @@ function stopPour() {
   pouringKey = null;
   // The meter is the whole of this stage's feedback, and it is a bar height.
   announce(key + " " + Math.round(spiceLevels[key]) + " percent.");
+  // seasoningDone is already true by the time the submit handler calls through
+  // here, so the bar is never rewritten over the stage's own verdict.
+  if (!seasoningDone) coachAfterPour(key, spiceLevels[key] !== pourStartLevel, pourWasAdd);
+}
+
+// An immediate answer to every hold, and the ring walks on to whatever is still
+// to be done. Nothing here names a target level — only which control is next.
+function coachAfterPour(key, moved, adding) {
+  if (!moved) {
+    // A hold that moved nothing is only worth answering when it was a pour that
+    // could have moved: a click too short to reach the first tick. A scrape at
+    // zero, or a pour into a jar already full, has nothing to explain.
+    if (adding && spiceLevels[key] < 100) {
+      Coach.target("#jar-" + key);
+      // say() before miss(): the chip may be CLICK from a later phase, and a red
+      // flash reading "do not just click" under a CLICK chip contradicts itself.
+      Coach.say("Nothing poured — press and hold the jar, do not just click it.", "HOLD");
+      Coach.miss();
+    }
+    return;
+  }
+  const next = SPICES.find(sp => spiceLevels[sp.key] === 0);
+  if (next) {
+    Coach.say("Hold the " + next.label.toLowerCase() + " jar to pour that one too.", "HOLD");
+    Coach.target("#jar-" + next.key);
+  } else if (!tasteUsed) {
+    Coach.say("Click Taste Test for a read on the balance.", "CLICK");
+    Coach.target("#tasteBtn");
+  } else {
+    Coach.say("Click Finished Seasoning when the three meters look right.", "CLICK");
+    Coach.target("#seasonSubmitBtn");
+  }
+  Coach.hit();
 }
 
 function updateSpiceMeter(key) {
@@ -1530,6 +1649,19 @@ document.getElementById("tasteBtn").addEventListener("click", () => {
   }
   document.getElementById("tasteFeedback").textContent = fb;
   setDialogue(dialogue);
+
+  // The one moment the second control is worth naming: she has just said
+  // something is too heavy, and scraping spice back off is how that is fixed.
+  // Which spice is wrong stays unsaid — that is the stage, not the controls.
+  if (offCount === 0) {
+    Coach.say("Balance reads right. Click Finished Seasoning when you are ready.", "CLICK");
+    Coach.target("#seasonSubmitBtn");
+    Coach.hit();
+  } else {
+    Coach.untarget();
+    Coach.say("Hold a jar to add more, or hold its meter to scrape some back off.", "HOLD");
+    Coach.miss();
+  }
 });
 
 document.getElementById("seasonSubmitBtn").addEventListener("click", () => {
@@ -1571,6 +1703,9 @@ function resolveSeasonin() {
   else                  dialogue = "You have seasoned this like you have never eaten food. Remarkable.";
 
   setDialogue(dialogue);
+  Coach.untarget();
+  if (score >= 9) Coach.hit("Seasoning set.");
+  else            Coach.miss("Seasoning is off.");
   updateTally(stage1Score, stage2Score, null);
 
   setTimeout(() => {
@@ -1610,6 +1745,11 @@ function startPlating() {
   setPhase("Stage III — The Plate", _cookArrow('charisma') + "Charisma Check · Arrange the dish properly");
   setDialogue("Proper presentation requires knowing what people will want to see. Place the fish first — it is the centrepiece. Everything else supports it.");
   buildPlate();
+
+  // Called after buildPlate, which is what creates the tray tokens. Which circle
+  // belongs to which item is still the player's to work out.
+  Coach.say("Drag an item from the tray onto a marked circle on the plate.", "DRAG");
+  Coach.target("#tray-" + FOOD_ITEMS[0].id);
 }
 
 function buildPlate() {
@@ -1760,6 +1900,13 @@ function focusNextTray() {
   if (next) next.focus();
 }
 
+// Every way a drag can end without a placement. `item` is the drag closure's own
+// — draggingItem is already null by the time this is called.
+function returnedToTray(item) {
+  Coach.target("#tray-" + item.id);
+  Coach.miss(item.label + " did not reach the plate and is back in the tray. Drag it onto the plate.");
+}
+
 function startDrag(e, item) {
   if (plateDone || placedItems[item.id]) return;
   e.preventDefault();
@@ -1799,7 +1946,10 @@ function startDrag(e, item) {
   };
 
   const onMove   = (ev) => { const [cx, cy] = getCoords(ev); moveFloater(cx, cy); };
-  const onCancel = () => cleanup();
+  // The browser taking a touch drag over for a scroll looks, from the player's
+  // side of it, exactly like a drop that missed: the token is gone and nothing
+  // happened. Same answer as a short drop, for the same reason.
+  const onCancel = () => { cleanup(); returnedToTray(item); };
   const onUp   = (ev) => {
     const [cx, cy] = getCoords(ev);
     cleanup();
@@ -1816,6 +1966,12 @@ function startDrag(e, item) {
       const relX = px / pr.width;
       const relY = py / pr.height;
       placeOnPlate(item, relX, relY, pr);
+    } else {
+      // Released short of the china. The item goes back in the tray and nothing
+      // is scored either way — but nothing on screen said so either, so the
+      // token simply vanished from under the cursor and the bar went on giving
+      // the same instruction. Name it, and put the ring back on what to pick up.
+      returnedToTray(item);
     }
   };
 
@@ -1879,6 +2035,22 @@ function placeOnPlate(item, relX, relY, plateRect) {
     setDialogue(pick);
   }
 
+  // An immediate answer to the drop, then the ring moves to whatever is still in
+  // the tray — the same element focus moves to, so both inputs agree on what is
+  // next. It says nothing her reaction above has not already said.
+  const landedOnMark = dist < cfg.plateTolerance;
+  const nextToken = document.querySelector(".tray-token:not(:disabled)");
+  const mark = item.label + (landedOnMark ? " is on its mark." : " is off its mark.");
+  if (nextToken) {
+    Coach.target(nextToken);
+    if (landedOnMark) Coach.hit(mark + " Drag the next one across.");
+    else              Coach.miss(mark + " Drag the next one across.");
+  } else {
+    Coach.untarget();
+    if (landedOnMark) Coach.hit(mark);
+    else              Coach.miss(mark);
+  }
+
   // If all placed, move to garnish step
   if (Object.keys(placedItems).length === FOOD_ITEMS.length) {
     setTimeout(showGarnishStep, 600);
@@ -1913,6 +2085,10 @@ function showGarnishStep() {
       opt.setAttribute("aria-pressed", "true");
       chosenGarnish = g;
       document.getElementById("garnishSubmitBtn").disabled = false;
+      // No green flash here: the highlight is the acknowledgement, and a
+      // confirmation colour would read as "you picked the right one".
+      Coach.say("Click Present the Dish.", "CLICK");
+      Coach.target("#garnishSubmitBtn");
       // She says nothing yet. Her read used to land on selection, which made
       // "choose carefully" free: click all three, submit whichever one drew the
       // warm line. The highlight is the acknowledgement; the verdict waits.
@@ -1924,11 +2100,18 @@ function showGarnishStep() {
   // focus to the top of the page. Hand it to the step that replaced it.
   const firstOpt = row.querySelector(".garnish-opt");
   if (firstOpt && (!document.activeElement || document.activeElement === document.body)) firstOpt.focus();
+
+  // All three are live choices, so the ring goes round the row rather than
+  // singling one out — a ring on one of them would read as the right answer.
+  Coach.say("Click one garnish to finish the dish.", "CLICK");
+  Coach.target("#garnishRow");
 }
 
 document.getElementById("garnishSubmitBtn").addEventListener("click", () => {
   if (!chosenGarnish || plateDone) return;
   plateDone = true;
+  Coach.untarget();
+  Coach.say("Dish presented. Waiting on the verdict.");
   // The choice is committed now, so it costs nothing to tell the player what she
   // makes of it. The plating verdict follows once her line has had its beat.
   setDialogue(chosenGarnish.bonus >= 3
@@ -1978,6 +2161,9 @@ function resolvePlating() {
    FINAL RESULT
 ══════════════════════════════════════════ */
 function showResult() {
+  // The result card owns the screen from here; a stale instruction
+  // floating over it is worse than none.
+  Coach.hide();
   const total = stage1Score + stage2Score + stage3Score + garnishBonus;
   const proficiency = total >= 35;
 
@@ -2038,8 +2224,16 @@ function showResult() {
     _navigateTo("index.html");
   });
   // One retry, then Ingrid's verdict stands and the player carries it.
-  Remorhaz.offerRetry(document.getElementById("retryBtn"), "cooking",
+  const retryOffered = Remorhaz.offerRetry(document.getElementById("retryBtn"), "cooking",
                       () => _navigateTo(window.location.href));
+
+  // The bar used to hide here, on the one screen where the scene still has two
+  // live controls and one of them may not be there at all. offerRetry reports
+  // whether TRY AGAIN survived, so the line can only ever name a button that is
+  // actually on the card. The ring goes on the way out, not on the retry.
+  if (retryOffered) Coach.say("Click Return to Deck to take this score, or Try Again to cook it over.", "CLICK");
+  else              Coach.say("Click Return to Deck.", "CLICK");
+  Coach.target("#toHubBtn");
 }
 
 })();

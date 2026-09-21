@@ -6,6 +6,7 @@
 <title>Day 5 · Ice Floe Navigation — Aboard the Remorhaz</title>
 <link rel="stylesheet" href="shared.css">
 <script src="state.js"></script>
+<script src="coach.js"></script>
 <style>
 
 /* ── LAYOUT ── */
@@ -177,8 +178,11 @@
 .result-actions { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin-top:6px; }
 
 /* ── OPENING CINEMATIC ── */
+/* Under the shared coach bar (z-index 30), over everything else on the page.
+   The opening card holds the first thing the player has to act on, so the
+   instruction for it has to be readable while the card is still up. */
 .cin-ice {
-  position: fixed; inset: 0; z-index: 60;
+  position: fixed; inset: 0; z-index: 20;
   background: linear-gradient(180deg, oklch(0.08 0.04 230) 0%, oklch(0.12 0.06 220) 60%, oklch(0.16 0.05 200) 100%);
   display: flex; flex-direction: column; align-items: center; justify-content: safe center;
   gap: 20px; opacity: 0; pointer-events: none; transition: opacity 0.8s;
@@ -229,6 +233,31 @@
   .roll-meta { flex-wrap: wrap; justify-content: center; }
   /* The opening card has the same trap and holds the only way in. */
   .cin-ice { overflow-y: auto; justify-content: flex-start; justify-content: safe center; padding: 48px 20px 32px; }
+}
+
+/* ── ROOM FOR THE COACH BAR ──
+   The instruction bar is fixed to the bottom of the viewport and stands about
+   76px tall from that edge; .game-area reaches to within about 3.5vh of the
+   same edge. On a laptop-height window, once the outcome text has expanded,
+   the last thing on the screen — which is exactly the button the gold ring is
+   pointing at — came to rest underneath the bar. An instruction that hides the
+   control it names is worse than no instruction. Reserve the height here
+   rather than move the bar: it sits in the same place in every scene, and that
+   sameness is the whole point of it.
+
+   #screen-result is exempt: the bar is hidden there (coachScreen falls through
+   to Coach.hide()), so there is nothing to clear. */
+.screen:where(:not(#screen-result)) { padding-bottom: 92px; }
+
+@media (max-width: 860px), (max-height: 680px) {
+  /* Stacked, the screens are back in normal flow and .stage is the thing that
+     scrolls, so the clearance belongs at the end of the scroll rather than
+     inside every screen — otherwise each hazard carries a dead 92px band. */
+  .screen:where(:not(#screen-result)) { padding-bottom: 24px; }
+  .stage { padding-bottom: 104px; }
+  /* The opening card scrolls on its own and its button is the last element in
+     it, so it needs the same clearance at its own scroll end. */
+  .cin-ice { padding-bottom: 104px; }
 }
 
 </style>
@@ -569,6 +598,43 @@ function saveState(s) {
     setTimeout(() => { el.textContent = "“" + text + "”"; el.style.opacity = "1"; }, 300);
   }
 
+  /* ── COACH ──
+     This day used to say nothing about how to play it: a player arrived at the
+     bow with a die, two numbers and no statement anywhere that the die is a
+     button. One line per screen, naming the control by the words printed on it,
+     and the gold ring on that control so the line and the thing agree.
+
+     screen-result is deliberately absent: the report card is the instruction
+     once it is up, so the bar gets out of its way. */
+  const COACH_BY_SCREEN = {
+    "screen-intro": {
+      text: "Click To the Bow to start. Three hazards, one roll each.",
+      ring: "#intro-start-btn",
+    },
+    "screen-h1": {
+      // The one time the pass condition is spelled out. The numbers are
+      // already printed either side of the die; what was never said is that
+      // they add together and what they have to beat.
+      //
+      // "modifier", not "bonus": Irene rolls this day at INT −1 and WIS −2, so
+      // all three of her hazards subtract. Calling that a bonus would have the
+      // bar contradicting the equation line right under it ("14 − 1 = 13").
+      // Not "the numbers beside the die" either — the DC box is beside the die
+      // too, and that reads as though the DC were one of the things added on.
+      text: "Hazard 1 of 3. Click Roll d20 — roll plus modifier must reach the DC.",
+      ring: "#h1-roll-btn",
+    },
+    "screen-h2": { text: "Hazard 2 of 3. Click Roll d20 again.",    ring: "#h2-roll-btn" },
+    "screen-h3": { text: "Last hazard. Click Roll d20 one more time.", ring: "#h3-roll-btn" },
+  };
+
+  function coachScreen(id) {
+    const c = COACH_BY_SCREEN[id];
+    if (!c) { Coach.hide(); return; }
+    Coach.say(c.text, "CLICK");
+    Coach.target(c.ring);
+  }
+
   /* ── SCREEN SWITCHER ── */
   function goToScreen(id) {
     document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
@@ -578,6 +644,7 @@ function saveState(s) {
     // fall to <body>. Every screen reached this way opens on a single control.
     const entry = screen.querySelector(".roll-btn");
     if (entry) entry.focus();
+    coachScreen(id);
   }
 
   /* ── OPENING CINEMATIC ── */
@@ -591,6 +658,10 @@ function saveState(s) {
   setTimeout(() => {
     cin.classList.add("visible");
     document.getElementById("cin-enter").focus();
+    // The bar arrives with the card, not after it: the very first moment of the
+    // day is already a moment with exactly one thing to do in it.
+    Coach.say("Click Take the Bow to begin.", "CLICK");
+    Coach.target("#cin-enter");
   }, 120);
   document.getElementById("cin-enter").addEventListener("click", () => {
     cin.style.transition = "opacity 0.5s";
@@ -598,6 +669,7 @@ function saveState(s) {
     cin.setAttribute("inert", "");          // half a second of fade is half a second of tab target
     stageEl.removeAttribute("inert");
     document.getElementById("intro-start-btn").focus();
+    coachScreen("screen-intro");   // the intro screen was already active, so goToScreen never ran
     setTimeout(() => { cin.style.display = "none"; }, 520);
   });
 
@@ -634,6 +706,7 @@ function saveState(s) {
     rollBtn.addEventListener("click", () => {
       if (rollBtn.disabled) return;
       rollBtn.disabled = true;
+      Coach.untarget();            // this button is spent; nothing is actionable until the die lands
 
       const roll = Math.floor(Math.random() * 20) + 1;
       const total = roll + modifier + FAVOUR;
@@ -646,6 +719,11 @@ function saveState(s) {
       // happen anyway or the face still reads "d20".
       const spin = !Remorhaz.reducedMotion();
       if (spin) {
+        // Two thirds of a second of spinning digits with the bar still reading
+        // "click Roll d20" is a player wondering whether the click registered.
+        // With motion off there is nothing to wait for: the outcome lands now
+        // and answers the click by itself.
+        Coach.say("Watch the die land.", "WATCH");
         dieFace.classList.add("rolling");
         let ticker = 0;
         const interval = setInterval(() => {
@@ -675,12 +753,19 @@ function saveState(s) {
 
         const passed = total >= DC || nat20;
         let outcomeText, bannerText, bannerClass;
+        // Said in the bar as well as narrated on the panel: the outcome text is
+        // the story of the roll, this is whether the thing the player did
+        // worked and what it cost. coachOk also picks the flash colour, and the
+        // words stand on their own for anyone who cannot see the colour.
+        let coachMsg, coachOk;
 
         if (nat20) {
           bannerText = "NATURAL 20 — EXCEPTIONAL";
           bannerClass = "pass";
           outcomeText = opts.nat20Text;
           document.getElementById(logId).textContent = "Critical pass";
+          coachMsg = "Natural 20 — cleared, no damage.";
+          coachOk  = true;
         } else if (nat1) {
           bannerText = "CRITICAL FAILURE";
           bannerClass = "fail";
@@ -688,6 +773,8 @@ function saveState(s) {
           damage += CRIT_DAMAGE;
           updatePips();
           document.getElementById(logId).textContent = "Critical fail";
+          coachMsg = "Critical failure — " + CRIT_DAMAGE + " hull strikes.";
+          coachOk  = false;
           // Never falls back to sidebarLines.fail: those lines reassure, and
           // over a cracked hull reassurance is the one thing she would not offer.
           if (sidebarLines.crit) updateSidebarDialogue(sidebarLines.crit);
@@ -696,6 +783,8 @@ function saveState(s) {
           bannerClass = "pass";
           outcomeText = opts.passText;
           document.getElementById(logId).textContent = "Passed";
+          coachMsg = "Cleared — no damage.";
+          coachOk  = true;
         } else {
           bannerText = "FAILURE — DC MISSED";
           bannerClass = "fail";
@@ -703,6 +792,8 @@ function saveState(s) {
           damage++;
           updatePips();
           document.getElementById(logId).textContent = "Failed";
+          coachMsg = "Missed the DC — 1 hull strike.";
+          coachOk  = false;
           updateSidebarDialogue(sidebarLines.fail);
         }
 
@@ -722,6 +813,15 @@ function saveState(s) {
         // focus to <body>; hand it to the one control that is now live.
         nextBtn.focus();
 
+        // The verdict and the next instruction in one line, the button named by
+        // the words actually printed on it ("Press On", "Hold Course"), then
+        // the ring follows the player's attention onto it. say() before the
+        // flash: say() clears the previous flash colour.
+        const nextLabel = nextBtn.textContent.replace(/\s*→\s*$/, "").trim();
+        Coach.say(coachMsg + " Click " + nextLabel + ".", "CLICK");
+        if (coachOk) Coach.hit(); else Coach.miss();
+        Coach.target(nextBtn);
+
         // Spoken rather than glyphic — the equation line uses − and =, which
         // read poorly aloud. Built from the same numbers, so the two cannot
         // disagree. Announced after the focus move: a focus change interrupts
@@ -736,6 +836,11 @@ function saveState(s) {
     });
 
     nextBtn.addEventListener("click", () => {
+      // The fade blacks the panel out for a third of a second before the next
+      // screen exists. Leaving the gold ring on a button nobody can see any
+      // more teaches the ring to mean nothing; the bar's line is the last
+      // verdict and can stand until the next screen replaces it.
+      Coach.untarget();
       transEl.classList.add("fade-in");
       setTimeout(() => { onComplete(); transEl.classList.remove("fade-in"); }, 360);
     });

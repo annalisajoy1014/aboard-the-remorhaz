@@ -6,6 +6,7 @@
 <title>Day 4 · Maritime Combat — Aboard the Remorhaz</title>
 <link rel="stylesheet" href="shared.css">
 <script src="state.js"></script>
+<script src="coach.js"></script>
 <style>
 
 .stage { position: fixed; inset: 0; z-index: 1; display: flex; align-items: center; justify-content: center; }
@@ -43,7 +44,11 @@
 .stage-canvas { display: block; border-radius: 2px; }
 .screen-title { font-family: "IM Fell English SC", serif; font-size: 14px; letter-spacing: 0.26em; color: var(--blood); margin-bottom: -6px; }
 .stage-feedback { font-family: "IM Fell English SC", serif; font-size: 15px; letter-spacing: 0.22em; color: var(--lamp); min-height: 18px; text-align: center; }
-.timer-bar-wrap { width: 480px; height: 7px; background: var(--hull-darkest); border-radius: 4px; overflow: hidden; }
+.meter-wrap { width: 480px; display: flex; flex-direction: column; align-items: stretch; gap: 5px; }
+/* The countdown was an unlabelled 7px sliver. Same bar, same timing — it just
+   says what it is now, and is thick enough to read at a glance. */
+.meter-label { display: flex; justify-content: space-between; font-family: "IM Fell English SC", serif; font-size: 11px; letter-spacing: 0.22em; color: var(--paper-deep); }
+.timer-bar-wrap { width: 480px; height: 11px; background: var(--hull-darkest); border-radius: 6px; overflow: hidden; border: 1px solid color-mix(in oklch, var(--paper-deep) 30%, transparent); }
 .timer-bar-fill { height: 100%; width: 100%; background: linear-gradient(to right, var(--lamp), var(--blood)); transition: width 0.1s linear; }
 
 /* ── APPROACH CHOICE ── */
@@ -65,6 +70,12 @@
 .tug-labels { width: 100%; display: flex; justify-content: space-between; font-family: "IM Fell English SC", serif; font-size: 13px; letter-spacing: 0.18em; color: var(--paper-deep); }
 .tug-click-hint { font-family: "Caveat", cursive; font-size: 18px; color: var(--paper); text-align: center; min-height: 26px; animation: pulse-hint 1.1s ease-in-out infinite; }
 @keyframes pulse-hint { 0%,100%{opacity:0.6} 50%{opacity:1} }
+/* The break-through line already existed in the code as WIN_THRESHOLD and was
+   the one thing the bar never showed. Drawn from that same constant, never a
+   second copy of the number. */
+.tug-goal { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--paper); box-shadow: 0 0 6px color-mix(in oklch, var(--paper) 80%, transparent); pointer-events: none; }
+.tug-goal-label { width: 100%; position: relative; height: 13px; }
+.tug-goal-label span { position: absolute; transform: translateX(-50%); white-space: nowrap; font-family: "IM Fell English SC", serif; font-size: 10px; letter-spacing: 0.16em; color: var(--lamp); }
 
 /* ── DIALOGUE SCREENS ── */
 .dialogue-screen-content { max-width: 480px; width: 92%; display: flex; flex-direction: column; align-items: center; gap: 20px; }
@@ -141,7 +152,10 @@
         <canvas class="stage-canvas" id="drillsCanvas" width="480" height="252" tabindex="0" role="application"
                 aria-label="Weapon drill targets. Use the left and right arrow keys to select a target, then press Enter to strike it."></canvas>
         <div class="stage-feedback" id="drillsFeedback">&nbsp;</div>
-        <div class="timer-bar-wrap"><div class="timer-bar-fill" id="drillsTimerFill"></div></div>
+        <div class="meter-wrap">
+          <div class="meter-label"><span>TIME LEFT</span><span id="drillsTimeLeft">—</span></div>
+          <div class="timer-bar-wrap"><div class="timer-bar-fill" id="drillsTimerFill"></div></div>
+        </div>
       </div>
 
       <!-- DIALOGUE 1 -->
@@ -186,11 +200,15 @@
         <!-- STR: click counter hint -->
         <div class="tug-wrap" id="tugWrap" style="display:none">
           <div class="tug-labels"><span>HALDOR</span><span>YOU</span></div>
-          <div class="tug-track"><div class="tug-fill" id="tugFill"></div></div>
+          <div class="tug-track"><div class="tug-fill" id="tugFill"></div><div class="tug-goal" id="tugGoal"></div></div>
+          <div class="tug-goal-label"><span id="tugGoalLabel">BREAK THROUGH</span></div>
           <div class="tug-click-hint" id="tugHint">Click or press Space to push through</div>
         </div>
         <!-- DEX: timer bar -->
-        <div class="timer-bar-wrap" id="boardingTimerWrap"><div class="timer-bar-fill" id="boardingTimerFill"></div></div>
+        <div class="meter-wrap" id="boardingTimerWrap">
+          <div class="meter-label"><span>TIME LEFT</span><span id="boardingTimeLeft">—</span></div>
+          <div class="timer-bar-wrap"><div class="timer-bar-fill" id="boardingTimerFill"></div></div>
+        </div>
       </div>
 
       <!-- DIALOGUE 2 -->
@@ -265,6 +283,28 @@ for (let i = 0; i < 55; i++) {
 ══════════════════════════════════════════ */
 const srLive = document.getElementById("srLive");
 function announce(msg) { if (msg) srLive.textContent = msg; }
+
+/* ══════════════════════════════════════════
+   COACH BAR
+   One instruction at a time, always describing the CURRENT thing to do.
+   Coach.hit()/miss() leave their message on the bar, so every flash books a
+   timer that puts the standing instruction back. coachSay() cancels that
+   timer, which is why nothing on this page calls Coach.say directly — a
+   stage ending mid-flash would otherwise be overwritten by a stale line.
+══════════════════════════════════════════ */
+let _coachBack = null;
+function coachSay(text, chip) {
+  if (_coachBack) { clearTimeout(_coachBack); _coachBack = null; }
+  Coach.say(text, chip);
+}
+function coachFlash(ok, msg, back, backChip) {
+  if (_coachBack) { clearTimeout(_coachBack); _coachBack = null; }
+  if (ok) Coach.hit(msg); else Coach.miss(msg);
+  // 1300ms clears the longest flash coach.js holds — the 1200ms one it gives a
+  // player who has asked for reduced motion — so the restore never cuts the
+  // confirmation short for them.
+  if (back) _coachBack = setTimeout(() => { _coachBack = null; Coach.say(back, backChip); }, 1300);
+}
 
 /* ══════════════════════════════════════════
    STATE
@@ -532,13 +572,19 @@ function showDialogue(idx) {
       setDialogue(choice.reply[haldorMood.toString()]);
       choicesEl.querySelectorAll(".dialogue-btn").forEach(b => { b.disabled = true; });
       btn.classList.add("chosen");
+      Coach.untarget();
+      coachSay("Haldor is answering.", "WAIT");
       setTimeout(() => {
         if (idx === 0) {
           // preSpy is Haldor's line for the beat before Stage II — the key name is
           // inherited from navigation.html, where that stage is the spyglass.
           setDialogue(cfg.preSpy);
           goToScreen("screen-approach");
-          setTimeout(() => { document.getElementById("chooseStr").focus(); }, 400);
+          setTimeout(() => {
+            document.getElementById("chooseStr").focus();
+            coachSay("Click one of the two cards. It decides which contest you play.", "CLICK");
+            Coach.target(".approach-cards");
+          }, 400);
         } else {
           goToScreen("screen-result");
           setTimeout(showResult, 500);
@@ -550,7 +596,12 @@ function showDialogue(idx) {
 
   // goToScreen leaves focus on <body>; land it on the first reply once the swap
   // has finished, so the keyboard player isn't tabbing in from the page header.
-  setTimeout(() => { choicesEl.querySelector("button")?.focus(); }, 400);
+  // The bar turns over at the same beat, so it changes when the screen does.
+  setTimeout(() => {
+    choicesEl.querySelector("button")?.focus();
+    coachSay("Click one reply. What you say changes how Haldor sees you.", "CLICK");
+    Coach.target(choicesEl);
+  }, 400);
 }
 
 /* ══════════════════════════════════════════
@@ -559,7 +610,11 @@ function showDialogue(idx) {
 document.getElementById("introBody").textContent = cfg.intro;
 document.getElementById("moodTag").textContent   = cfg.label;
 setDialogue(cfg.intro);
+coachSay("Click Report for Training to start the drills.", "CLICK");
+Coach.target("#beginBtn");
 document.getElementById("beginBtn").addEventListener("click", () => {
+  Coach.untarget();
+  coachSay("Haldor sets out the targets.", "WAIT");
   setDialogue(cfg.preDrills);
   goToScreen("screen-drills");
   setTimeout(startDrills, 500);
@@ -648,9 +703,22 @@ function startDrills() {
   let nextSpawn = 900;
   const TARGET_LIFE = 3200 + _stat("dexterity") * 300;
 
+  // The one standing instruction for this stage. Every hit and miss flash
+  // returns to it, so the bar is never left showing an old result.
+  const DRILL_LINE = "Click each target on the deck before it fades.";
+  const DRILL_WAIT = "Deck is clear. Wait for Haldor to call time.";
+  let drillLine = DRILL_LINE;
+  function drillChip() { return drillLine === DRILL_WAIT ? "WAIT" : "CLICK"; }
+  coachSay(DRILL_LINE, "CLICK");
+  Coach.target(canvas);
+
+  const timeLeftEl = document.getElementById("drillsTimeLeft");
+  timeLeftEl.textContent = Math.ceil(TOTAL_T/1000) + "s";
+
   const ticker = setInterval(() => {
     elapsed += 100;
     document.getElementById("drillsTimerFill").style.width = Math.max(0,100-(elapsed/TOTAL_T)*100)+"%";
+    timeLeftEl.textContent = Math.max(0, Math.ceil((TOTAL_T-elapsed)/1000)) + "s";
     if (elapsed >= TOTAL_T) { clearInterval(ticker); endDrills(); }
   }, 100);
 
@@ -677,19 +745,30 @@ function startDrills() {
     document.getElementById("drillsFeedback").textContent = msg;
     announce(msg);
     setDialogue(hits>=TOTAL_TARGETS ? cfg.greatD : hits%(3)===0 ? cfg.goodD : "");
+    // The ring has done its job once the player has struck something.
+    Coach.untarget();
+    if (spawned >= TOTAL_TARGETS && liveTargets().length === 0) drillLine = DRILL_WAIT;
+    coachFlash(true, "Hit — " + hits + " of " + TOTAL_TARGETS, drillLine, drillChip());
   }
 
   function onClick(e) {
     if (done) return;
     const r = canvas.getBoundingClientRect();
     const mx=(e.clientX-r.left)*(CW/r.width), my=(e.clientY-r.top)*(CH/r.height);
+    let struck = false;
     for (let i=targets.length-1; i>=0; i--) {
       const t=targets[i];
       if (t.hit) continue;
       // Same lifetime test draw() uses — once a target stops being drawn it's bare
       // deck, not a hit. Without this the drill score can be farmed by spam-clicking.
       if (elapsed - t.born > t.life) continue;
-      if (Math.hypot(mx-t.x,my-t.y) < HIT_R+t.r) { registerHit(t); break; }
+      if (Math.hypot(mx-t.x,my-t.y) < HIT_R+t.r) { registerHit(t); struck = true; break; }
+    }
+    // A throw at bare deck while a target is up is a real miss and should read
+    // as one. With nothing on the deck there is nothing to miss, so the bar
+    // stays quiet rather than scolding a player for clicking into a gap.
+    if (!struck && liveTargets().length) {
+      coachFlash(false, "Missed — nothing under that throw", drillLine, drillChip());
     }
   }
 
@@ -740,7 +819,16 @@ function startDrills() {
 
     targets.forEach(t => {
       const age = elapsed - t.born;
-      if (age > t.life) return;
+      if (age > t.life) {
+        // A target that faded unstruck is the one way this drill is failed, and
+        // it used to happen in silence. Flagged so it is announced once.
+        if (!t.hit && !t.missed) {
+          t.missed = true;
+          if (spawned >= TOTAL_TARGETS && liveTargets().length === 0) drillLine = DRILL_WAIT;
+          coachFlash(false, WEAPON_LABELS[t.type] + " faded before you hit it", drillLine, drillChip());
+        }
+        return;
+      }
       const prog  = age/t.life;
       const env   = prog<0.1 ? prog/0.1 : prog>0.85 ? (1-prog)/0.15 : 1;
       const flick = 0.8+0.2*Math.sin(ts*0.012+t.x*0.05);
@@ -828,6 +916,8 @@ function startDrills() {
     showScoreTally(); updateTally(stage1Score,null);
     document.getElementById("drillsFeedback").textContent = hits + " / " + TOTAL_TARGETS + " · " + stage1Score + " / 15 pts";
     announce("Weapon drills over — " + hits + " of " + TOTAL_TARGETS + " hit, " + stage1Score + " of 15 points.");
+    Coach.untarget();
+    coachSay("Drills over — " + hits + " of " + TOTAL_TARGETS + " hit. Haldor has something to say.");
     setTimeout(() => { goToScreen("screen-dialogue1"); showDialogue(0); }, 2000);
   }
 }
@@ -845,7 +935,11 @@ function pickApproach(approach) {
     ? Remorhaz.arrow("strength")  + "Strength (Contested) · Push through Haldor's defence"
     : Remorhaz.arrow("dexterity") + "Dexterity (Contested) · Counter Haldor's feints");
   document.getElementById("tugWrap").style.display            = approach==="str" ? "flex" : "none";
-  document.getElementById("boardingTimerWrap").style.display  = approach==="dex" ? "block" : "none";
+  // "flex", not "block": the countdown now sits under its own TIME LEFT label
+  // in a column wrapper rather than being a bare bar.
+  document.getElementById("boardingTimerWrap").style.display  = approach==="dex" ? "flex" : "none";
+  Coach.untarget();
+  coachSay("Haldor takes his stance.", "WAIT");
   goToScreen("screen-boarding");
   setTimeout(() => approach==="str" ? startBoardingStr() : startBoardingDex(), 500);
 }
@@ -888,12 +982,24 @@ function startBoardingStr() {
   canvas.setAttribute("aria-label", "Boarding contest against Haldor. Press Space repeatedly to push through his guard.");
   canvas.focus();
 
+  // The break-through line was already in the code as WIN_THRESHOLD and was the
+  // one thing the bar never drew. Placed from that constant, so the marker and
+  // the rule can never disagree.
+  document.getElementById("tugGoal").style.left      = WIN_THRESHOLD + "%";
+  document.getElementById("tugGoalLabel").style.left = WIN_THRESHOLD + "%";
+
+  const STR_LINE = "Click the deck over and over until Haldor calls time. He is pulling the other way the whole while.";
+  coachSay(STR_LINE, "CLICK");
+  Coach.target(canvas);
+
   // Which band of the contest was last spoken. The push is rapid-fire input, so
   // only a change of state reaches the live region — never every press.
   let lastBand = null;
+  const BAND_RANK = { hold: 0, push: 1, through: 2 };
 
   function onClick() {
     if (done) return;
+    Coach.untarget();
     position = Math.min(95, position + PULL_PER_CLICK);
     maxPos = Math.max(maxPos, position);
     document.getElementById("tugFill").style.width = position + "%";
@@ -904,7 +1010,16 @@ function startBoardingStr() {
       document.getElementById("boardingFeedback").textContent = position >= 60 ? "Push! Keep pushing!" : "Hold your ground!";
     }
     const band = position >= WIN_THRESHOLD ? "through" : position >= 60 ? "push" : "hold";
-    if (band !== lastBand) { lastBand = band; announce(document.getElementById("boardingFeedback").textContent); }
+    if (band !== lastBand) {
+      // Only a change of state reaches the bar. At a dozen clicks a second a
+      // flash per click would be noise, and it would stop meaning anything.
+      const rose = lastBand === null || BAND_RANK[band] > BAND_RANK[lastBand];
+      lastBand = band;
+      announce(document.getElementById("boardingFeedback").textContent);
+      if (band === "through" && rose)  coachFlash(true, "Past the break-through line — keep pushing", STR_LINE, "CLICK");
+      else if (band === "push" && rose) coachFlash(true, "Gaining ground on him", STR_LINE, "CLICK");
+      else if (!rose)                   coachSay("He is shoving you back — click faster.", "CLICK");
+    }
   }
 
   function onKey(e) {
@@ -972,6 +1087,8 @@ function startBoardingStr() {
     updateTally(stage1Score,stage2Score);
     document.getElementById("boardingFeedback").textContent = won ? "BROKE THROUGH · " + stage2Score + " / 15 pts" : "Held off · " + stage2Score + " / 15 pts";
     announce("Boarding over — " + (won ? "broke through" : "Haldor held the plank") + ", " + stage2Score + " of 15 points.");
+    Coach.untarget();
+    coachSay(won ? "Time. You pushed past the line." : "Time. Haldor held the plank.");
     setTimeout(() => { goToScreen("screen-dialogue2"); showDialogue(1); }, 2200);
   }
 }
@@ -993,9 +1110,13 @@ function startBoardingDex() {
 
   document.getElementById("boardingTimerFill").style.width = "100%";
 
+  const dexTimeLeftEl = document.getElementById("boardingTimeLeft");
+  dexTimeLeftEl.textContent = Math.ceil(STAGE_T/1000) + "s";
+
   const ticker = setInterval(() => {
     elapsed += 100;
     document.getElementById("boardingTimerFill").style.width = Math.max(0,100-(elapsed/STAGE_T)*100)+"%";
+    dexTimeLeftEl.textContent = Math.max(0, Math.ceil((STAGE_T-elapsed)/1000)) + "s";
     if (elapsed >= STAGE_T) { clearInterval(ticker); endDex(); }
   }, 100);
 
@@ -1005,9 +1126,25 @@ function startBoardingDex() {
   canvas.setAttribute("aria-label", "Boarding contest against Haldor. Press the left or right arrow key to dodge to that side.");
   canvas.focus();
 
+  // Two standing lines: one for the beat between feints, one for the window
+  // itself. Countering is the side Haldor did NOT lunge at, which is the side
+  // the canvas already prints as DODGE LEFT / DODGE RIGHT — so the bar points
+  // at that call rather than at Haldor, and never names the side or the moment.
+  const DEX_WATCH = "Watch Haldor. When the deck calls DODGE LEFT or DODGE RIGHT, click that half.";
+  const DEX_ACT   = "Click the half of the deck the DODGE call names.";
+  coachSay(DEX_WATCH, "WATCH");
+  Coach.target(canvas);
+
   // Left/right click zones
   function onCanvasClick(e) {
-    if (done || roundPhase!=="warn") return;
+    if (done) return;
+    if (roundPhase!=="warn") {
+      // Moving before he commits is a real early move. Saying so beats
+      // swallowing the click in silence and leaving the player unsure the
+      // deck is even listening.
+      if (roundPhase==="pause") coachFlash(false, "Too early — wait for his call", DEX_WATCH, "WATCH");
+      return;
+    }
     const r = canvas.getBoundingClientRect();
     const mx=(e.clientX-r.left)*(CW/r.width);
     dodge(mx < CW/2 ? "left" : "right");
@@ -1018,21 +1155,28 @@ function startBoardingDex() {
   function onKey(e) {
     if (e.key!=="ArrowLeft" && e.key!=="ArrowRight") return;
     e.preventDefault();
-    if (done || roundPhase!=="warn") return;
+    if (done) return;
+    if (roundPhase!=="warn") {
+      if (roundPhase==="pause") coachFlash(false, "Too early — wait for his call", DEX_WATCH, "WATCH");
+      return;
+    }
     dodge(e.key==="ArrowLeft" ? "left" : "right");
   }
 
   function dodge(side) {
     playerClicked = side;
+    Coach.untarget();
     const success = playerClicked !== warnSide; // counter = opposite side
     if (success) {
       countered++;
       setDialogue(countered >= 3 ? cfg.greatD + " Counter!" : cfg.goodD);
       document.getElementById("boardingFeedback").textContent = countered + " / " + ROUNDS + " counters";
       announce("Round " + round + " countered — " + countered + " / " + ROUNDS);
+      coachFlash(true, "Countered — " + countered + " of " + ROUNDS, DEX_WATCH, "WATCH");
     } else {
       setDialogue(cfg.failD);
       announce("Round " + round + " — he lands it.");
+      coachFlash(false, "Wrong side — he lands it", DEX_WATCH, "WATCH");
     }
     roundPhase = "result";
     setTimeout(nextRound, 700);
@@ -1048,11 +1192,13 @@ function startBoardingDex() {
     // The side to dodge is only drawn on the canvas. Numbered by round so two
     // identical calls in a row are still two separate announcements.
     announce("Round " + round + " — dodge " + (warnSide==="left" ? "right" : "left"));
+    coachSay(DEX_ACT, "CLICK");
     setTimeout(() => {
       if (roundPhase==="warn" && !playerClicked) {
         // Missed window — Haldor "lands"
         setDialogue(cfg.failD + " Too slow.");
         announce("Round " + round + " missed.");
+        coachFlash(false, "Too slow — he lands it", DEX_WATCH, "WATCH");
         roundPhase = "result";
         setTimeout(nextRound, 700);
       }
@@ -1140,6 +1286,8 @@ function startBoardingDex() {
     updateTally(stage1Score,stage2Score);
     document.getElementById("boardingFeedback").textContent = countered + " / " + ROUNDS + " counters · " + stage2Score + " / 15 pts";
     announce("Boarding over — " + countered + " of " + ROUNDS + " countered, " + stage2Score + " of 15 points.");
+    Coach.untarget();
+    coachSay("Boarding over — " + countered + " of " + ROUNDS + " countered. Haldor has something to say.");
     setTimeout(() => { goToScreen("screen-dialogue2"); showDialogue(1); }, 2200);
   }
 }
@@ -1177,6 +1325,10 @@ function drawFigure(ctx, x, y, scale, bodyCol, shadowCol, label) {
    RESULT
 ══════════════════════════════════════════ */
 function showResult() {
+  // The card and its two buttons own the screen from here; the bar would only
+  // be competing with them.
+  if (_coachBack) { clearTimeout(_coachBack); _coachBack = null; }
+  Coach.hide();
   const total  = stage1Score + stage2Score;
   const earned = total >= 20 && rapport >= 0;
 

@@ -6,6 +6,7 @@
 <title>Day 1 · Fishing — Aboard the Remorhaz</title>
 <link rel="stylesheet" href="shared.css">
 <script src="state.js"></script>
+<script src="coach.js"></script>
 <style>
 /* ── CORNER BRACKETS (enhanced) ── */
 .corner {
@@ -274,11 +275,19 @@ canvas#oceanCanvas {
 }
 
 /* ── ACT 3: REVEAL ── */
+/* The instruction bar stays up on the reveal, because the player still has a
+   choice to make here. So the card has to leave a bar's worth of room under
+   itself rather than ending where the bar begins. */
+.reveal-scene { padding-bottom: 96px; }
 .reveal-scene {
   position: absolute; inset: 0; z-index: 6;
   display: none; flex-direction: column;
   align-items: center; justify-content: safe center; gap: 22px;
-  padding: 36px;
+  /* Extra room along the bottom so the catch card's two exits clear the fixed
+     coach bar. The bar is pointer-events:none and never blocked the click, but
+     on a short window it could sit over the button text — which was the only
+     reason this scene used to hide the bar outright. */
+  padding: 36px 36px 96px;
   background:
     radial-gradient(ellipse at 50% 40%, color-mix(in oklch, var(--lamp) 6%, transparent), transparent 55%),
     radial-gradient(ellipse at 50% 50%,
@@ -1780,7 +1789,28 @@ panel.addEventListener("click", (e) => {
 function tryHaul() {
   if (phase !== PHASE.WATCH || act1Clicked) return;
   const inWindow = watchMs >= windowStart && watchMs <= windowStart + windowLen;
-  handleAct1(inWindow, inWindow ? "hit" : "toosoon");
+  // WHICH failure it was, not merely that it was one. The auto-fail at the top
+  // of drawFrame only trips 400ms after the window shuts, so a click landing in
+  // that grace is LATE — and it used to be reported as "too soon", telling the
+  // player to wait longer next time when waiting longer is exactly what lost
+  // it. Three surfaces read this reason (the coach line, the reveal headline,
+  // Haldor's line) and all three were wrong together. The outcome is unchanged:
+  // every branch here is still showReveal(false, …). No window moves.
+  const reason = inWindow
+    ? "hit"
+    : (watchMs > windowStart + windowLen ? "missed" : "toosoon");
+  handleAct1(inWindow, reason);
+}
+
+/* One outcome line, said the same way everywhere. Coach.hit/miss colour the bar
+   and set the words but never touch the verb chip, so calling them straight
+   left the PREVIOUS chip standing: "CLICK · Too late — the fish scattered",
+   which tells the player to click at the one moment clicking does nothing, and
+   "HOLD · She's coming up" after the hold has ended. Saying the line chipless
+   first clears the verb; the flash then adds only the colour. */
+function coachOutcome(kind, msg) {
+  Coach.say(msg);                  // no chip — the act is over, there is no verb
+  if (kind === "hit") Coach.hit(); else Coach.miss();
 }
 
 function handleAct1(success, reason) {
@@ -1791,15 +1821,18 @@ function handleAct1(success, reason) {
   document.getElementById("pulseEye").classList.remove("visible");
 
   if (success) {
+    coachOutcome("hit", "Hauled it — the net is full and heavy");
     setDialogue("Ha! THAT'S how ye read the sea. Now hold tight — she won't come up easy.");
     setPhase("Act II — The Rope Pull", _arrow('strength') + "Strength Check · Haul the net");
     setBannerAct2();
     showActToast();
     setTimeout(startRopePull, 800);
   } else if (reason === "missed") {
+    coachOutcome("miss", "Too late — the fish scattered");
     setDialogue("Ach... the moment passed. The nets drifted up empty. Some days the sea keeps her secrets.");
     setTimeout(() => showReveal(false, "missed"), 700);
   } else {
+    coachOutcome("miss", "Too early — nothing had gathered yet");
     setDialogue("Too soon, too eager. Nothin' was gathered yet. The sea will not be rushed.");
     setTimeout(() => showReveal(false, "toosoon"), 700);
   }
@@ -1808,6 +1841,39 @@ function handleAct1(success, reason) {
 /* ──────────────────────────────────────────────
    ACT 2: ROPE PULL
 ─────────────────────────────────────────────── */
+/* Act II's two bar lines. Tapping and holding are both real tactics and earn
+   about the same, so the standing line names both. The hold line replaces it
+   only once a hold is genuinely being held — a rapid clicker presses and
+   releases several times a second, and swapping the line on every press would
+   leave the one instruction on screen flickering. */
+const COACH_ROPE_TAP  = "Click fast or hold down to haul — push the bar all the way right";
+const COACH_ROPE_HOLD = "Keep holding — the rope comes in while you hold";
+
+let coachHoldTimer = null;    // UI only: 220ms of held input before the bar
+let coachHoldShown = false;   // swaps to the HOLD line. Decides no outcome.
+
+function coachHoldBegin() {
+  if (pullDone || coachHoldTimer || coachHoldShown) return;
+  coachHoldTimer = setTimeout(() => {
+    coachHoldTimer = null;
+    if (pullDone || !(mouseHolding || keyHolding)) return;
+    coachHoldShown = true;
+    Coach.say(COACH_ROPE_HOLD, "HOLD");
+  }, 220);
+}
+function coachHoldRelease() {
+  // The other input still has it: a hold handed from mouse to Space is one
+  // unbroken hold, so the pending swap is left to run rather than cancelled.
+  if (mouseHolding || keyHolding) return;
+  if (coachHoldTimer) { clearTimeout(coachHoldTimer); coachHoldTimer = null; }
+  if (coachHoldShown && !pullDone) Coach.say(COACH_ROPE_TAP, "CLICK");
+  coachHoldShown = false;
+}
+function coachHoldStop() {
+  if (coachHoldTimer) { clearTimeout(coachHoldTimer); coachHoldTimer = null; }
+  coachHoldShown = false;
+}
+
 function startRopePull() {
   phase = PHASE.PULL;
   const ropeScene = document.getElementById("ropeScene");
@@ -1827,6 +1893,13 @@ function startRopePull() {
   updateReadout();
   updateNetForceIndicator(1);
   renderRope();
+
+  // The rope is the thing to act on and the thing to read, so the ring goes on
+  // the track itself. Which way is winning is named in words, not left to the
+  // player to infer from the bar filling.
+  coachHoldStop();
+  Coach.say(COACH_ROPE_TAP, "CLICK");
+  Coach.target("#ropeTrack");
 
   // ── Single ticker drives net pull, surges, slips, and steady haul ──
   if (ropeTicker) clearInterval(ropeTicker);
@@ -1882,6 +1955,7 @@ function startRopePull() {
     ropeScene.classList.add("holding");
     document.getElementById("pullPrompt").textContent = "HOLDING — keep pulling!";
     doPull();
+    coachHoldBegin();
     try { if (e.pointerId !== undefined) ropeScene.setPointerCapture(e.pointerId); } catch (_) {}
   };
   const onUp = () => {
@@ -1891,6 +1965,7 @@ function startRopePull() {
     if (!pullDone && !keyHolding) {
       document.getElementById("pullPrompt").textContent = "Click or press Space rapidly — or hold — to haul";
     }
+    coachHoldRelease();
   };
   ropeScene.addEventListener("pointerdown", onDown);
   ropeScene.addEventListener("pointerup", onUp);
@@ -1950,6 +2025,9 @@ function checkRopeEnd() {
     pullDone = true;
     document.getElementById("ropeScene").classList.remove("holding");
     cleanupRopeIntervals();
+    coachHoldStop();
+    Coach.untarget();
+    coachOutcome("hit", "She's coming up — the net is aboard");
     setDialogue("HEAVE! There she is — comin' UP! Don't ye dare let go now!");
     document.getElementById("pullPrompt").textContent = "She's coming up!";
     setTimeout(() => showReveal(true, ""), 700);
@@ -1957,6 +2035,9 @@ function checkRopeEnd() {
     pullDone = true;
     document.getElementById("ropeScene").classList.remove("holding");
     cleanupRopeIntervals();
+    coachHoldStop();
+    Coach.untarget();
+    coachOutcome("miss", "Tension ran out — the net tore free");
     setDialogue("Gah — the net took her! Lost the catch. The sea wins this round, friend.");
     setTimeout(() => showReveal(false, "lostpull"), 700);
   }
@@ -2049,6 +2130,13 @@ function workDelta(c) {
 
 function showReveal(success, reason) {
   phase = PHASE.REVEAL;
+  // The bar stays up. There is still a choice to make here, and announce()
+  // already ends both branches with "Choose where to go next" — hiding the bar
+  // handed a screen-reader player an instruction a sighted one never got. The
+  // line itself is set below, once offerRetry has decided whether Try Again is
+  // actually on screen. The ring stays off: neither exit is the right one, and
+  // a gold ring on one of them would claim it was.
+  Coach.untarget();
   document.getElementById("ropeScene").classList.remove("active");
   const scene = document.getElementById("revealScene");
   scene.classList.add("active");
@@ -2133,8 +2221,16 @@ function showReveal(success, reason) {
     Remorhaz.patch({ lastCatch: caught });   // the object in scope, not re-read from the rendered tag
     Remorhaz.markComplete("haldor");         // idempotent, so a replay cannot duplicate the entry
   };
-  Remorhaz.offerRetry(document.getElementById("act1Retry"), "fishing",
+  const canRetry = Remorhaz.offerRetry(document.getElementById("act1Retry"), "fishing",
                       () => location.reload());
+  // Names the exits that are really there and ranks neither. offerRetry hides
+  // Try Again once the one attempt is spent and returns false, so the line has
+  // to follow it rather than promise a button the player cannot see.
+  Coach.say(
+    success      ? "Choose where to go next"
+    : canRetry   ? "Try again, or take what little there is"
+                 : "Take what little there is and move on",
+    "CLICK");
   document.getElementById("revealBack")?.addEventListener("click", () => {
     saveHaul();
     _navigateTo("index.html");
@@ -2287,6 +2383,14 @@ document.addEventListener("keydown", (e) => {
   if (phase === PHASE.WATCH) {
     if (act1Clicked) return;
     e.preventDefault();
+    // Auto-repeat is not a decision. `phase` is WATCH from load, so HOLDING
+    // Space on the Begin button used to carry straight through: the first press
+    // started the watch, the repeat ~500ms later fell into this branch as a
+    // haul, and the act was lost before the player had let go of the key. The
+    // bar now tells them Space works here, so the trap had to go. The pull
+    // branch below has always ignored repeats; the watch does too. A deliberate
+    // tap is completely unchanged, and no window, DC or duration moves.
+    if (e.repeat) return;
     tryHaul();
   } else if (phase === PHASE.PULL) {
     if (pullDone) return;
@@ -2298,6 +2402,7 @@ document.addEventListener("keydown", (e) => {
     ropeScene.classList.add("holding");
     document.getElementById("pullPrompt").textContent = "HOLDING — keep pulling!";
     doPull(); // discrete tap on press
+    coachHoldBegin();
     // steady haul is applied by the main ticker while keyHolding is true
   }
 });
@@ -2311,6 +2416,7 @@ function releaseKeyHold() {
   const ropeScene = document.getElementById("ropeScene");
   if (!mouseHolding) ropeScene.classList.remove("holding");
   if (!pullDone && !mouseHolding) document.getElementById("pullPrompt").textContent = "Click or press Space rapidly — or hold — to haul";
+  coachHoldRelease();
 }
 document.addEventListener("keyup", (e) => {
   if (e.code !== "Space") return;
@@ -2343,6 +2449,10 @@ let splashRollDone = false;
 
   document.getElementById("btnRollPerception").addEventListener("click", function () {
     this.disabled = true;
+    // The roll takes a beat and a half to resolve. The bar holds a plain status
+    // line across it — no chip, because there is no verb to perform yet.
+    Coach.untarget();
+    Coach.say("Reading the water…");
     const pass = (Math.ceil(Math.random() * 10) + intMod) >= DC;
     const resEl = document.getElementById("sckResultProse");
     // The success prose promises the player will know when the moment arrives,
@@ -2358,6 +2468,8 @@ let splashRollDone = false;
       setTimeout(() => {
         splashRollDone = true;
         document.getElementById("splashPost").classList.add("show");
+        Coach.say("Click Begin Watching — or press Space", "CLICK");
+        Coach.target("#btnBegin");
       }, 1000);
     }, 500);
   });
@@ -2373,6 +2485,12 @@ function beginGame() {
   splash.classList.add("hidden");
   document.body.classList.remove("splash-active");
   setBannerAct1();
+  // Act I: the control, not the answer. WHERE to click and WHAT to wait for is
+  // the bar's job; spotting the moment itself is the act's whole skill, so the
+  // ring stays off the water — a gold pulse around the panel would sit on top
+  // of the gold pulse the player is watching for.
+  Coach.untarget();
+  Coach.say("Click the water when the fish swarm the net — Space works too", "CLICK");
   // begin the watch timer cleanly
   lastTs = null;
   gameStartedAt = performance.now();
@@ -2393,6 +2511,14 @@ document.getElementById("startSplash").addEventListener("mousedown", (e) => e.st
 /* Initial banner state */
 setBannerAct1();
 document.body.classList.add("splash-active");
+
+/* ── THE COACH BAR ──
+   One instruction at a time, from the first moment the page is up. The splash
+   waits on a roll the player has to press, and nothing else on the screen will
+   move until they do — so that press is what the bar names first, and the ring
+   goes on the button itself. */
+Coach.say("Click Study the Water to read the sea", "CLICK");
+Coach.target("#btnRollPerception");
 /* Show INT arrow for Act 1 */
 setPhase("Act I — The Deep Watch", _arrow('intelligence') + "Intelligence Check · Read the sea");
 

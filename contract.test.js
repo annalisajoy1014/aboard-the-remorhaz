@@ -406,5 +406,90 @@ function codeLines(file) {
   check('failure always has a way forward', problems.length === 0, problems.join('\n'));
 }
 
+/* 15. No minigame may leave the player guessing at the controls.
+   The scenes are meant to be hard; working out which button to press is not
+   the hard part anyone signed up for. icefloe shipped with no instruction
+   element of any kind and weatherstorm with one, so what a player had to DO
+   was, in places, nowhere on the screen. Every scene now drives the shared
+   Coach bar, and every scene must keep driving it. */
+{
+  const GAMES = ['fishing.html', 'cooking.html', 'maintenance.html', 'navigation.html',
+                 'combat.html', 'icefloe.html', 'seabattle.html', 'weatherstorm.html'];
+  const problems = [];
+
+  GAMES.forEach(f => {
+    const src = fs.readFileSync(path.join(__dirname, f), 'utf8');
+
+    if (!/<script src="coach\.js"><\/script>/.test(src))
+      problems.push(`${f}: does not load coach.js`);
+
+    // A scene has several distinct moments of play. One Coach.say() at the top
+    // is a splash by another name, which is the thing this replaced.
+    // Count instruction sites, not literal API calls: a page may legitimately
+    // route them through its own helper (combat.html does, so its flashes and
+    // their restore timers stay in one place). Find helpers that call
+    // Coach.say and count their call sites too.
+    let says = (src.match(/Coach\.say\(/g) || []).length;
+    const wrappers = new Set();
+    const declRe = /(?:function\s+([A-Za-z_$][\w$]*)|(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:function|\())/g;
+    let dm;
+    while ((dm = declRe.exec(src))) {
+      const name = dm[1] || dm[2];
+      if (/Coach\.say\(/.test(src.slice(dm.index, dm.index + 400))) wrappers.add(name);
+    }
+    wrappers.forEach(w => {
+      says += (src.match(new RegExp('(?<![.\\w])' + w.replace(/\$/g, '\\$') + '\\(', 'g')) || []).length - 1;
+    });
+    if (says < 3)
+      problems.push(`${f}: only ${says} Coach.say() call(s) — the bar has to ` +
+                    `change with the scene, not be set once and forgotten`);
+
+    // Every action needs a visible answer, win or lose.
+    if (!/Coach\.(hit|miss)\(/.test(src))
+      problems.push(`${f}: never confirms an action with Coach.hit/miss`);
+
+    // The bar is fixed to the bottom of the viewport and sits at z-index 210,
+    // above every play surface. A scene must therefore either take it down when
+    // a result card claims the screen, or leave a bar's worth of room under
+    // that card — otherwise the last instruction floats over the buttons that
+    // end the scene. fishing deliberately keeps the bar (there is still a
+    // choice to make on its reveal) and pads instead; both are fine, neither is
+    // optional.
+    const hides = /Coach\.hide\(\)/.test(src);
+    const clears = /padding-bottom:\s*(9[0-9]|1[0-9]{2})px/.test(src);
+    if (!hides && !clears)
+      problems.push(`${f}: never calls Coach.hide() and leaves no bottom ` +
+                    `clearance — the instruction bar can cover its result card`);
+
+    // The chip is the verb. An empty or unknown verb teaches nothing.
+    const chips = [...src.matchAll(/Coach\.say\([^)]*?,\s*["']([A-Za-z]+)["']/g)].map(m => m[1].toUpperCase());
+    const KNOWN = ['CLICK', 'HOLD', 'SPACE', 'DRAG', 'WATCH', 'WAIT', 'TYPE'];
+    chips.filter(c => !KNOWN.includes(c)).forEach(c =>
+      problems.push(`${f}: Coach chip "${c}" is not one of ${KNOWN.join('/')} — ` +
+                    `the verb vocabulary has to stay the same across all eight`));
+  });
+
+  // The shared layer itself must stay shared: a page-local copy would let the
+  // eight drift apart again, which is what this replaced.
+  GAMES.forEach(f => {
+    const src = fs.readFileSync(path.join(__dirname, f), 'utf8');
+    // Placement is a fair local concern — on seabattle the bottom edge is the
+    // HUD, so the bar is lifted clear of the buttons it describes. Appearance
+    // is not: if a page restyles the bar, the eight stop looking like one game,
+    // which is the drift this layer exists to prevent.
+    const LOOK = /(background|border(?!-)|border-color|border-radius|box-shadow|color|font-family|font-size)\s*:/;
+    const barRules = [...src.matchAll(/(?:\.coach-bar|#coachBar)[^{}]*\{([^}]*)\}/g)];
+    barRules.forEach(m => {
+      const restyled = (m[1].match(LOOK) || [])[0];
+      if (restyled)
+        problems.push(`${f}: restyles the shared bar (${restyled.trim()}) — ` +
+                      `move it if you must, but it has to look the same everywhere`);
+    });
+  });
+
+  check('every minigame states what the player must do', problems.length === 0,
+        problems.join('\n'));
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

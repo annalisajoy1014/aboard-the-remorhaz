@@ -6,6 +6,7 @@
 <title>Day 7 · Weather the Storm — Aboard the Remorhaz</title>
 <link rel="stylesheet" href="shared.css">
 <script src="state.js"></script>
+<script src="coach.js"></script>
 <style>
 
 /* ── STORM BACKGROUND ── */
@@ -323,6 +324,32 @@
   .cin-storm-content { width: 100%; padding: 40px 26px; }
   .cin-storm-name { font-size: 26px; }
 }
+
+/* ── ROOM FOR THE COACH BAR ──
+   The instruction bar is fixed to the bottom of the viewport, and .game-area
+   reaches to within about 3vh of that same edge. On a laptop-height window the
+   last thing on a screen — which is exactly the button the gold ring is
+   pointing at — came to rest underneath the bar. Reserve the height here
+   rather than move the bar: it sits in the same place in every scene, and that
+   sameness is the point of it. */
+.screen:where(:not(#screen-result)) { padding-bottom: 92px; }
+@media (max-width: 860px) {
+  /* Stacked, the panel is no longer pinned to the bottom of the window — the
+     document itself scrolls — so the screens keep their own spacing and the
+     clearance goes on the end of the page, where the bar actually sits. */
+  .screen { padding-bottom: 22px; }
+  body { padding-bottom: 84px; }
+}
+
+/* ── THE BAR OVER THE CINEMATIC ──
+   Every other scene's opening card sits below the bar's layer — icefloe's is
+   z-index 20 against the bar's 30 — so the day's first instruction is readable
+   from the first frame. This page's card is z-index 200 over an opaque black,
+   which painted the bar underneath it and left the one moment in the scene
+   with no instruction on screen at all. Lift the bar here rather than drop the
+   card: the card is what the lightning flash and the page fade are layered
+   against. Still under the flash (999) and the fade (9999), and the bar is
+   pointer-events:none, so it cannot come between the player and the button. */
 </style>
 </head>
 <body>
@@ -644,6 +671,38 @@ function flashLightning(strong) {
 
   function fmtMod(n) { return n >= 0 ? "+" + n : "" + n; }
 
+  /* ── COACH COPY ──
+     The bar along the bottom is the game talking to the player as a player,
+     and this scene had nothing of the kind: three ability checks in a row,
+     and nowhere did it say that a check is played by pressing Roll d20, nor
+     what the DIFFICULTY box was asking of you. One line per moment, said at
+     the moment, rather than a block of rules on the splash.
+
+     Each line reads the DC off the same constant the check itself uses, so
+     the bar cannot drift from the boxes the way the hardcoded "DC 5" did. */
+  const helmStat = navFavour ? "Wisdom and Navigator's Favour" : "Wisdom";
+  const COACH = {
+    cargo: {
+      roll: `Click Roll d20. The die plus your Strength must reach DC ${DC}.`,
+      next: "Click Stage Two: The Rigging."
+    },
+    rig: {
+      roll: `Click Roll d20. The die plus your Dexterity must reach DC ${DC}.`,
+      next: "Click Stage Three: The Helm."
+    },
+    helm: {
+      roll: `Click Roll d20. The die plus your ${helmStat} must reach DC ${DC}.`,
+      next: "Click See Your Fate for the verdict."
+    }
+  };
+
+  /* Opening a stage: the bar states the one action, the ring marks the one
+     control — the same gold ring the hub puts on whose turn it is. */
+  function coachStage(stageId) {
+    Coach.say(COACH[stageId].roll, "CLICK");
+    Coach.target("#" + stageId + "-roll-btn");
+  }
+
   /* Track results */
   const results = { cargo: null, rig: null, helm: null };
   let score = 0;
@@ -651,7 +710,14 @@ function flashLightning(strong) {
   /* ── OPENING CINEMATIC ── */
   const cin = document.getElementById("cin-storm");
   const stageEl = document.querySelector(".stage");
-  setTimeout(() => cin.classList.add("visible"), 120);
+  setTimeout(() => {
+    cin.classList.add("visible");
+    // The bar arrives with the card, not after it: the very first moment of the
+    // day is already a moment with exactly one thing to do in it, and the ring
+    // is drawn on the button inside the card, where it is visible either way.
+    Coach.say("Click To the Deck to begin.", "CLICK");
+    Coach.target("#cin-enter");
+  }, 120);
 
   document.getElementById("cin-enter").addEventListener("click", () => {
     cin.style.transition = "opacity 0.5s";
@@ -662,6 +728,10 @@ function flashLightning(strong) {
       // and hand focus to the one control standing on it.
       stageEl.removeAttribute("inert");
       document.getElementById("begin-btn").focus();
+      // The card is gone and the deck is live, so the bar moves on with it.
+      // target() untargets the cinematic's button on its way past.
+      Coach.say("Click Face the Storm to go up on deck.", "CLICK");
+      Coach.target("#begin-btn");
     }, 520);
   });
 
@@ -706,6 +776,7 @@ function flashLightning(strong) {
   document.getElementById("begin-btn").addEventListener("click", () => {
     setSidebar("The lower decks are chaos — barrels and shot crashing with every wave, punishing the hull from the inside.", "STAGE 1 OF 3 · CARGO", "Secure the rolling cargo before it staves in the hull.");
     goToScreen("screen-cargo");
+    coachStage("cargo");
     flashLightning(true);
   });
 
@@ -722,8 +793,24 @@ function flashLightning(strong) {
     // Marked spent rather than disabled — disabling drops the button out of the
     // tab order the instant it is pressed and dumps a keyboard player's focus on
     // the body, mid-roll. aria-disabled says the same thing and holds the focus.
-    if (rollBtn.getAttribute("aria-disabled") === "true") return;
+    if (rollBtn.getAttribute("aria-disabled") === "true") {
+      // Pressing a spent button did nothing at all, which reads as a dead
+      // control. Say which of the two it is: the die is still in the air, or
+      // the check is finished and the way on is the stage button. No miss
+      // flash — the player has not done anything wrong, only early or twice.
+      if (nextBtn.hasAttribute("inert")) {
+        Coach.say("The die is still rolling.", "WATCH");
+      } else {
+        Coach.say("This roll is spent. " + COACH[stageId].next, "CLICK");
+        Coach.target(nextBtn);
+      }
+      return;
+    }
     rollBtn.setAttribute("aria-disabled", "true");
+    // The press is answered the instant it lands: the ring leaves the button
+    // it has just spent, and the bar covers the second and a half of spin.
+    Coach.untarget();
+    Coach.say("The die is rolling.", "WATCH");
     dieEl.classList.add("spinning");
     numEl.textContent = "?";
     eqEl.textContent  = "";
@@ -781,6 +868,21 @@ function flashLightning(strong) {
             // Only now has the stage actually been played, so only now does its
             // button rejoin the tab order.
             nextBtn.removeAttribute("inert");
+            // Did that work, and what now. The wording follows the label on
+            // screen exactly — a natural 1 is shown as CRITICAL FAILURE there
+            // even on a total that clears the DC, and the bar must never
+            // contradict the page — and the ring moves to the button that has
+            // only this moment become live.
+            const step = COACH[stageId].next;
+            const held = natTwenty ? true : natOne ? false : success;
+            const verdictWord = natTwenty ? "Critical success."
+                              : natOne    ? "Critical failure."
+                              : success   ? "Success."
+                                          : "Failure.";
+            Coach.say(step, "CLICK");
+            Coach.target(nextBtn);
+            if (held) Coach.hit(verdictWord + " " + step);
+            else      Coach.miss(verdictWord + " " + step);
             // onDone has just written the outcome into the page — read the four
             // pieces of the check back out of it, in the order a sighted player
             // meets them, rather than re-deriving any of it here.
@@ -809,6 +911,7 @@ function flashLightning(strong) {
     if (!results.cargo) return; // no stage is leavable until its own roll has resolved
     setSidebar("The mainsail is bellying and snapping. If it shreds, you lose all steering. Someone has to go up there — in this — and bring it down.", "STAGE 2 OF 3 · RIGGING", "Climb the ice-slick shrouds and reef the sail before the wind takes the rig.");
     goToScreen("screen-rigging");
+    coachStage("rig");
     flashLightning();
   });
 
@@ -830,6 +933,7 @@ function flashLightning(strong) {
     if (!results.rig) return;
     setSidebar("The helmsman is down. The wheel is spinning free. A rogue wave is coming — forty feet if it's an inch. Someone has to take the helm RIGHT NOW.", "STAGE 3 OF 3 · THE HELM", "Read the swells. Face the waves head-on. Keep her upright.");
     goToScreen("screen-helm");
+    coachStage("helm");
     flashLightning(true);
   });
 
@@ -970,6 +1074,9 @@ function flashLightning(strong) {
           ? "The sky lightens in the east. She made it. You made it. Fair winds ahead, if you're lucky."
           : "The storm passes as storms do — indifferent to what they have broken. She holds together. Just.";
     setSidebar(sidebarMsg, "DAY 7 · COMPLETE", isHighScore ? "Smooth sailing ahead." : "The worst is over.");
+    // The card is the whole screen now and carries its own labelled buttons.
+    // The bar has nothing left to tell anyone, so it gets out of the way.
+    Coach.hide();
     goToScreen("screen-result");
     // The card renders the score as a bare numeral above a bare "/ 10", which
     // reads as two loose numbers. Say it once, after the screen has the focus.

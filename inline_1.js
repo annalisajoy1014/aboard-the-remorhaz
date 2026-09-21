@@ -1,447 +1,4 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
-<title>Day 2 · Ship Maintenance — Aboard the Remorhaz</title>
-<link rel="stylesheet" href="shared.css">
-<script src="state.js"></script>
-<script src="coach.js"></script>
-<style>
 
-/* ── LAYOUT ── */
-.stage {
-  position: fixed; inset: 0; z-index: 1;
-  display: flex; align-items: center; justify-content: center;
-}
-.game-area {
-  display: flex; align-items: stretch;
-  width: min(97vw, 1780px); height: min(93vh, 1060px);
-  box-shadow: 0 30px 80px rgba(0,0,0,0.6);
-}
-.game-panel {
-  flex: 1; position: relative; overflow: hidden;
-  border: 1px solid color-mix(in oklch, var(--paper-deep) 25%, transparent);
-  border-right: none;
-}
-
-/* ── SCREENS ── */
-.screen {
-  position: absolute; inset: 0;
-  display: none; flex-direction: column;
-  align-items: center; justify-content: safe center;
-  gap: 18px; padding: 28px;
-  background: linear-gradient(to bottom, oklch(0.13 0.03 45), oklch(0.09 0.02 40));
-  overflow-y: auto;
-  /* safe center + scroll: content taller than the screen must stay reachable.
-     Plain `center` pushes overflow out of both ends and the top cannot be
-     scrolled back to, which hid the forward button on short windows. */
-}
-.screen.active { display: flex; }
-
-/* ── KALT SIDEBAR ── */
-.kalt-sidebar {
-  width: 300px; flex-shrink: 0;
-  background: linear-gradient(160deg,
-    color-mix(in oklch, var(--paper) 11%, var(--ink)) 0%,
-    color-mix(in oklch, var(--paper)  7%, var(--sea-deep)) 100%);
-  border: 1px solid color-mix(in oklch, var(--paper-deep) 28%, transparent);
-  padding: 36px 28px 28px;
-  display: flex; flex-direction: column; gap: 16px;
-}
-.kalt-portrait {
-  width: 100px; height: 100px; border-radius: 50%; margin: 0 auto;
-  border: 2px solid var(--paper-deep);
-  outline: 5px solid color-mix(in oklch, var(--paper-deep) 28%, transparent);
-  background: var(--hull-darkest) center/cover no-repeat;
-}
-.kalt-name {
-  font-family: "IM Fell English SC", serif; font-size: 18px;
-  letter-spacing: 0.08em; color: var(--paper); text-align: center;
-}
-.kalt-role {
-  font-family: "Caveat", cursive; font-size: 14px;
-  color: var(--paper-deep); text-align: center; margin-top: -8px;
-}
-.sidebar-rule {
-  width: 100%; height: 1px; flex-shrink: 0;
-  background: linear-gradient(to right, transparent, var(--paper-deep), transparent);
-}
-.kalt-dialogue {
-  font-family: "IM Fell English", serif; font-style: italic;
-  font-size: 15px; line-height: 1.58; color: var(--paper);
-  flex: 1; min-height: 80px; transition: opacity 0.3s;
-}
-.phase-label {
-  font-family: "IM Fell English SC", serif; font-size: 11px;
-  letter-spacing: 0.2em; color: var(--blood); text-align: center;
-}
-.instruction-label {
-  font-family: "Caveat", cursive; font-size: 13px;
-  color: var(--paper-deep); text-align: center; margin-top: -8px;
-}
-.score-tally { display: flex; flex-direction: column; gap: 5px; }
-.score-row {
-  display: flex; justify-content: space-between;
-  border-bottom: 1px dotted color-mix(in oklch, var(--paper-deep) 35%, transparent);
-  padding-bottom: 4px;
-  font-family: "IM Fell English SC", serif; font-size: 11px;
-  letter-spacing: 0.1em; color: var(--paper-deep);
-}
-.score-row span:last-child {
-  font-family: "IM Fell English", serif; font-style: italic; color: var(--paper);
-}
-.score-total-row {
-  display: flex; justify-content: space-between; padding-top: 4px; margin-top: 2px;
-  font-family: "IM Fell English SC", serif; font-size: 12px;
-  letter-spacing: 0.12em; color: var(--lamp);
-}
-
-/* ── INTRO SCREEN ── */
-.intro-icon { font-size: 46px; }
-.intro-title {
-  font-family: "IM Fell English SC", serif; font-size: 21px;
-  letter-spacing: 0.1em; color: var(--lamp);
-}
-.intro-body {
-  font-family: "IM Fell English", serif; font-style: italic;
-  font-size: 15.5px; line-height: 1.6; color: var(--paper-dim);
-  text-align: center; max-width: 460px;
-}
-/* The player's own read on the day — set apart from Kalt's briefing below it,
-   and a shade dimmer, because it is thought rather than speech. */
-.char-intro {
-  font-family: "IM Fell English", serif;
-  font-size: 15px; line-height: 1.62; color: var(--paper-deep);
-  text-align: center; max-width: 470px;
-  padding-bottom: 12px; margin-bottom: 2px;
-  border-bottom: 1px solid color-mix(in oklch, var(--paper-deep) 22%, transparent);
-}
-.mood-tag {
-  font-family: "IM Fell English SC", serif; font-size: 10px;
-  letter-spacing: 0.26em; color: var(--blood);
-}
-.prior-results {
-  display: flex; gap: 22px; align-items: flex-start; justify-content: center;
-}
-.prior-item {
-  display: flex; flex-direction: column; align-items: center; gap: 3px;
-  font-family: "IM Fell English SC", serif; font-size: 10px;
-  letter-spacing: 0.16em; color: var(--paper-deep);
-}
-.prior-val {
-  font-family: "IM Fell English", serif; font-style: italic;
-  font-size: 13px; color: var(--paper);
-}
-
-/* ── SHARED CANVAS WRAPPER ── */
-.stage-canvas { display: block; border-radius: 2px; }
-
-/* ── STAGE LABELS & FEEDBACK ── */
-.screen-title {
-  font-family: "IM Fell English SC", serif; font-size: 13px;
-  letter-spacing: 0.26em; color: var(--blood); margin-bottom: -6px;
-}
-.stage-feedback {
-  font-family: "IM Fell English SC", serif; font-size: 12px;
-  letter-spacing: 0.22em; color: var(--lamp);
-  min-height: 18px; text-align: center;
-}
-
-/* ── TIMER BAR ── */
-.timer-bar-wrap {
-  width: 480px; height: 7px;
-  background: var(--hull-darkest); border-radius: 4px; overflow: hidden;
-}
-.timer-bar-fill {
-  height: 100%; width: 100%;
-  background: linear-gradient(to right, var(--lamp-warm), var(--blood));
-  transition: width 0.1s linear;
-}
-/* A draining bar with no words beside it does not say what is draining. This
-   labels it, in the same shape as the hull integrity row below, so the two
-   meters on this page read as one system rather than two inventions. */
-.timer-row {
-  display: flex; gap: 12px; align-items: center;
-  width: 480px; max-width: 100%;   /* the canvas width — label left, bar fills the rest */
-  font-family: "IM Fell English SC", serif; font-size: 10px;
-  letter-spacing: 0.2em; color: var(--paper-deep);
-}
-.timer-row .timer-bar-wrap { flex: 1; width: auto; }
-
-/* ── SAIL STAGE UI ── */
-.seam-progress {
-  display: flex; gap: 20px; align-items: center; justify-content: center;
-}
-.seam-pip {
-  display: flex; flex-direction: column; align-items: center; gap: 6px;
-  font-family: "IM Fell English SC", serif; font-size: 10px;
-  letter-spacing: 0.18em; color: var(--paper-deep);
-}
-.seam-pip-dot {
-  width: 12px; height: 12px; border-radius: 50%;
-  background: var(--hull-mid); border: 1px solid var(--rope-dark);
-  transition: background 0.3s, box-shadow 0.3s;
-}
-.seam-pip-dot.active {
-  background: var(--blood);
-  box-shadow: 0 0 8px color-mix(in oklch, var(--blood) 60%, transparent);
-  animation: seam-pulse 0.7s ease-in-out infinite;
-}
-.seam-pip-dot.done {
-  background: var(--lamp);
-  box-shadow: 0 0 6px color-mix(in oklch, var(--lamp) 40%, transparent);
-}
-@keyframes seam-pulse { 0%,100%{opacity:0.75} 50%{opacity:1} }
-.stitch-hint {
-  font-family: "Caveat", cursive; font-size: 17px; color: var(--paper-dim);
-  text-align: center; min-height: 24px;
-}
-
-/* ── HULL STAGE UI ── */
-.integrity-row {
-  display: flex; gap: 12px; align-items: center; justify-content: center;
-  font-family: "IM Fell English SC", serif; font-size: 10px;
-  letter-spacing: 0.2em; color: var(--paper-deep);
-}
-.integrity-bar-wrap {
-  width: 220px; height: 10px;
-  background: var(--hull-darkest); border-radius: 5px; overflow: hidden;
-}
-.integrity-bar-fill {
-  height: 100%; width: 100%;
-  background: linear-gradient(to right, var(--blood), var(--lamp));
-  transition: width 0.35s ease;
-}
-.integrity-val {
-  font-family: "IM Fell English", serif; font-style: italic;
-  color: var(--paper); font-size: 14px; min-width: 36px;
-}
-
-/* ── RESULT CARD ── */
-.result-charclose {
-  font-family: "IM Fell English", serif; font-style: italic;
-  font-size: 14px; line-height: 1.55; color: var(--hull-dark);
-  margin-top: 14px; padding-top: 12px;
-  border-top: 1px solid color-mix(in oklch, var(--paper-deep) 45%, transparent);
-}
-.result-card {
-  background: linear-gradient(135deg, var(--paper) 0%, var(--paper-dim) 100%);
-  color: var(--ink); padding: 32px 44px; max-width: 500px; width: 92%;
-  text-align: center;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.65), inset 0 0 0 1px rgba(255,255,255,0.3);
-  animation: card-rise 0.55s cubic-bezier(0.2,0.8,0.3,1) both;
-  position: relative; overflow: hidden;
-}
-.result-card::before {
-  content: ""; position: absolute; inset: 0;
-  background: radial-gradient(ellipse at 80% 110%, color-mix(in oklch, var(--lamp) 10%, transparent), transparent 60%);
-  pointer-events: none;
-}
-@keyframes card-rise { from{transform:translateY(36px);opacity:0} to{transform:translateY(0);opacity:1} }
-.result-tag { font-family:"IM Fell English SC",serif; font-size:10px; letter-spacing:0.28em; color:var(--blood); margin-bottom:6px; }
-.result-score { font-family:"IM Fell English SC",serif; font-size:52px; letter-spacing:0.04em; color:var(--ink); line-height:1; }
-.result-max  { font-family:"Caveat",cursive; font-size:18px; color:var(--paper-deep); margin-bottom:8px; }
-.result-verdict { font-family:"IM Fell English",serif; font-style:italic; font-size:16px; line-height:1.6; color:var(--ink); margin-bottom:14px; }
-.result-bonus {
-  background: color-mix(in oklch, var(--lamp) 14%, transparent);
-  border: 1px solid var(--lamp); padding: 10px 16px; margin-bottom:14px;
-  font-family:"IM Fell English SC",serif; font-size:12px; letter-spacing:0.18em; color:var(--ink);
-}
-.result-kalt { font-family:"Caveat",cursive; font-size:17px; color:var(--hull-dark); border-top:1px solid var(--paper-deep); padding-top:12px; line-height:1.45; }
-.result-actions { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin-top:4px; }
-
-/* ── DIALOGUE CHOICE SCREEN ── */
-.dialogue-screen-content {
-  max-width: 480px; width: 92%;
-  display: flex; flex-direction: column; align-items: center; gap: 20px;
-}
-.kalt-speech-bubble {
-  font-family: "IM Fell English", serif; font-style: italic;
-  font-size: 15.5px; line-height: 1.72; color: var(--paper);
-  text-align: center; padding: 22px 28px;
-  border-left: 2px solid color-mix(in oklch, var(--paper-deep) 55%, transparent);
-  border-right: 2px solid color-mix(in oklch, var(--paper-deep) 55%, transparent);
-  background: rgba(0,0,0,0.22);
-}
-.dialogue-prompt {
-  font-family: "Caveat", cursive; font-size: 15px;
-  color: var(--paper-deep); text-align: center;
-}
-.dialogue-choices { display: flex; flex-direction: column; gap: 9px; width: 100%; }
-.dialogue-btn {
-  font-family: "IM Fell English", serif; font-style: italic;
-  font-size: 14px; line-height: 1.5; color: var(--paper);
-  background: rgba(0,0,0,0.32);
-  border: 1px solid color-mix(in oklch, var(--paper-deep) 38%, transparent);
-  padding: 13px 18px; cursor: pointer; text-align: left;
-  transition: background 0.2s, border-color 0.2s, transform 0.12s;
-}
-.dialogue-btn:hover:not(:disabled) {
-  background: rgba(0,0,0,0.52);
-  border-color: color-mix(in oklch, var(--paper-deep) 75%, transparent);
-  transform: translateX(4px);
-}
-.dialogue-btn:disabled { cursor: default; }
-.dialogue-btn.chosen {
-  border-color: var(--lamp);
-  background: color-mix(in oklch, var(--lamp) 9%, rgba(0,0,0,0.5));
-}
-.tone-tag {
-  display: block; font-family: "IM Fell English SC", serif; font-style: normal;
-  font-size: 10px; letter-spacing: 0.24em; color: var(--blood); margin-bottom: 5px;
-}
-
-/* ── TRANSITION OVERLAY ── */
-.transition-overlay {
-  position: absolute; inset: 0; z-index: 30;
-  background: oklch(0.08 0.02 40); opacity: 0;
-  pointer-events: none; transition: opacity 0.35s;
-}
-.transition-overlay.fade-in { opacity: 1; pointer-events: auto; }
-
-</style>
-</head>
-<body>
-
-<div id="page-fade" class="page-fade in"></div>
-<div class="backdrop"></div>
-<div class="snow" id="snow"></div>
-
-<span class="corner tl"></span>
-<span class="corner tr"></span>
-<span class="corner bl"></span>
-<span class="corner br"></span>
-
-<div class="page-header">
-  <div class="eyebrow">— Glassblade Charter Vessel —</div>
-  <div class="title">Day 2 · Maintenance</div>
-  <div class="rule"></div>
-</div>
-
-<button class="back-btn" id="backBtn">← Return to Deck</button>
-
-<!-- Every stage outcome on this page is a canvas pixel or a CSS bar width, so
-     none of it reaches a screen reader on its own. It routes through here. -->
-<div id="liveRegion" class="sr-only" role="status" aria-live="polite"></div>
-
-<div class="stage">
-  <div class="game-area">
-
-    <!-- LEFT: game screens -->
-    <div class="game-panel" id="gamePanel">
-      <div class="transition-overlay" id="fadeOverlay"></div>
-
-      <!-- INTRO -->
-      <div class="screen active" id="screen-intro">
-        <div class="screen-title">— THE FORWARD DECK —</div>
-        <div class="intro-icon">⚒️</div>
-        <div class="intro-title">Ship Maintenance &amp; Repairs</div>
-        <div class="char-intro" id="charIntro">&nbsp;</div>
-        <div class="intro-body" id="introBody">&nbsp;</div>
-        <div class="prior-results" id="priorResults"></div>
-        <div class="mood-tag" id="moodTag">&nbsp;</div>
-        <button class="btn-primary" id="beginBtn">REPORT FOR DUTY</button>
-      </div>
-
-      <!-- STAGE 1: ROPE INSPECTION -->
-      <div class="screen" id="screen-rope">
-        <div class="screen-title">— STAGE I · ROPE INSPECTION —</div>
-        <!-- role="application" so a screen reader hands the arrow keys to the stage
-             instead of keeping them for its own reading cursor. -->
-        <canvas class="stage-canvas" id="ropeCanvas" width="480" height="252"
-                tabindex="0" role="application"
-                aria-label="Rope inspection. Left and right arrow keys move the cursor between the wear points currently glowing. Enter or Space marks the one under the cursor."></canvas>
-        <div class="stage-feedback" id="ropeFeedback"></div>
-        <div class="timer-row">
-          <span>TIME LEFT</span>
-          <div class="timer-bar-wrap"><div class="timer-bar-fill" id="ropeTimerFill"></div></div>
-        </div>
-      </div>
-
-      <!-- STAGE 2: SAIL STITCHING -->
-      <div class="screen" id="screen-sail">
-        <div class="screen-title">— STAGE II · SAIL REPAIR —</div>
-        <div class="seam-progress" id="seamProgress"></div>
-        <canvas class="stage-canvas" id="sailCanvas" width="480" height="252"
-                tabindex="0" role="application"
-                aria-label="Sail stitching. One stitch dot glows at a time. Press Enter or Space while it glows to drive the needle."></canvas>
-        <div class="stitch-hint" id="stitchHint">Click each glowing stitch dot — or press Enter — to drive the needle.</div>
-      </div>
-
-      <!-- STAGE 3: HULL REPAIR -->
-      <div class="screen" id="screen-hull">
-        <div class="screen-title">— STAGE III · HULL REPAIR —</div>
-        <canvas class="stage-canvas" id="hullCanvas" width="480" height="252"
-                tabindex="0" role="application"
-                aria-label="Hull repair. Arrow keys move the cursor between open cracks. Press Enter or Space to tap a small crack shut, and hold Enter or Space to seal a large one."></canvas>
-        <div class="stage-feedback" id="hullFeedback"></div>
-        <div class="integrity-row">
-          <span>HULL</span>
-          <div class="integrity-bar-wrap">
-            <div class="integrity-bar-fill" id="integrityFill"></div>
-          </div>
-          <span class="integrity-val" id="integrityVal">100%</span>
-        </div>
-        <div class="timer-row">
-          <span>TIME LEFT</span>
-          <div class="timer-bar-wrap"><div class="timer-bar-fill" id="hullTimerFill"></div></div>
-        </div>
-      </div>
-
-      <!-- DIALOGUE 1: after rope inspection -->
-      <div class="screen" id="screen-dialogue1">
-        <div class="screen-title">— KALT SPEAKS —</div>
-        <div class="dialogue-screen-content">
-          <div class="kalt-speech-bubble" id="kaltSpeech1">&nbsp;</div>
-          <div class="dialogue-prompt">How do you respond?</div>
-          <div class="dialogue-choices" id="dialogueChoices1"></div>
-        </div>
-      </div>
-
-      <!-- DIALOGUE 2: after sail repair -->
-      <div class="screen" id="screen-dialogue2">
-        <div class="screen-title">— KALT SPEAKS —</div>
-        <div class="dialogue-screen-content">
-          <div class="kalt-speech-bubble" id="kaltSpeech2">&nbsp;</div>
-          <div class="dialogue-prompt">How do you respond?</div>
-          <div class="dialogue-choices" id="dialogueChoices2"></div>
-        </div>
-      </div>
-
-      <!-- RESULT -->
-      <div class="screen" id="screen-result">
-        <div class="result-card" id="resultCard"></div>
-        <div class="result-actions">
-          <button class="btn-primary" id="toHubBtn">Return to Deck</button>
-          <button class="btn-secondary" id="retryBtn">Try Again</button>
-        </div>
-      </div>
-
-    </div><!-- /game-panel -->
-
-    <!-- RIGHT: Kalt sidebar -->
-    <div class="kalt-sidebar">
-      <div class="kalt-portrait" id="kaltPortrait"></div>
-      <div class="kalt-name">Kalt Ironfist</div>
-      <div class="kalt-role">First Mate · Day 2</div>
-      <div class="sidebar-rule"></div>
-      <div class="kalt-dialogue" id="kaltDialogue">&nbsp;</div>
-      <div class="sidebar-rule"></div>
-      <div class="phase-label" id="phaseLabel">Dexterity (Crafting) · Strength (Repair)</div>
-      <div class="instruction-label" id="instructionLabel">DC 10 / DC 12 · Earn crew respect</div>
-      <div class="score-tally" id="scoreTally" style="display:none">
-        <div class="score-row"><span>Rope Inspection</span><span id="ts1">—</span></div>
-        <div class="score-row"><span>Sail Repair</span><span id="ts2">—</span></div>
-        <div class="score-row"><span>Hull Repair</span><span id="ts3">—</span></div>
-        <div class="score-total-row"><span>Total</span><span id="tsTotal">—</span></div>
-      </div>
-    </div>
-
-  </div>
-</div>
-
-<script>
 /* ── PAGE TRANSITIONS ── */
 const _pf = document.getElementById("page-fade");
 setTimeout(() => { if (_pf) _pf.classList.remove("in"); }, 50);
@@ -822,43 +379,47 @@ function updateTally(s1, s2, s3) {
 /* ══════════════════════════════════════════
    COACH BAR
    One standing instruction per phase, plus a flash the moment an action lands
-   or is dropped. Coach.hit/miss replace the bar's own text with their
-   confirmation, so a flash queues the stage's standing line to come back once
-   it has had its moment — otherwise the bar spends the rest of a stage showing
-   the last thing that happened instead of the thing to do.
-
-   coachSeq is how a queued line knows whether it is still the latest thing to
-   say. Everything that puts something new on the bar bumps it, so a restore
-   left over from a flash a second earlier cannot pop back up over the line that
-   replaced it.
-
-   A stage holds its standing line in a small { line, chip } object rather than
-   a captured string, so a flash fired a moment before the phase turns over
-   comes back to the NEW line and not the one it was fired under.
+   or is dropped. Coach.hit/miss replace the bar's text with their confirmation,
+   so the standing line is put back once the flash has had its moment — and only
+   if nothing newer has been said in the meantime. Every call goes through here;
+   a raw Coach.say would be invisible to the sequence guard and a stale restore
+   could then re-show the bar over the result card.
 ══════════════════════════════════════════ */
-let coachSeq = 0;
+let coachSeq = 0, coachStanding = "", coachStandingChip = null;
 
-// Say a stage's standing line, and remember it as the line to come back to.
-function coachStand(st, line, chip) {
-  st.line = line; st.chip = chip;
+// Say it, and make it the line to come back to.
+function coachSay(text, chip) {
   coachSeq++;
-  Coach.say(line, chip);
+  coachStanding = text; coachStandingChip = chip;
+  Coach.say(text, chip);
 }
-// Change the line to come back to WITHOUT saying it — for a phase that turns
-// over inside a flash, where saying it now would cut the flash short.
-function coachBase(st, line, chip) { st.line = line; st.chip = chip; }
-
-// Immediate answer to something the player just did. `st` is the stage whose
-// standing line comes back afterwards; omit it where nothing should.
-function coachFlash(landed, msg, st) {
+// Change the line to come back to WITHOUT saying it — for the moment a phase
+// turns over inside a flash, where saying it would cut the flash short.
+function coachBase(text, chip) {
+  coachStanding = text; coachStandingChip = chip;
+}
+// A line with nothing to return to: the stage is over, or the scene is waiting.
+function coachStatus(text, chip) {
+  coachSeq++;
+  coachStanding = ""; coachStandingChip = null;
+  Coach.say(text, chip);
+}
+function coachHide() {
+  coachSeq++;
+  coachStanding = ""; coachStandingChip = null;
+  Coach.hide();
+}
+function coachFlash(kind, msg) {
   const seq = ++coachSeq;
-  if (landed) Coach.hit(msg); else Coach.miss(msg);
-  if (!st) return;
+  Coach[kind](msg);
+  if (!coachStanding) return;
   // Longer than the flash itself, which runs to 1200ms under reduced motion.
   setTimeout(() => {
-    if (seq === coachSeq) Coach.say(st.line, st.chip);
+    if (seq === coachSeq && coachStanding) Coach.say(coachStanding, coachStandingChip);
   }, 1300);
 }
+function coachHit(msg)  { coachFlash("hit",  msg); }
+function coachMiss(msg) { coachFlash("miss", msg); }
 
 /* ══════════════════════════════════════════
    SCREEN SWITCHER
@@ -894,9 +455,8 @@ function showDialogue(idx) {
       rapport = Math.max(-2, Math.min(2, rapport + choice.rapport));
       const reply = choice.kaltReply[kaltMood.toString()];
       Coach.untarget();
-      coachSeq++;
-      Coach.say(idx === 0 ? "Kalt answers — sail repair is next"
-                          : "Kalt answers — hull repair is next", "WAIT");
+      coachStatus(idx === 0 ? "Kalt answers — sail repair is next"
+                            : "Kalt answers — hull repair is next", "WAIT");
       setDialogue(reply);
       choicesEl.querySelectorAll(".dialogue-btn").forEach(b => { b.disabled = true; });
       btn.classList.add("chosen");
@@ -915,7 +475,7 @@ function showDialogue(idx) {
     choicesEl.appendChild(btn);
   });
 
-  coachSeq++; Coach.say("Pick a reply to Kalt", "CLICK");
+  coachSay("Pick a reply to Kalt", "CLICK");
   Coach.target(choicesEl);
 
   // The stage screen the player came from is about to be display:none, which
@@ -951,12 +511,12 @@ setDialogue(cfg.kaltIntro);
     <div class="prior-item"><span>Kalt's Mood</span><span class="prior-val">${MOOD_LABELS[kaltMood+2]}</span></div>`;
 })();
 
-coachSeq++; Coach.say("Click Report for Duty to start the shift", "CLICK");
+coachSay("Click Report for Duty to start the shift", "CLICK");
 Coach.target("#beginBtn");
 
 document.getElementById("beginBtn").addEventListener("click", () => {
   Coach.untarget();
-  coachSeq++; Coach.say("Rope inspection is starting", "WAIT");
+  coachStatus("Rope inspection is starting", "WAIT");
   setDialogue(cfg.kaltPre1);
   goToScreen("screen-rope");
   setTimeout(startRopeInspection, 500);
@@ -1067,8 +627,7 @@ function startRopeInspection() {
   let nextSpawn   = 1100;
 
   setPhase("Stage I — Rope Inspection", Remorhaz.arrow("dexterity") + "Dexterity (Crafting) · DC 10 · Find every wear point");
-  const ropeCoach = { line: "", chip: "" };
-  coachStand(ropeCoach, "Click each glowing wear point before it fades", "CLICK");
+  coachSay("Click each glowing wear point before it fades", "CLICK");
   Coach.target(canvas);
 
   const timerInterval = setInterval(() => {
@@ -1129,7 +688,7 @@ function startRopeInspection() {
     document.getElementById("ropeFeedback").textContent = tally;
     announce(tally);
     Coach.untarget();   // the ring has done its job — they know where to act now
-    coachFlash(true, "Wear point marked", ropeCoach);
+    coachHit("Wear point marked");
     // No verdict mid-stage. Wear points are still surfacing, so anything she
     // says here about what was missed counts things she has not shown the
     // player yet. Her assessment waits for endRopeStage, where it is true.
@@ -1180,7 +739,7 @@ function startRopeInspection() {
       if (age > s.lifetime) {
         // Fires once, on the frame the window actually closes, and only for a
         // point the player never reached.
-        if (!s.faded && !s.clicked) coachFlash(false, "That wear point faded", ropeCoach);
+        if (!s.faded && !s.clicked) coachMiss("That wear point faded");
         s.faded = true; continue;
       }
       if (s.clicked) {
@@ -1268,8 +827,7 @@ function startRopeInspection() {
     document.getElementById("ropeFeedback").textContent = ropeSummary;
     announce(ropeSummary.replace(/ · /g, ", "));   // the dot is a separator, not a word
     Coach.untarget();
-    coachSeq++;
-    Coach.say("Rope inspection over — " + spotted + " of " + TOTAL + " wear points found");
+    coachStatus("Rope inspection over — " + spotted + " of " + TOTAL + " wear points found");
 
     setTimeout(() => {
       goToScreen("screen-dialogue1");
@@ -1288,8 +846,7 @@ function startSailRepair() {
 
   setPhase("Stage II — Sail Repair", Remorhaz.arrow("dexterity") + "Dexterity (Crafting) · DC 10 · Click each stitch dot");
   setDialogue(cfg.kaltPre2);
-  const sailCoach = { line: "", chip: "" };
-  coachStand(sailCoach, "Click each stitch dot while it glows", "CLICK");
+  coachSay("Click each stitch dot while it glows", "CLICK");
   Coach.target(canvas);
 
   // Three tears: each defined as a line across the sail with a list of stitch points
@@ -1380,7 +937,7 @@ function startSailRepair() {
     dotSpawnedAt = null;
     announce(`Stitch ${totalHit} of ${totalDots} placed.`);
     Coach.untarget();   // the ring has done its job — they know where to act now
-    coachFlash(true, "Stitch placed", sailCoach);
+    coachHit("Stitch placed");
 
     currentDot++;
     if (currentDot >= tear.points.length) {
@@ -1396,7 +953,7 @@ function startSailRepair() {
       document.getElementById(`pip-${currentTear}`).classList.add("active");
       // A new tear is a new phase, but the stitch flash is still on screen —
       // so set the line to come back to rather than cutting the flash off.
-      coachBase(sailCoach, TEARS[currentTear].label + " — click each dot while it glows", "CLICK");
+      coachBase(TEARS[currentTear].label + " — click each dot while it glows", "CLICK");
       setDialogue(currentTear === 1 ? "Second tear. Keep the same rhythm." :
                   currentTear === 2 ? "Last one. Make it clean." : cfg.kaltGoodD);
     }
@@ -1537,17 +1094,15 @@ function startSailRepair() {
 
         // Dot times out
         if (age > life && !dot.stitched) {
-          // missed — Kalt says nothing. "You missed some" is a verdict on the
+          // missed — advance silently. "You missed some" is a verdict on the
           // seam, not on one dot, and endSailStage already delivers it once, in
           // full, counting every stitch dropped. No mutter per dropped stitch.
-          // The coach bar does flash it, which is the game saying the window
-          // closed — a different thing from her opinion of it.
           dot.stitched = false; // keep unstitched (missed)
           dotSpawnedAt = null;
-          // A player who cannot see the dot fade needs to know the window
-          // closed and the next one is coming.
+          // Silent on screen, but a player who cannot see the dot fade needs
+          // to know the window closed and the next one is coming.
           announce(`Stitch missed. ${totalHit} of ${totalDots} placed.`);
-          coachFlash(false, "The dot faded — stitch dropped", sailCoach);
+          coachMiss("The dot faded — stitch dropped");
           currentDot++;
           if (currentDot >= TEARS[currentTear].points.length) {
             document.getElementById(`pip-${currentTear}`).classList.remove("active");
@@ -1555,7 +1110,7 @@ function startSailRepair() {
             currentDot = 0;
             if (currentTear < TEARS.length) {
               document.getElementById(`pip-${currentTear}`).classList.add("active");
-              coachBase(sailCoach, TEARS[currentTear].label + " — click each dot while it glows", "CLICK");
+              coachBase(TEARS[currentTear].label + " — click each dot while it glows", "CLICK");
             }
             if (currentTear >= TEARS.length) { endSailStage(); return; }
           }
@@ -1603,8 +1158,7 @@ function startSailRepair() {
     document.getElementById("stitchHint").textContent = sailSummary;
     announce(sailSummary.replace(/ · /g, ", "));
     Coach.untarget();
-    coachSeq++;
-    Coach.say("Sail repair over — " + totalHit + " of " + totalDots + " stitches placed");
+    coachStatus("Sail repair over — " + totalHit + " of " + totalDots + " stitches placed");
 
     setTimeout(() => {
       goToScreen("screen-dialogue2");
@@ -1627,9 +1181,8 @@ function startHullRepair() {
   // The stage's standing line. A wide crack swaps it for the HOLD line for as
   // long as one is being held, and it comes back the moment that hold resolves
   // — said just in time, at the press, rather than as a rule read up front.
-  const HULL_LINE  = "Click a crack to seal it";
-  const hullCoach  = { line: "", chip: "" };
-  coachStand(hullCoach, HULL_LINE, "CLICK");
+  const HULL_LINE = "Click a crack to seal it";
+  coachSay(HULL_LINE, "CLICK");
   Coach.target(canvas);
 
   const PLANK_H = 38;
@@ -1746,7 +1299,7 @@ function startHullRepair() {
       c.patched = true; patchedCracks++;
       spawnSealParticles(c.x, c.y);
       announce(`Crack sealed. ${patchedCracks} of ${totalCracks} sealed.`);
-      coachFlash(true, "Crack sealed", hullCoach);
+      coachHit("Crack sealed");
       setDialogue(patchedCracks % 3 === 0 ? cfg.kaltGoodD : "");
     } else {
       // Large crack: hold required
@@ -1755,47 +1308,37 @@ function startHullRepair() {
       // Said at the press, which is the first moment it is true and the first
       // moment it matters. Not "the gold ring" — that phrase is the coach ring,
       // and it has to keep meaning only that.
-      coachStand(hullCoach, "Keep holding until the ring around the crack fills", "HOLD");
+      coachSay("Keep holding until the ring around the crack fills", "HOLD");
     }
   }
 
   function releaseRepair() {
     if (holdTarget) {
       const elapsed = performance.now() - holdTarget.startTime;
-      const held    = cracks[holdTarget.crackIdx];
       let answered = false;   // did the player get a verdict on this hold?
       if (elapsed >= HOLD_NEEDED * 0.92) {
         // Sealed
-        if (held && !held.patched && !held.breached) {
-          held.patched = true; patchedCracks++;
-          spawnSealParticles(held.x, held.y);
+        const c = cracks[holdTarget.crackIdx];
+        if (c && !c.patched && !c.breached) {
+          c.patched = true; patchedCracks++;
+          spawnSealParticles(c.x, c.y);
           announce(`Crack sealed. ${patchedCracks} of ${totalCracks} sealed.`);
-          coachBase(hullCoach, HULL_LINE, "CLICK");
-          coachFlash(true, "Breach sealed", hullCoach);
+          coachBase(HULL_LINE, "CLICK");
+          coachHit("Breach sealed");
           answered = true;
           setDialogue(cfg.kaltGoodD);
         }
       } else {
         announce(`Let go too early. ${patchedCracks} of ${totalCracks} sealed.`);
-        coachBase(hullCoach, HULL_LINE, "CLICK");
-        // A quick click on a wide crack is how most players first meet the
-        // hold, and the HOLD line was only on the bar for as long as the button
-        // was down — a tenth of a second. So the failure carries the verb
-        // itself, or the one instruction left standing never says to hold. It
-        // names the control and the signal that ends it, not how long it takes.
-        // And it does not say "let go too soon" about a crack that broke
-        // through under the hand, which is a different thing that already had
-        // its own flash.
-        coachFlash(false, held && held.breached
-          ? "That crack broke through"
-          : "Let go too soon — hold a wide crack until its ring fills", hullCoach);
+        coachBase(HULL_LINE, "CLICK");
+        coachMiss("You let go too soon — the crack is still open");
         answered = true;
         setDialogue(cfg.kaltFailD);
       }
       // The hold ended with nothing to say about it: the crack broke through
       // while it was still being held. Put the tap instruction back rather than
       // leave HOLD standing over a crack that is no longer there.
-      if (!answered) coachStand(hullCoach, HULL_LINE, "CLICK");
+      if (!answered) coachSay(HULL_LINE, "CLICK");
       holdTarget = null;
     }
   }
@@ -1931,13 +1474,7 @@ function startHullRepair() {
         c.breached = true;
         hullDamage = Math.min(100, hullDamage + (c.isLarge ? 18 : 9));
         updateIntegrity();
-        // If this is the crack under the player's hand, the HOLD line has just
-        // stopped being true — the ring is gone and no amount of holding will
-        // seal it now. Set the tap line as the one to come back to so the flash
-        // reverts to something the player can actually act on. holdTarget is
-        // left alone: what the hold does is the stage's business, not the bar's.
-        if (holdTarget && holdTarget.crackIdx === ci) coachBase(hullCoach, HULL_LINE, "CLICK");
-        coachFlash(false, "A crack broke through", hullCoach);
+        coachMiss("A crack broke through");
         setDialogue(hullDamage > 55 ? "You're letting the sea IN. Fix them FASTER." : cfg.kaltFailD);
       }
 
@@ -2019,8 +1556,8 @@ function startHullRepair() {
           spawnSealParticles(c.x, c.y);
           announce(`Crack sealed. ${patchedCracks} of ${totalCracks} sealed.`);
           holdTarget = null;
-          coachBase(hullCoach, HULL_LINE, "CLICK");
-          coachFlash(true, "Breach sealed", hullCoach);
+          coachBase(HULL_LINE, "CLICK");
+          coachHit("Breach sealed");
           // Said on every sealed breach, the compliment she gives least often
           // stops being a compliment. Once a stage — after that, a sealed breach
           // earns the same "good" a released hold does.
@@ -2094,10 +1631,10 @@ function startHullRepair() {
     document.getElementById("hullFeedback").textContent = hullSummary;
     announce(hullSummary.replace(/ · /g, ", "));
     Coach.untarget();
-    coachSeq++;
-    Coach.say("Shift over — " + patchedCracks + " of " + totalCracks + " cracks sealed");
+    coachStatus("Shift over — " + patchedCracks + " of " + totalCracks + " cracks sealed");
 
     setTimeout(() => {
+      coachHide();   // the result card takes the screen from here
       goToScreen("screen-result");
       setTimeout(showResult, 500);
     }, 2200);
@@ -2108,9 +1645,6 @@ function startHullRepair() {
    FINAL RESULT
 ══════════════════════════════════════════ */
 function showResult() {
-  // The result card owns the screen from here; a stale instruction
-  // floating over it is worse than none.
-  Coach.hide();
   const total = stage1Score + stage2Score + stage3Score;
   const earned = total >= cfg.winThreshold && rapport >= 0;
 
@@ -2166,18 +1700,8 @@ function showResult() {
     total >= cfg.winThreshold ? 1 : tier === TIERS[TIERS.length-1] ? -1 : 0);
 
   document.getElementById("toHubBtn").addEventListener("click", () => { _navigateTo("index.html"); });
-  const canRetry = Remorhaz.offerRetry(document.getElementById("retryBtn"), "maintenance",
+  Remorhaz.offerRetry(document.getElementById("retryBtn"), "maintenance",
                       () => _navigateTo(window.location.href));
-
-  // The bar has been the one place to look all shift, and the card ends on a
-  // choice between two buttons — so it does not go quiet at the last step. Said
-  // after offerRetry, which hides Try Again when no attempt is left, so the bar
-  // never offers a button that is not on screen. The ring goes round the pair
-  // rather than one of them: ringing Return to Deck would be steering.
-  coachSeq++;
-  Coach.say(canRetry ? "Click Return to Deck, or Try Again to redo the shift"
-                     : "Click Return to Deck", "CLICK");
-  Coach.target(document.querySelector(".result-actions"));
 
   // The card is a block of unfocusable text, so the score is said out loud and
   // focus lands on the card's own first control rather than back at the top.
@@ -2186,6 +1710,3 @@ function showResult() {
 }
 
 })();
-</script>
-</body>
-</html>

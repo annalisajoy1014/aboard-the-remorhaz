@@ -6,6 +6,7 @@
 <title>Day 3 · Navigation — Aboard the Remorhaz</title>
 <link rel="stylesheet" href="shared.css">
 <script src="state.js"></script>
+<script src="coach.js"></script>
 <style>
 
 .stage {
@@ -75,6 +76,14 @@
 .stage-prompt { font-family: "IM Fell English", serif; font-style: italic; font-size: 14px; color: var(--paper-dim); min-height: 20px; text-align: center; max-width: 460px; }
 .timer-bar-wrap { width: 480px; height: 7px; background: var(--hull-darkest); border-radius: 4px; overflow: hidden; }
 .timer-bar-fill { height: 100%; width: 100%; background: linear-gradient(to right, var(--lamp), var(--blood)); transition: width 0.1s linear; }
+/* A draining bar with nothing written on it is a mystery. Both stages run one,
+   and both now say what it is counting down. */
+.timer-label { font-family: "IM Fell English SC", serif; font-size: 11px; letter-spacing: 0.22em; color: var(--paper-deep); text-align: center; margin-bottom: -10px; }
+/* The chart's request is the thing the player must act on, so it is captioned
+   and readable rather than a grey italic aside. Gold, like the coach chip and
+   the target ring: that colour means "this is the instruction". */
+.ask-label { font-family: "IM Fell English SC", serif; font-size: 11px; letter-spacing: 0.22em; color: var(--lamp); text-align: center; margin-bottom: -12px; }
+#chartPrompt { font-size: 16px; color: var(--paper); }
 
 /* ── DIALOGUE SCREENS ── */
 .dialogue-screen-content { max-width: 480px; width: 92%; display: flex; flex-direction: column; align-items: center; gap: 20px; }
@@ -161,8 +170,10 @@
         <canvas class="stage-canvas" id="chartCanvas" width="480" height="252" tabindex="0"
                 role="application"
                 aria-label="Nautical chart. Ursula names a marking to find. Left and right arrows move between the five markings; Enter or Space marks the one under the cursor."></canvas>
+        <div class="ask-label" id="chartAskLabel">Ursula's request</div>
         <div class="stage-prompt" id="chartPrompt">&nbsp;</div>
         <div class="stage-feedback" id="chartFeedback">&nbsp;</div>
+        <div class="timer-label">Time remaining</div>
         <div class="timer-bar-wrap"><div class="timer-bar-fill" id="chartTimerFill"></div></div>
       </div>
 
@@ -184,6 +195,7 @@
                 role="application"
                 aria-label="The horizon through a spyglass. Left and right arrows sweep between sightings currently showing in the fog; Enter or Space logs the one under the cursor."></canvas>
         <div class="stage-feedback" id="spyglassFeedback">&nbsp;</div>
+        <div class="timer-label">Time remaining</div>
         <div class="timer-bar-wrap"><div class="timer-bar-fill" id="spyglassTimerFill"></div></div>
         <!-- Himmselk overlay sits over the whole screen -->
         <div class="himmselk-overlay" id="himmselkOverlay">
@@ -542,6 +554,8 @@ function showDialogue(idx) {
     btn.className = "dialogue-btn";
     btn.textContent = choice.text;
     btn.addEventListener("click", () => {
+      Coach.untarget();
+      Coach.say("Ursula answers \u2014 wait", "WAIT");
       rapport = Math.max(-2, Math.min(2, rapport + choice.rapport));
       setDialogue(choice.reply[ursulaMood.toString()]);
       choicesEl.querySelectorAll(".dialogue-btn").forEach(b => { b.disabled = true; });
@@ -552,6 +566,7 @@ function showDialogue(idx) {
           goToScreen("screen-spyglass");
           setTimeout(startSpyglass, 500);
         } else {
+          Coach.hide();                // the result card takes the screen
           goToScreen("screen-result");
           setTimeout(showResult, 500);
         }
@@ -559,6 +574,9 @@ function showDialogue(idx) {
     });
     choicesEl.appendChild(btn);
   });
+
+  Coach.say("Click one of the four replies", "CLICK");
+  Coach.target("#dialogueChoices" + (idx+1));
 }
 
 /* ══════════════════════════════════════════
@@ -567,12 +585,18 @@ function showDialogue(idx) {
 document.getElementById("introBody").textContent = cfg.intro;
 document.getElementById("moodTag").textContent   = cfg.label;
 setDialogue(cfg.intro);
+Coach.say("Click to begin Ursula's lesson", "CLICK");
+Coach.target("#beginBtn");
 document.getElementById("beginBtn").addEventListener("click", () => {
   setDialogue(cfg.preChart);
+  Coach.untarget();
+  // The chart screen fades in before the stage starts talking. Without this the
+  // bar sits over it still saying "Click to begin", which is no longer true.
+  Coach.say("Ursula sets out the chart \u2014 wait", "WAIT");
   goToScreen("screen-chart");
   setTimeout(startChartReading, 500);
 });
-document.getElementById("backBtn").addEventListener("click", () => { _navigateTo("index.html"); });
+document.getElementById("backBtn").addEventListener("click", () => { Coach.hide(); _navigateTo("index.html"); });
 
 /* ══════════════════════════════════════════
    DRAW HELPERS (chart)
@@ -685,6 +709,15 @@ function startChartReading() {
   let kbIndex = 0, kbOn = false;
   setPhase("Stage I — Chart Reading", Remorhaz.arrow("intelligence") + "Intelligence (Navigation) · DC 4 · Follow Ursula's instruction");
   document.getElementById("chartPrompt").textContent = CHART_TARGETS[0].prompt;
+  document.getElementById("chartFeedback").textContent = "0 of " + CHART_TARGETS.length + " identified";
+
+  // The bar carries the control and the count. WHICH marking is wanted stays in
+  // its own captioned line under the chart, where it has room to be read; the
+  // bar only ever has to say what to do with it.
+  function coachChart(prefix) {
+    Coach.say((prefix || "") + "Click marking " + (current+1) + " of " + CHART_TARGETS.length +
+              ", named under the chart", "CLICK");
+  }
 
   const ticker = setInterval(() => {
     elapsed += 100;
@@ -697,6 +730,8 @@ function startChartReading() {
   canvas.addEventListener("keydown", onKey);
   canvas.focus();                      // the clock is already running — don't make them tab to it
   announce(CHART_TARGETS[0].prompt);
+  coachChart();
+  Coach.target(canvas);
 
   function onClick(e) {
     const r = canvas.getBoundingClientRect();
@@ -717,10 +752,17 @@ function startChartReading() {
       if (current < CHART_TARGETS.length) {
         document.getElementById("chartPrompt").textContent = CHART_TARGETS[current].prompt;
         announce(line + " " + tally + ". " + CHART_TARGETS[current].prompt);
+        coachChart("Marked. ");        // the new instruction, flashed green
+        Coach.hit();
       } else { endChart(); }           // the closing summary is the announcement
     } else {
       setDialogue(cfg.failD);
       announce(cfg.failD);
+      // The miss text is itself the instruction again, so the bar comes out of
+      // the red flash already saying what to do — no restore timer to race the
+      // end of the stage.
+      Coach.miss("Not that spot \u2014 click marking " + (current+1) + " of " + CHART_TARGETS.length +
+                 ", named under the chart");
     }
   }
 
@@ -801,6 +843,12 @@ function startChartReading() {
                   "You struggled with the chart. That's honest information. Use it."
     );
     showScoreTally(); updateTally(stage1Score,null);
+    Coach.untarget();
+    // The screen moves on by itself in two seconds. Said plainly, so the player
+    // does not go hunting for a continue button that is not there.
+    Coach.say("Stage I over \u2014 " + hits + " of " + CHART_TARGETS.length +
+              " markings found. Ursula has something to say \u2014 wait", "WAIT");
+    document.getElementById("chartAskLabel").textContent = "Stage I result";
     document.getElementById("chartPrompt").textContent = hits + " / " + CHART_TARGETS.length + " markers identified";
     document.getElementById("chartFeedback").textContent = stage1Score + " / 15 pts";
     announce("Stage one complete. " + hits + " of " + CHART_TARGETS.length + " markers identified. " + stage1Score + " of 15 points.");
@@ -893,6 +941,11 @@ function startSpyglass() {
   canvas.addEventListener("click", onClick);
   canvas.addEventListener("keydown", onKey);
   canvas.focus();                      // the watch has already started
+  document.getElementById("spyglassFeedback").textContent = "0 / " + OBJ.length + " sightings";
+  // This screen carries no prompt line of its own: the bar is the only place the
+  // player is ever told what the fog is for.
+  Coach.say("Shapes fade in and out of the fog \u2014 click each one before it goes", "CLICK");
+  Coach.target(canvas);
 
   function onClick(e) {
     const r = canvas.getBoundingClientRect();
@@ -912,11 +965,16 @@ function startSpyglass() {
         document.getElementById("spyglassFeedback").textContent = "✶ HIMMSELK ISFUL SPOTTED ✶";
         announce("Himmselk Isful spotted.");
         showHimmselkOverlay();
+        // The card swallows clicks for its three seconds. Say why, so the dead
+        // air does not read as the game having stopped responding.
+        Coach.say("Sighting recorded \u2014 the watch resumes in a moment");
+        Coach.hit();
         return;
       }
     }
 
     // Regular objects
+    let got = false;
     for (let i = OBJ.length-1; i >= 0; i--) {
       const o = OBJ[i];
       if (o.spotted) continue;
@@ -924,7 +982,7 @@ function startSpyglass() {
       if (age < 0 || age > VIS) continue;
       const hx = o.x + (o.hitDX||0), hy = o.y + (o.hitDY||0);
       if (mx >= hx && mx <= hx+o.w && my >= hy && my <= hy+o.h) {
-        o.spotted = true; spotsHit++;
+        o.spotted = true; spotsHit++; got = true;
         const lbl = OBJ_LABELS[o.type];
         setDialogue(spotsHit >= 4 ? cfg.greatD + " " + lbl + ". Log it." : lbl + ". Log it.");
         document.getElementById("spyglassFeedback").textContent = spotsHit + " / " + OBJ.length + " sightings";
@@ -933,8 +991,26 @@ function startSpyglass() {
         if (spotsHit < OBJ.length || !hHandled) {
           announce(lbl + " logged. " + spotsHit + " of " + OBJ.length + " sightings.");
         }
+        Coach.hit(lbl + " logged \u2014 " + spotsHit + " of " + OBJ.length + ". Keep watching.");
         break;
       }
+    }
+    // Clicking empty water costs nothing, but silence would leave the player
+    // unsure whether the click registered at all.
+    //
+    // A logged sighting stays painted at low alpha for the rest of the watch
+    // (see draw: the spotted branch runs before the VIS window is even checked),
+    // so clicking one again is the commonest dead click on this screen. It is
+    // not a miss and must not read as one: the words say what happened, and
+    // there is no red flash, because nothing went wrong.
+    if (!got) {
+      const ghost = OBJ.some(o => {
+        if (!o.spotted) return false;
+        const gx = o.x + (o.hitDX||0), gy = o.y + (o.hitDY||0);
+        return mx >= gx && mx <= gx+o.w && my >= gy && my <= gy+o.h;
+      });
+      if (ghost) Coach.say("Already logged \u2014 watch for the next shape", "CLICK");
+      else       Coach.miss("Nothing there \u2014 wait for a shape to surface");
     }
   }
 
@@ -1000,7 +1076,11 @@ function startSpyglass() {
     hg.addColorStop(0,"rgba(38,72,115,0.38)"); hg.addColorStop(1,"transparent");
     hctx.fillStyle = hg; hctx.fillRect(0,hc.height*0.55,hc.width,hc.height*0.45);
     drawHimmselkBird(hctx, hc.width/2, hc.height/2-4, 1.0);
-    setTimeout(() => { ov.classList.remove("visible"); }, 3400);
+    setTimeout(() => {
+      ov.classList.remove("visible");
+      // The ticker ran the whole time the card was up; the stage may be over.
+      if (!done) Coach.say("Click each shape that surfaces in the fog", "CLICK");
+    }, 3400);
   }
 
   function drawOcean(ctx, W, H, ms) {
@@ -1103,7 +1183,18 @@ function startSpyglass() {
       if (age < 0) return;
       if (o.spotted) { drawObj(ctx,o,0.16,elapsed); return; }
       const p = age/VIS;
-      if (p > 1) return;
+      if (p > 1) {
+        // Its window has closed. Said once, so a player who never noticed the
+        // shape at least learns that sightings expire. Not said while the
+        // ice-bird card is over the screen, when no click could have reached it.
+        if (!o.missedNoted) {
+          o.missedNoted = true;
+          if (!document.getElementById("himmselkOverlay").classList.contains("visible")) {
+            Coach.miss("That one sank back into the fog \u2014 watch for the next");
+          }
+        }
+        return;
+      }
       const env   = p < 0.12 ? p/0.12 : p > 0.82 ? (1-p)/0.18 : 1;
       const flick = 0.84 + 0.16*Math.sin(ts*0.009+o.x*0.01);
       drawObj(ctx,o,env*flick,elapsed);
@@ -1172,6 +1263,10 @@ function startSpyglass() {
     setDialogue(d);
 
     updateTally(stage1Score, stage2Score);
+    Coach.untarget();
+    Coach.say("Watch over \u2014 " + spotsHit + " of " + OBJ.length + " sighted" +
+              (himmselkSpotted ? ", ice-bird included" : "") +
+              ". Ursula has something to say \u2014 wait", "WAIT");
     document.getElementById("spyglassFeedback").textContent =
       spotsHit + " / " + OBJ.length + " sighted · " + stage2Score + " / 15 pts" +
       (himmselkSpotted ? " · ✶ Himmselk Isful" : "");
