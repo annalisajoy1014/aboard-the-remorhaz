@@ -468,7 +468,12 @@ setTimeout(() => { if (_pf) _pf.classList.remove("in"); }, 50);
 function _navigateTo(url) {
   if (!_pf) { window.location.href = url; return; }
   _pf.classList.add("in");
-  _pf.addEventListener("transitionend", () => { window.location.href = url; }, { once: true });
+  // The timer is the guarantee. transitionend can go unfired and leave the player
+  // on a black screen that goes nowhere; index.html has the full story.
+  let _navDone = false;
+  const _go = () => { if (_navDone) return; _navDone = true; window.location.href = url; };
+  _pf.addEventListener("transitionend", _go, { once: true });
+  setTimeout(_go, 700); // just past the 0.6s fade in shared.css
 }
 
 /* ── SNOW ── */

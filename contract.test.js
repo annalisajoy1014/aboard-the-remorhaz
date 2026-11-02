@@ -516,5 +516,16 @@ function codeLines(file) {
   check('only state.js moves the voyage on', problems.length === 0, problems.join('\n'));
 }
 
+/* 17. No page exit may wait on the fade alone.
+   transitionend is not a promise. Only the hub had the timer behind it, so a
+   dropped frame on any other page left the player on a black screen for good. */
+{
+  const bare = PAGES.filter(f => {
+    const src = codeLines(f).join('\n');
+    return /function _navigateTo/.test(src) && !/setTimeout\(_go, \d+\)/.test(src);
+  });
+  check('every page exit has a timer behind the fade', bare.length === 0, bare.join(', '));
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
