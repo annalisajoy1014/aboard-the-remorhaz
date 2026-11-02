@@ -344,7 +344,7 @@ function codeLines(file) {
   // branch of it. What can go wrong here is the hub not asking.
   const hub = codeLines('index.html').join('\n');
   const settle = hub.indexOf('Remorhaz.settleDay()');
-  const firstRead = hub.indexOf('currentDay', hub.indexOf('/* ============== STATE'));
+  const firstRead = hub.indexOf('currentDay');
   const problems = [];
   if (settle === -1) problems.push('the hub never settles the day, so no day can end');
   else if (firstRead !== -1 && firstRead < settle)
