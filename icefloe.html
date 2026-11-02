@@ -920,18 +920,12 @@ function saveState(s) {
       npcEl.textContent    = "“That's a clean run. Not even Kalt could complain about that one. Nice work.” — Ursula";
       continueBtn.textContent = "Sail On →";
       continueBtn.addEventListener("click", () => {
-        // Complete Day 5, advance to Day 6.
         // d5KaltRequired only says "the hull needs looking at". d5HullStrikes
         // carries the count itself — written on every ending, clean runs
         // included — so later days can tell a graze from a disaster, and an
         // unwritten key from a channel that was never sailed.
         saveState({ d5KaltRequired: false, d5HullStrikes: damage });
-        const existing = JSON.parse(localStorage.getItem("remorhaz") || "{}");
-        const completed = new Set(Array.isArray(existing.completed) ? existing.completed : []);
-        const completedDays = new Set(Array.isArray(existing.completedDays) ? existing.completedDays : []);
-        completed.add("ursula");
-        completedDays.add(5);
-        saveState({ completed: [...completed], completedDays: [...completedDays], currentDay: 6 });
+        Remorhaz.markComplete("ursula", 5);
         Remorhaz.recordWork("ursula", 5, workDelta);
         _navigateTo("index.html");
       });
@@ -942,11 +936,8 @@ function saveState(s) {
       npcEl.textContent    = "“One strike. Kalt's gonna want to run hands over the hull before I call this done. Find her.” — Ursula";
       continueBtn.textContent = "Return to Deck →";
       continueBtn.addEventListener("click", () => {
-        const existing = JSON.parse(localStorage.getItem("remorhaz") || "{}");
-        const completed = new Set(Array.isArray(existing.completed) ? existing.completed : []);
-        const completedDays = new Set(Array.isArray(existing.completedDays) ? existing.completedDays : []);
-        completed.add("ursula");
-        saveState({ completed: [...completed], completedDays: [...completedDays], d5KaltRequired: true, d5HullStrikes: damage });
+        saveState({ d5KaltRequired: true, d5HullStrikes: damage });
+        Remorhaz.markComplete("ursula", 5);
         Remorhaz.recordWork("ursula", 5, workDelta);
         _navigateTo("index.html");
       });
@@ -957,11 +948,8 @@ function saveState(s) {
       npcEl.textContent    = "“Okay. We're through — barely. But there's no way Kalt clears us to sail with this kind of damage. Find her.” — Ursula";
       continueBtn.textContent = "Return to Deck →";
       continueBtn.addEventListener("click", () => {
-        const existing = JSON.parse(localStorage.getItem("remorhaz") || "{}");
-        const completed = new Set(Array.isArray(existing.completed) ? existing.completed : []);
-        const completedDays = new Set(Array.isArray(existing.completedDays) ? existing.completedDays : []);
-        completed.add("ursula");
-        saveState({ completed: [...completed], completedDays: [...completedDays], d5KaltRequired: true, d5HullStrikes: damage });
+        saveState({ d5KaltRequired: true, d5HullStrikes: damage });
+        Remorhaz.markComplete("ursula", 5);
         Remorhaz.recordWork("ursula", 5, workDelta);
         _navigateTo("index.html");
       });

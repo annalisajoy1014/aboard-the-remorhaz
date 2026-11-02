@@ -283,14 +283,12 @@ function loadState() {
     return {
       selectedCharacter: s.selectedCharacter || null,
       currentDay:    s.currentDay    || 1,
-      completed:     Array.from(s.completed    || []),
-      completedDays: Array.from(s.completedDays || []),
       lastCatch:     s.lastCatch     || null,
       cookingScore:  s.cookingScore  || 0,
       crewRespect:   s.crewRespect   || false,
       kaltRapport:   s.kaltRapport   || 0,
     };
-  } catch { return { currentDay: 1, completed: [], completedDays: [] }; }
+  } catch { return { currentDay: 1 }; }
 }
 function saveState(patch) {
   try {
@@ -1316,7 +1314,6 @@ function showResult() {
   // Progression advances unconditionally: even a worse retry leaves Day 3 done.
   Remorhaz.markComplete("ursula", 3);
   const saved = Remorhaz.load();
-  if ((saved.currentDay || 1) < 4) Remorhaz.patch({ currentDay: 4 });
 
   // The Himmselk is a once-a-voyage sighting: once seen it must never be
   // un-seen, so it is carried forward rather than overwritten by this run.

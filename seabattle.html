@@ -2475,11 +2475,9 @@ function _navigateTo(url) {
         ...ex,
         seaBattleScore: score,
         seaBattleTutorialDone: true,
-        currentDay: Math.max(ex.currentDay || 6, 7),
-        completedDays: [...new Set([...(ex.completedDays || []), 6])],
-        completed: [...new Set([...(ex.completed || []), "ursula"])],
       }));
     } catch(e) {}
+    Remorhaz.markComplete("ursula", 6);
 
     // Day 6 work credit, on the same rungs as the verdict copy above. Must run
     // after the save block, which writes back a snapshot read before this call.
@@ -2536,11 +2534,9 @@ function _navigateTo(url) {
         seaBattleScore: 0,
         seaBattleLost: true,
         seaBattleTutorialDone: true,
-        currentDay: Math.max(ex.currentDay || 6, 7),
-        completedDays: [...new Set([...(ex.completedDays || []), 6])],
-        completed: [...new Set([...(ex.completed || []), "ursula"])],
       }));
     } catch (e) {}
+    Remorhaz.markComplete("ursula", 6);
     _navigateTo("index.html");
   });
 

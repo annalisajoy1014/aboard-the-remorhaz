@@ -9,7 +9,7 @@
   not clobbering a good run with a worse one — were the cause of most of
   this game's bugs.
 
-  Three jobs:
+  Four jobs:
 
     1. STATS. character-select writes long-lowercase keys (dexterity).
        Several pages read short-uppercase (DEX) and silently got 0, which
@@ -23,6 +23,10 @@
     3. RUN RECORDS. recordRun() writes a minigame's results only when the
        new attempt beats the stored one, so "Try Again" can never destroy a
        better earlier result.
+
+    4. THE DAY. Pages report finished work with markComplete(npc, day), and
+       settleDay() is the only thing that moves the voyage on. Every page used
+       to do this for itself, and between them they lost the thread.
 */
 (function (global) {
   "use strict";
@@ -117,7 +121,7 @@
   //   influence:      0-10, default 2   (hub dialogue; was never read)
   //   <npc>Rapport:  -2..+2, default 0  (per-scene; was reset each scene)
   // Old influence 2 is the old neutral, so it maps onto the new neutral 3.
-  function migrate(s) {
+  function migrateStanding(s) {
     if (s.standing && typeof s.standing === "object") return false;
 
     var standing = {};
@@ -132,6 +136,31 @@
     s.standing = standing;
     s.standingMigratedAt = "v1";
     return true;
+  }
+
+  // Saves from before the day ledger only have `completed`, which can't say when.
+  // recordWork has always noted the day, and every minigame calls it as the work
+  // finishes, so the ledger starts from there. The exception is the sea battle,
+  // which credits a defeat the moment it happens: until the player has accepted
+  // it, Day 6 isn't over.
+  function migrateWorkDone(s) {
+    if (s.workDone && typeof s.workDone === "object") return false;
+
+    var done = {};
+    var credit = (s.workCredit && typeof s.workCredit === "object") ? s.workCredit : {};
+    var days = Array.isArray(s.completedDays) ? s.completedDays : [];
+    Object.keys(credit).forEach(function (slot) {
+      if (slot === "ursula:6" && days.indexOf(6) === -1) return;
+      done[slot] = true;
+    });
+    s.workDone = done;
+    return true;
+  }
+
+  function migrate(s) {
+    var standing = migrateStanding(s);
+    var workDone = migrateWorkDone(s);
+    return standing || workDone;
   }
 
   /* ── PUBLIC API ──────────────────────────────────────────────────── */
@@ -317,20 +346,75 @@
 
     /* Day progress ------------------------------------------------- */
 
-    // Idempotent: completing the same NPC twice cannot duplicate an entry.
+    // A page reports finished work here and goes back to the deck. Two records,
+    // because they answer different questions. `completed` is who the player has
+    // worked beside at any point, which the ending reads. `workDone` is whose work
+    // is finished for which day, which is what the voyage runs on: Haldor being on
+    // `completed` from Day 1 says nothing about his drills on Day 4, and reading it
+    // as if it did lost the gold ring on Days 4 to 7 and skipped Day 5 altogether.
+    // Idempotent, so a retry can report the same work again.
     markComplete: function (npc, day) {
       var s = this.load();
       var completed = Array.isArray(s.completed) ? s.completed : [];
       if (completed.indexOf(npc) === -1) completed.push(npc);
       s.completed = completed;
-
-      if (day != null) {
-        var days = Array.isArray(s.completedDays) ? s.completedDays : [];
-        if (days.indexOf(day) === -1) days.push(day);
-        s.completedDays = days;
-      }
+      s.workDone[npc + ":" + day] = true;
       writeRaw(s);
       return s;
+    },
+
+    isDone: function (npc, day) {
+      return !!this.load().workDone[npc + ":" + day];
+    },
+
+    // The one place the voyage moves on. A day ends when everyone it asked for has
+    // finished, and a day that asks for nobody ends as it arrives, which is how an
+    // uneventful Day 8 passes. Only the hub calls this, when the player comes back
+    // on deck, so the clock never moves under a minigame that still has Try Again
+    // on its card. Returns whether anything changed.
+    settleDay: function () {
+      var s = this.load();
+      var changed = false;
+      function finished(day, npcs) {
+        return npcs.every(function (npc) { return s.workDone[npc + ":" + day]; });
+      }
+      for (;;) {
+        var day = clamp(toNum(s.currentDay, 1), 1, 9);
+        if (!finished(day, this.daysFor(s)[day - 1].npcs)) break;
+
+        var days = Array.isArray(s.completedDays) ? s.completedDays : [];
+        if (days.indexOf(day) === -1) { days.push(day); changed = true; }
+        s.completedDays = days;
+        if (day === 5) s.d5KaltRequired = false;   // the hull is mended, or never needed it
+        if (day === 9) break;                      // landfall: the clock has nowhere to go
+        s.currentDay = day + 1;
+        changed = true;
+      }
+      if (changed) writeRaw(s);
+      return changed;
+    },
+
+    // The author's day-jump (index.html?dev=1). Everything from that day on goes
+    // back to unfinished, or the hub would settle straight back to where it came
+    // from, and the flags those days would raise come down with it.
+    jumpToDay: function (n) {
+      var s = this.load();
+      Object.keys(s.workDone).forEach(function (slot) {
+        if (Number(slot.split(":")[1]) >= n) delete s.workDone[slot];
+      });
+      s.completedDays = (Array.isArray(s.completedDays) ? s.completedDays : [])
+        .filter(function (d) { return d < n; });
+      if (n <= 5) s.d5KaltRequired = false;
+      if (n <= 7) {
+        s.repairDayRequired = false;
+        s.refishRequired = false;
+        s.recookRequired = false;
+        s.skipToSyrinlya = false;
+      }
+      s.currentDay = n;
+      s.lastSeenDay = n;
+      s.captainSpokenDay = n - 1;
+      writeRaw(s);
     },
 
     /* Retry budget -------------------------------------------------- */
@@ -442,10 +526,9 @@
     nextStep: function () {
       var s         = this.load();
       var day       = clamp(toNum(s.currentDay, 1), 1, 9);
-      var completed = Array.isArray(s.completed) ? s.completed : [];
       var doneDays  = Array.isArray(s.completedDays) ? s.completedDays : [];
       var St        = this.STATIONS;
-      function has(z) { return completed.indexOf(z) !== -1; }
+      function has(z) { return !!s.workDone[z + ":" + day]; }
       function at(z) { return St[z].name + " " + St[z].where; }
 
       if (toNum(s.currentDay, 1) > 9 || doneDays.indexOf(9) !== -1) {
@@ -487,8 +570,8 @@
                         ". Speak with " + at(pending[0]) + "." };
       }
 
-      // Nothing outstanding. Day 8 reaches this on an uneventful passage; the
-      // hub advances the day on load, so this is the moment in between.
+      // Nothing outstanding. The day is over, and settleDay() moves it on the
+      // moment the player is back on deck, so the deck itself never shows this.
       return { day: day, dayLabel: entry.label, primary: null, zones: [],
                action: "sail-on", short: "The ship sails on",
                instruction: "The work is done \u2014 the Remorhaz sails on.",

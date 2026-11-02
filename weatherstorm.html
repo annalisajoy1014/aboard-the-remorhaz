@@ -1043,8 +1043,6 @@ function flashLightning(strong) {
         ...ex,
         stormScore: clampedScore,
         stormSuccesses: successes,
-        completedDays: [...new Set([...(ex.completedDays || []), 7])],
-        completed: [...new Set([...(ex.completed || []), "ursula"])],
         // All four branch flags describe THIS attempt, so they are written as one
         // group after the spread — a better retry must clear what a worse one set,
         // or the hub keeps forcing repairs the new result no longer calls for.
@@ -1053,16 +1051,11 @@ function flashLightning(strong) {
         refishRequired: refishRequired,
         recookRequired: recookRequired,
       };
-      if (isHighScore) {
-        saveObj.currentDay = 9;
-        saveObj.completedDays = [...new Set([...saveObj.completedDays, 8])];
-      } else {
-        saveObj.currentDay = Math.max(ex.currentDay || 7, 8);
-      }
       localStorage.setItem("remorhaz", JSON.stringify(saveObj));
       // Credit after that write: saveObj was built from a read taken above, so
       // crediting first would be overwritten. Day 7 stays literal — the work
       // belongs to the storm, and a retry re-scores that slot rather than a new one.
+      Remorhaz.markComplete("ursula", 7);
       Remorhaz.recordWork("ursula", 7, workDelta);
     } catch(e) {}
 

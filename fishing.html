@@ -1172,9 +1172,8 @@ function _arrow(k) {
 /* ──────────────────────────────────────────────
    WHICH DAY THIS IS
    The hub sends you to this rail twice — Day 1's dawn watch, and the Day 8
-   emergency after the storm takes the stores. Finishing Day 1 advances the
-   clock, so a reload can read Day 2 while still being Day 1's shift: only
-   Day 8 and beyond is the emergency. Captions follow the save, not the markup.
+   emergency after the storm takes the stores. Only Day 8 and beyond is the
+   emergency. Captions follow the save, not the markup.
 ─────────────────────────────────────────────── */
 const WORK_DAY = (Remorhaz.load().currentDay || 1) >= 8 ? 8 : 1;
 (function () {
@@ -2199,8 +2198,7 @@ function showReveal(success, reason) {
     // Work is credited above the early return: an empty net is still how the day
     // went, and Haldor noticed. recordWork re-scores the day rather than adding to
     // it, so a retry revises the credit instead of farming it. It is credited to
-    // WORK_DAY, the day the captions name, so a retry after the clock has moved
-    // on still revises Day 1's slot rather than opening one nothing reads.
+    // WORK_DAY, the day the captions name.
     Remorhaz.recordWork("haldor", WORK_DAY, workDelta(caught));
     if (!caught) {
       // Failure is a way through this story, not a wall. Empty nets used to
@@ -2215,11 +2213,11 @@ function showReveal(success, reason) {
       // the poorest table in the game, and his standing has already taken the
       // worst delta recordWork can give.
       Remorhaz.patch({ lastCatch: CATCHES[0], haulFailed: true });
-      Remorhaz.markComplete("haldor");
+      Remorhaz.markComplete("haldor", WORK_DAY);
       return;
     }
     Remorhaz.patch({ lastCatch: caught });   // the object in scope, not re-read from the rendered tag
-    Remorhaz.markComplete("haldor");         // idempotent, so a replay cannot duplicate the entry
+    Remorhaz.markComplete("haldor", WORK_DAY);   // idempotent, so a replay cannot duplicate the entry
   };
   const canRetry = Remorhaz.offerRetry(document.getElementById("act1Retry"), "fishing",
                       () => location.reload());
@@ -2247,28 +2245,6 @@ function showTally(c) {
   document.getElementById("tallyQuality").textContent = c.quality;
   document.getElementById("tallyFeeds").textContent   = c.feeds;
   tally.style.display = "flex";
-}
-
-/* ──────────────────────────────────────────────
-   STATE (mirrors hub's localStorage key)
-─────────────────────────────────────────────── */
-function loadState() {
-  try {
-    const raw = localStorage.getItem("remorhaz");
-    if (!raw) return { currentDay: 1, completed: [], completedDays: [] };
-    const s = JSON.parse(raw);
-    return {
-      selectedCharacter: s.selectedCharacter || null,
-      currentDay:    s.currentDay    || 1,
-      completed:     Array.from(s.completed    || []),
-      completedDays: Array.from(s.completedDays || []),
-      lastCatch:     s.lastCatch || null,
-    };
-  } catch { return { currentDay: 1, completed: [], completedDays: [] }; }
-}
-function saveState(s) {
-  const existing = JSON.parse(localStorage.getItem("remorhaz") || "{}");
-  localStorage.setItem("remorhaz", JSON.stringify({ ...existing, ...s }));
 }
 
 /* ──────────────────────────────────────────────

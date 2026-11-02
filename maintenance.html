@@ -480,13 +480,11 @@ function loadState() {
     return {
       selectedCharacter: s.selectedCharacter || null,
       currentDay:       s.currentDay       || 1,
-      completed:        Array.from(s.completed    || []),
-      completedDays:    Array.from(s.completedDays || []),
       lastCatch:        s.lastCatch        || null,
       cookingScore:     s.cookingScore     || 0,
       cooksProficiency: s.cooksProficiency || false,
     };
-  } catch { return { currentDay: 1, completed: [], completedDays: [], cookingScore: 0 }; }
+  } catch { return { currentDay: 1, cookingScore: 0 }; }
 }
 function saveState(s) {
   try {
@@ -501,9 +499,8 @@ const appState   = loadState();
 const catchRoll  = appState.lastCatch?.roll ?? 2;
 const cookScore  = appState.cookingScore ?? 0;
 const cookProf   = appState.cooksProficiency ?? false;
-// The day this shift belongs to. Read once, here: this page also serves the
-// Day 5 hull inspection and the Day 8 repairs, and showResult() advances
-// appState.currentDay before it saves.
+// The day this shift belongs to: this page also serves the Day 5 hull
+// inspection and the Day 8 repairs.
 const workDay    = appState.currentDay ?? 1;
 
 // Kalt's mood: -2 (contemptuous) → +2 (grudgingly impressed)
@@ -2142,16 +2139,8 @@ function showResult() {
   `;
 
   // Save to state
-  const s = appState;
-  s.completed        = [...new Set([...s.completed, "kalt"])];
-  s.maintenanceScore = total;
-  s.kaltRapport      = rapport;
-  s.crewRespect      = earned;
-  if (s.completed.includes("haldor") && s.completed.includes("ingrid") && s.completed.includes("kalt")) {
-    s.completedDays = [...new Set([...s.completedDays, 2])];
-    if (s.currentDay < 3) s.currentDay = 3;
-  }
-  saveState(s);
+  saveState({ maintenanceScore: total, kaltRapport: rapport, crewRespect: earned });
+  Remorhaz.markComplete("kalt", workDay);
 
   // The dialogue is a conversation, and a conversation happens once: credit it
   // on every retry and a replay farms Kalt's regard a point at a time. Marked

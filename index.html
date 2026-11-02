@@ -2248,36 +2248,30 @@ function _navigateTo(url) {
     },
   };
 
-  const DAYS = [
-    { n: 1, label: "Fishing & Cooking",  npcs: ["haldor", "ingrid"] },
-    { n: 2, label: "Ship Maintenance",   npcs: ["kalt"] },
-    { n: 3, label: "Navigation",         npcs: ["ursula"] },
-    { n: 4, label: "Maritime Combat",     npcs: ["haldor"] },
-    { n: 5, label: "Ice Floes",          npcs: ["ursula"] },
-    { n: 6, label: "Sea Monster Attack", npcs: ["ursula"] },
-    { n: 7, label: "Weather the Storm",  npcs: ["ursula"] },
-    { n: 8, label: "Skirting the Shelf", npcs: [] },
-    { n: 9, label: "Landfall · Eiselcross", npcs: ["thorgrim"] },
-  ];
-
   /* ============== STATE ============== */
   // Standing is no longer kept here. It used to live in this object as
   // `influence`, written by hub dialogue and read by nothing but the captain's
   // briefing tier — which never moved, because he had no dialogue to move it.
   // It belongs to Remorhaz now, where the minigames can reach it too.
+  //
+  // The day isn't decided here either. Coming back on deck is when a finished day
+  // turns over, and state.js says whether it has. Everything below reads the
+  // result and writes none of it.
+  Remorhaz.settleDay();
+  const _raw  = Remorhaz.load();
+  const DAYS  = Remorhaz.daysFor(_raw);
   const state = {
-    currentDay: 1,
-    completed: new Set(),
-    completedDays: new Set(),
+    currentDay: _raw.currentDay || 1,
+    completed: new Set(Array.isArray(_raw.completed) ? _raw.completed : []),
+    completedDays: new Set(Array.isArray(_raw.completedDays) ? _raw.completedDays : []),
   };
 
-  // Load raw flags from storm outcome
-  const _raw = (() => { try { return JSON.parse(localStorage.getItem("remorhaz") || "{}"); } catch { return {}; } })();
+  // What the ice and the storm left behind.
   const repairDayRequired = !!_raw.repairDayRequired;
   const refishRequired    = !!_raw.refishRequired;
   const recookRequired    = !!_raw.recookRequired;
   const skipToSyrinlya    = !!_raw.skipToSyrinlya;
-  const d8_initialized    = !!_raw.d8_initialized;
+  const d5KaltRequired    = !!_raw.d5KaltRequired;
   // Nothing ever wrote a top-level `character` key — character-select stores
   // selectedCharacter.id — so this was permanently "relyt" and every Lucy and
   // Irene response line was unreachable. charId() reads the real save.
@@ -2288,98 +2282,6 @@ function _navigateTo(url) {
   // he also watches how his crew take to you. He never asks to be liked; he notices.
   function standingTier(zone) {
     return zone === "thorgrim" ? Remorhaz.thorgrimTier() : Remorhaz.standingTier(zone);
-  }
-
-  // Persist base state
-  try {
-    if (_raw.currentDay) state.currentDay = _raw.currentDay;
-    if (Array.isArray(_raw.completed)) state.completed = new Set(_raw.completed);
-    if (Array.isArray(_raw.completedDays)) state.completedDays = new Set(_raw.completedDays);
-  } catch (e) { /* ignore */ }
-
-  // Day 8 repair: first-visit setup — clear required NPCs so they must be re-done
-  if (repairDayRequired && state.currentDay === 8 && !d8_initialized) {
-    state.completed.delete("kalt");
-    if (refishRequired) state.completed.delete("haldor");
-    if (recookRequired) state.completed.delete("ingrid");
-    try {
-      const _ex8 = JSON.parse(localStorage.getItem("remorhaz") || "{}");
-      localStorage.setItem("remorhaz", JSON.stringify({ ..._ex8, d8_initialized: true, completed: [...state.completed] }));
-    } catch {}
-  }
-
-  // Dynamic DAYS overrides based on storm outcome
-  if (repairDayRequired) {
-    const _d8 = DAYS.find(d => d.n === 8);
-    if (_d8) {
-      _d8.label = "Emergency Repairs";
-      _d8.npcs = ["kalt"];
-      if (refishRequired) _d8.npcs.push("haldor");
-      if (recookRequired) _d8.npcs.push("ingrid");
-    }
-  }
-  if (skipToSyrinlya) {
-    const _d8s = DAYS.find(d => d.n === 8);
-    if (_d8s) _d8s.label = "Fair Winds";
-    const _d9s = DAYS.find(d => d.n === 9);
-    if (_d9s) _d9s.label = "Arrival at Syrinlya";
-  }
-
-  // Day 5: if icefloe caused hull damage, Kalt must inspect before sailing on
-  const d5KaltRequired = !!_raw.d5KaltRequired;
-  if (d5KaltRequired && state.currentDay === 5) {
-    const _d5 = DAYS.find(d => d.n === 5);
-    if (_d5 && !_d5.npcs.includes("kalt")) _d5.npcs.push("kalt");
-  }
-
-  // If all required Day 5 work is done (ursula + optional kalt repair), advance to Day 6
-  if (state.currentDay === 5) {
-    const _d5c = DAYS.find(d => d.n === 5);
-    if (_d5c && _d5c.npcs.length > 0 && _d5c.npcs.every(k => state.completed.has(k))) {
-      state.completedDays.add(5);
-      state.currentDay = 6;
-      if (d5KaltRequired) {
-        try {
-          const _ex5 = JSON.parse(localStorage.getItem("remorhaz") || "{}");
-          localStorage.setItem("remorhaz", JSON.stringify({ ..._ex5, d5KaltRequired: false }));
-        } catch {}
-      }
-      save();
-    }
-  }
-
-  // Day 8 advances as soon as nothing is outstanding — which includes the case
-  // where nothing was ever required. A storm score of 4-8 sets neither
-  // skipToSyrinlya nor repairDayRequired, so Day 8 kept its authored empty crew
-  // list; the old `repairDayRequired &&` guard meant this block never ran, and
-  // `npcs.length > 0` would have blocked it anyway. The player sat on Day 8
-  // with no task, no way forward, and the day knots dev-gated. Five of the
-  // eleven storm scores could not finish the voyage at all.
-  if (state.currentDay === 8) {
-    const _d8c = DAYS.find(d => d.n === 8);
-    if (_d8c && _d8c.npcs.every(k => state.completed.has(k))) {
-      state.completedDays.add(8);
-      state.currentDay = 9;
-      save();
-    }
-  }
-
-  function save() {
-    try {
-      const existing = JSON.parse(localStorage.getItem("remorhaz") || "{}");
-      localStorage.setItem("remorhaz", JSON.stringify({
-        ...existing,
-        currentDay: state.currentDay,
-        completed: [...state.completed],
-        completedDays: [...state.completedDays],
-      }));
-    } catch {
-      localStorage.setItem("remorhaz", JSON.stringify({
-        currentDay: state.currentDay,
-        completed: [...state.completed],
-        completedDays: [...state.completedDays],
-      }));
-    }
   }
 
   /* ============== SNOW ============== */
@@ -2527,10 +2429,9 @@ function _navigateTo(url) {
       pStats.appendChild(r);
     });
 
-    // Day 4 fix: check if this NPC is required today even if previously completed
     const dayEntry = DAYS.find(d => d.n === state.currentDay);
-    const isRequiredToday  = !!dayEntry?.npcs.includes(zone);
-    const todayIsComplete  = state.completedDays.has(state.currentDay);
+    const isRequiredToday = !!dayEntry?.npcs.includes(zone);
+    const isD8Repair = repairDayRequired && state.currentDay === 8 && isRequiredToday;
 
     pBegin.disabled = false;
     // "THEM" made the player check which portrait they had open. The panel now
@@ -2541,21 +2442,23 @@ function _navigateTo(url) {
     if (npc.special) {
       pBegin.textContent = "SPEAK WITH THE CAPTAIN";
       pStatus.textContent = _isNext ? _step.instruction : "";
-    } else if (state.completed.has(zone) && (!isRequiredToday || todayIsComplete)) {
-      // Already done and not needed again today
+    } else if (_isNext) {
       pBegin.textContent = `SPEAK WITH ${_who.toUpperCase()}`;
-      const _isD8req = repairDayRequired && state.currentDay === 8 && (DAYS.find(d => d.n === 8)?.npcs || []).includes(zone);
-      pStatus.textContent = _isD8req
-        ? "Emergency work complete — well done."
-        : `You have already worked with ${SHORT_NAME[zone] || eff.name.split(" ")[0]}.`;
-    } else if (state.currentDay >= npc.day || isRequiredToday) {
-      pBegin.textContent = `SPEAK WITH ${_who.toUpperCase()}`;
-      const _isD8req = repairDayRequired && state.currentDay === 8 && (DAYS.find(d => d.n === 8)?.npcs || []).includes(zone);
-      pStatus.textContent = _isD8req
+      pStatus.textContent = isD8Repair
         ? "Required for repairs — the ship cannot sail without this."
-        : _isNext
-          ? `This is today's work — Day ${state.currentDay} of nine.`
-          : `Available now — Day ${state.currentDay} of nine.`;
+        : `This is today's work — Day ${state.currentDay} of nine.`;
+    } else if (isRequiredToday && !Remorhaz.isDone(zone, state.currentDay)) {
+      // Their work today, but not yet: the orders come first, then the crew in turn.
+      pBegin.textContent = `SPEAK WITH ${_who.toUpperCase()}`;
+      pStatus.textContent = _step.instruction;
+    } else if (state.completed.has(zone)) {
+      pBegin.textContent = `SPEAK WITH ${_who.toUpperCase()}`;
+      pStatus.textContent = isD8Repair
+        ? "Emergency work complete — well done."
+        : `You have already worked with ${_who}.`;
+    } else if (state.currentDay >= npc.day) {
+      pBegin.textContent = `SPEAK WITH ${_who.toUpperCase()}`;
+      pStatus.textContent = `Available now — Day ${state.currentDay} of nine.`;
     } else {
       // A locked panel used to be a dead end. It now points at the open one.
       pBegin.textContent = "NOT YET";
@@ -2654,12 +2557,10 @@ function _navigateTo(url) {
                        <span class="lbl">Day ${d.n} · ${d.label}</span>`;
       if (DEV_DAY_JUMP) {
         btn.addEventListener("click", () => {
-          // Jump current day (DM convenience)
-          if (d.n <= 9) {
-            state.currentDay = d.n;
-            save();
-            renderKnots();
-          }
+          // Jump current day (DM convenience). Reloaded rather than re-rendered,
+          // because the day's branches and the ring are all read on arrival.
+          Remorhaz.jumpToDay(d.n);
+          location.reload();
         });
       }
       knotsEl.appendChild(btn);
@@ -2725,7 +2626,12 @@ function _navigateTo(url) {
   // visit relaunch a finished minigame — Day 9 Ursula replayed the storm, which
   // rewrites currentDay and skipToSyrinlya and corrupts the ending state.
   // Returns null when this NPC has no work scheduled today.
+  //
+  // Work also opens one step at a time, in nextStep()'s order: the captain's orders,
+  // then the day's crew. So finished work can't be relaunched from the deck, which
+  // would be a free retry, and nobody starts a shift before they've had their orders.
   function routeForToday(zone) {
+    if (Remorhaz.nextStep().primary !== zone) return null;
     const day = state.currentDay;
     switch (zone) {
       case "haldor":
@@ -2964,9 +2870,8 @@ function _navigateTo(url) {
 
     // Day 9: Captain Thorgrim leads directly to the end cinematic
     if (zone === "thorgrim" && state.currentDay === 9) {
-      state.completed.add("thorgrim");
-      state.completedDays.add(9);
-      save();
+      Remorhaz.markComplete("thorgrim", 9);
+      Remorhaz.settleDay();
       dismissNpcCinematic();
       setTimeout(() => _navigateTo("end.html"), 50);
       return;
@@ -2975,7 +2880,6 @@ function _navigateTo(url) {
     const route = routeForToday(zone);
 
     if (route) {
-      save();
       dismissNpcCinematic();
       setTimeout(() => _navigateTo(route), 50);
       return;
@@ -3022,10 +2926,14 @@ function _navigateTo(url) {
 
   function showDayTransition(prevDay, newDay) {
     const newDayData = DAYS.find(d => d.n === newDay);
-    const skipped = skipToSyrinlya && newDay === 9 && prevDay <= 7;
-    cinDayPrevLbl.textContent  = skipped
+    // Day 8 asks for nobody unless the storm did damage, so it can pass between two
+    // cards. Both ways of that happening say so, or the count just jumps.
+    const overDay8 = newDay === 9 && prevDay <= 7;
+    cinDayPrevLbl.textContent  = overDay8 && skipToSyrinlya
       ? "The storm broke, and the sea lay down. Day 8 — fair winds, uncontested."
-      : `Day ${prevDay} draws to a close.`;
+      : overDay8
+        ? "The storm blew itself out. Day 8 — the shelf skirted, without incident."
+        : `Day ${prevDay} draws to a close.`;
     cinDayNumber.textContent   = "DAY · " + String(newDay).padStart(2, "0");
     cinDayEventLbl.textContent = newDayData ? newDayData.label : "";
     cinDay.classList.add("active");

@@ -187,15 +187,13 @@ document.getElementById("npcPortrait").style.backgroundImage = "url('assets/PORT
 function loadState() {
   try {
     const raw = localStorage.getItem("remorhaz");
-    if (!raw) return { currentDay: 1, completed: [], completedDays: [] };
+    if (!raw) return { currentDay: 1 };
     const s = JSON.parse(raw);
     return {
       currentDay:    s.currentDay    || 1,
-      completed:     Array.from(s.completed    || []),
-      completedDays: Array.from(s.completedDays || []),
       lastCatch:     s.lastCatch || null,
     };
-  } catch { return { currentDay: 1, completed: [], completedDays: [] }; }
+  } catch { return { currentDay: 1 }; }
 }
 function saveState(s) {
   localStorage.setItem("remorhaz", JSON.stringify(s));

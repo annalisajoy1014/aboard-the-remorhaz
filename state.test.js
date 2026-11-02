@@ -76,11 +76,12 @@ eq(R.load().navigatorBonus,true,'bonus preserved (fields move together)');
 eq(R.recordRun('navigationScore',28,{ursulaRapport:1,navigatorBonus:true}),true,'better run accepted');
 eq(R.load().navigationScore,28,'better score written');
 
-// 8. markComplete idempotent
+// 8. markComplete idempotent, and per day
 store={};
 R.markComplete('haldor',1); R.markComplete('haldor',1);
 eq(R.load().completed,['haldor'],'no duplicate npc');
-eq(R.load().completedDays,[1],'no duplicate day');
+eq(R.isDone('haldor',1),true,'Day 1 work is recorded');
+eq(R.isDone('haldor',4),false,'and only Day 1: he has work again on Day 4');
 
 // 9. patch re-reads (no stale clobber)
 store={}; R.patch({a:1}); const stale=R.load(); R.patch({b:2});
@@ -153,40 +154,111 @@ eq(R.hasSpokenTo('ursula',3,'scene'),false,'navigation can still credit its own 
 /* ===== nextStep(): the voyage must always have a next step ===== */
 const setState = o => { store.remorhaz = JSON.stringify(o); };
 
-// Walk the voyage doing exactly what nextStep() says, as a player would.
-function walk(seed, maxSteps = 120) {
-  let s = Object.assign({ currentDay: 1, completed: [], completedDays: [] }, seed);
-  setState(s);
+// Walk the voyage doing exactly what the gold ring says, through the same calls
+// the pages make: the captain's briefing, each crew member's work, and the hub
+// settling the day on every return to deck. A deck with no ring on it is a
+// failure. This walk used to read "sail-on" as permission to advance, which is
+// how it stepped straight over a voyage that lost the ring on four days of nine.
+// `after` raises the flags a minigame would: ice damage, a bad storm.
+function walk(seed, after = {}, maxSteps = 120) {
+  store = {};
+  setState(Object.assign({ currentDay: 1 }, seed));
   const trail = [];
   for (let i = 0; i < maxSteps; i++) {
+    R.settleDay();
     const n = R.nextStep();
     if (!n.label) return { ok: false, why: `day ${n.day} had no label`, trail };
-    trail.push(`${n.day}:${n.action}`);
     if (n.action === 'voyage-over') return { ok: true, trail };
-    if (n.action === 'sail-on') {
-      s = R.load();
-      s.completedDays = [...new Set([...(s.completedDays || []), n.day])];
-      s.currentDay = n.day + 1;
-      setState(s); continue;
-    }
-    if (!n.primary) return { ok: false, why: `day ${n.day} has no primary and cannot sail on`, trail };
-    s = R.load();
-    if (n.action === 'brief') s.captainSpokenDay = n.day;
-    else {
-      s.completed = [...new Set([...(s.completed || []), n.primary])];
-      if (n.action === 'landfall') {
-        s.completedDays = [...new Set([...(s.completedDays || []), 9])];
-        s.currentDay = 10;
-      }
-    }
-    setState(s);
+    if (!n.primary) return { ok: false, why: `day ${n.day} left the deck with no ring`, trail };
+    const step = `${n.day}:${n.primary}`;
+    trail.push(step);
+    if (n.action === 'brief') { R.patch({ captainSpokenDay: n.day }); continue; }
+    R.markComplete(n.primary, n.day);
+    if (after[step]) R.patch(after[step]);
+    if (n.action === 'landfall') R.settleDay();
   }
   return { ok: false, why: `did not finish in ${maxSteps} steps`, trail };
 }
+const day = (n, ...crew) => [`${n}:thorgrim`, ...crew.map(c => `${n}:${c}`)];
+const toDay7 = [...day(1, 'haldor', 'ingrid'), ...day(2, 'kalt'), ...day(3, 'ursula'),
+                ...day(4, 'haldor'), ...day(5, 'ursula'), ...day(6, 'ursula'), ...day(7, 'ursula')];
 
-// 12. a clean voyage reaches landfall
+// 12. every day's work is played, in order, on every branch of the voyage
+eq(walk({}).trail, [...toDay7, '9:thorgrim'], 'clean voyage: an uneventful Day 8 passes by itself');
 eq(walk({}).ok, true, 'clean voyage completes');
-eq(walk({ d5KaltRequired: true }).ok, true, 'ice-damage voyage completes');
+eq(R.load().completedDays.slice().sort(), [1, 2, 3, 4, 5, 6, 7, 8, 9], 'and every day is on the record');
+eq(R.load().currentDay, 9, 'the clock stops at Day 9');
+
+const iced = walk({}, { '5:ursula': { d5KaltRequired: true } });
+eq(iced.trail, [...toDay7.slice(0, 11), '5:kalt', ...toDay7.slice(11), '9:thorgrim'],
+   'ice damage: Kalt repairs the hull before Day 5 can end');
+eq(iced.ok, true, 'ice-damage voyage completes');
+eq(R.load().d5KaltRequired, false, 'and the hull stops asking once Day 5 is over');
+
+const stormFlags = { repairDayRequired: true, refishRequired: true, recookRequired: true };
+eq(walk({}, { '7:ursula': { repairDayRequired: true } }).trail,
+   [...toDay7, ...day(8, 'kalt'), '9:thorgrim'], 'poor storm: repairs on Day 8');
+eq(walk({}, { '7:ursula': stormFlags }).trail,
+   [...toDay7, ...day(8, 'kalt', 'haldor', 'ingrid'), '9:thorgrim'],
+   'poor storm with lost stores: Kalt, then the nets, then the galley');
+eq(walk({}, { '7:ursula': { skipToSyrinlya: true } }).trail,
+   [...toDay7, '9:thorgrim'], 'great storm: fair winds straight through Day 8');
+eq(R.load().completedDays.includes(8), true, 'fair winds still count Day 8 as sailed');
+
+// REGRESSION: `completed` says who you have worked with, not who you have worked
+// with today. Read as the second thing, Haldor stayed finished from Day 1, so
+// after the briefing on Days 4 to 7 the ring vanished and the deck said the work
+// was done. These are the saves a real voyage leaves behind.
+const crewAll = ['haldor', 'ingrid', 'kalt', 'ursula'];
+const earlier = { 'haldor:1': 0, 'ingrid:1': 0, 'kalt:2': 0, 'ursula:3': 0 };
+[[4, 'haldor'], [5, 'ursula'], [6, 'ursula'], [7, 'ursula']].forEach(([d, who]) => {
+  store = {};
+  setState({ currentDay: d, captainSpokenDay: d, completed: crewAll,
+             completedDays: [1, 2, 3, 4, 5, 6].filter(x => x < d), workCredit: earlier });
+  eq(R.nextStep().action, 'work', `Day ${d}: the briefing leads to work, not "the work is done"`);
+  eq(R.nextStep().primary, who, `Day ${d}: the ring is on ${who}`);
+  eq(R.settleDay(), false, `Day ${d}: arriving does not end the day`);
+  eq(R.load().currentDay, d, `Day ${d}: the voyage stays on Day ${d}`);
+});
+
+// The clock moves on the hub's call and nobody else's, so it can't move under a
+// minigame that still has Try Again on its card.
+store = {}; setState({ currentDay: 2, captainSpokenDay: 2 });
+R.markComplete('kalt', 2);
+eq(R.load().currentDay, 2, 'finishing the work leaves the clock alone');
+eq(R.retriesLeft('maintenance'), 1, 'so a retry is still budgeted against the day it belongs to');
+eq(R.nextStep().action, 'sail-on', 'and until the hub looks, the work is simply done');
+eq(R.settleDay(), true, 'the hub ends the day');
+eq(R.load().currentDay, 3, 'and the clock moves on');
+eq(R.load().completedDays, [2], 'with the day on the record');
+eq(R.settleDay(), false, 'settling again changes nothing');
+
+// Finishing one person's half of a day does not end it.
+store = {}; setState({ currentDay: 1, captainSpokenDay: 1 });
+R.markComplete('haldor', 1);
+eq(R.settleDay(), false, 'Day 1 waits for the galley');
+R.markComplete('ingrid', 1);
+eq(R.settleDay(), true, 'and ends once both are done, whichever came last');
+
+// Saves from before the ledger keep what they did. recordWork has always noted
+// the day, so that is where the ledger starts from.
+store = {}; setState({ currentDay: 1, captainSpokenDay: 1, completed: ['haldor'], workCredit: { 'haldor:1': 1 } });
+eq(R.nextStep().primary, 'ingrid', 'old save: the morning\'s fishing still counts');
+store = {}; setState({ currentDay: 5, captainSpokenDay: 5, completed: crewAll, d5KaltRequired: true,
+                       workCredit: Object.assign({ 'ursula:5': -1 }, earlier) });
+eq(R.nextStep().primary, 'kalt', 'old save: holed by the ice, on the way to Kalt');
+eq(R.isDone('kalt', 5), false, 'old save: her Day 2 shift does not mend the Day 5 hull');
+store = {}; setState({ currentDay: 6, captainSpokenDay: 6, completed: crewAll, workCredit: { 'ursula:6': -1 } });
+eq(R.nextStep().primary, 'ursula', 'old save: a defeat not yet accepted is not a finished day');
+
+// The author's day-jump can go backwards without the hub settling straight back.
+walk({});
+R.jumpToDay(4);
+eq(R.settleDay(), false, 'a jump back stays where it landed');
+eq(R.nextStep().action, 'brief', 'and the day opens with its orders');
+eq(R.isDone('haldor', 1), true, 'days before the jump stay done');
+eq(R.isDone('haldor', 4), false, 'the day jumped to is unfinished');
+eq(R.load().completedDays, [1, 2, 3], 'and so is everything after it');
 
 // 13. the captain briefs before the crew works, every day
 store = {}; setState({ currentDay: 3, completed: [], completedDays: [] });
@@ -201,28 +273,28 @@ setState({ currentDay: 1, completed: [], completedDays: [], captainSpokenDay: 1 
 let n1 = R.nextStep();
 eq(n1.primary, 'haldor', 'day 1 starts with Haldor, not both');
 eq(n1.zones.length, 2, 'both day-1 crew are still outstanding');
-setState({ currentDay: 1, completed: ['haldor'], completedDays: [], captainSpokenDay: 1 });
+R.markComplete('haldor', 1);
 eq(R.nextStep().primary, 'ingrid', 'day 1 moves to Ingrid after Haldor');
 
 // 15. REGRESSION: a mid storm score must not strand the voyage on Day 8.
 //     Scores 4-8 set neither skipToSyrinlya nor repairDayRequired, which left
 //     Day 8 with no required crew and no advance path. The player could not
 //     finish the voyage at all. nextStep() must offer a way onward.
-const day8 = (flags, completed) => {
+const day8 = flags => {
+  store = {};
   setState(Object.assign({
     currentDay: 8, captainSpokenDay: 8,
-    completed: completed || ['haldor', 'ingrid', 'kalt', 'ursula'],
+    completed: crewAll,
     completedDays: [1, 2, 3, 4, 5, 6, 7]
   }, flags));
   return R.nextStep();
 };
 eq(day8({}).action, 'sail-on', 'mid storm: Day 8 sails on rather than stranding');
+eq((R.settleDay(), R.load().currentDay), 9, 'mid storm: and the hub moves it on');
 eq(day8({ skipToSyrinlya: true }).action, 'sail-on', 'high storm: Day 8 sails on');
-eq(day8({ repairDayRequired: true }, ['haldor', 'ingrid', 'ursula']).primary, 'kalt',
-   'poor storm: Day 8 sends you to Kalt');
-eq(day8({ repairDayRequired: true, refishRequired: true, recookRequired: true },
-        ['ursula']).zones, ['kalt', 'haldor', 'ingrid'],
-   'poor storm with lost stores: all three are outstanding');
+eq(day8({ repairDayRequired: true }).primary, 'kalt', 'poor storm: Day 8 sends you to Kalt');
+eq(day8({ repairDayRequired: true, refishRequired: true, recookRequired: true }).zones,
+   ['kalt', 'haldor', 'ingrid'], 'poor storm with lost stores: all three are outstanding');
 
 // 16. every day of every branch yields a usable instruction
 [{}, { d5KaltRequired: true }, { skipToSyrinlya: true },

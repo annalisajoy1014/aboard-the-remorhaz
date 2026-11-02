@@ -315,14 +315,12 @@ function loadState() {
     return {
       selectedCharacter: s.selectedCharacter || null,
       currentDay:      s.currentDay      || 1,
-      completed:       Array.from(s.completed      || []),
-      completedDays:   Array.from(s.completedDays  || []),
       maintenanceScore:s.maintenanceScore || 0,
       crewRespect:     s.crewRespect      || false,
       navigationScore: s.navigationScore  || 0,
       kaltRapport:     s.kaltRapport      || 0,
     };
-  } catch { return { currentDay: 1, completed: [], completedDays: [] }; }
+  } catch { return { currentDay: 1 }; }
 }
 function saveState(patch) {
   try {
@@ -1359,20 +1357,18 @@ function showResult() {
     <div class="result-npc">"${final}"</div>
   `;
 
-  const s = appState;
-  s.completed       = [...new Set([...s.completed, "haldor"])];
-  s.combatScore          = total;
-  s.haldorRapport        = rapport;
-  s.combatBonus          = earned;
-  s.combatTrainingPassed = (total >= 15);
-  s.boardingApproach= boardingApproach;
-  s.combatTechnique = tier.technique || null;
-  s.completedDays   = [...new Set([...s.completedDays, 4])];
-  if (s.currentDay < 5) s.currentDay = 5;
-  saveState(s);
-
-  // Haldor's training day — the same day written to completedDays above.
+  // Haldor's training day.
   const DAY = 4;
+
+  saveState({
+    combatScore:          total,
+    haldorRapport:        rapport,
+    combatBonus:          earned,
+    combatTrainingPassed: total >= 15,
+    boardingApproach:     boardingApproach,
+    combatTechnique:      tier.technique || null,
+  });
+  Remorhaz.markComplete("haldor", DAY);
 
   // haldorRapport still gets written, but it resets with the scene; standing is
   // what carries. Gated so "Try Again" replays the drills without re-banking the

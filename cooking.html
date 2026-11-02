@@ -736,11 +736,9 @@ function loadState() {
     return {
       selectedCharacter: s.selectedCharacter || null,
       currentDay:    s.currentDay    || 1,
-      completed:     Array.from(s.completed    || []),
-      completedDays: Array.from(s.completedDays || []),
       lastCatch:     s.lastCatch || null,
     };
-  } catch { return { currentDay: 1, completed: [], completedDays: [] }; }
+  } catch { return { currentDay: 1 }; }
 }
 function saveState(s) {
   try {
@@ -753,9 +751,7 @@ const appState  = loadState();
 const lastCatch = appState.lastCatch;
 const catchRoll = lastCatch ? lastCatch.roll : 3;
 // The day this galley shift belongs to. The hub only ever sends you here on
-// Day 1 or the Day 8 emergency — and finishing Day 1 advances the clock to 2
-// before "Try Again" reloads this page, so a retried Day 1 shift arrives
-// reading "Day 2". It is still Day 1's work, and must land in Day 1's slot.
+// Day 1 or the Day 8 emergency.
 const workDay   = (appState.currentDay || 1) >= 8 ? 8 : 1;
 
 // Day 1's galley shift and the Day 8 emergency cook are the same page, so the
@@ -2204,15 +2200,8 @@ function showResult() {
   `;
 
   // Persist to state
-  const s = appState;
-  s.completed = [...new Set([...s.completed, "ingrid"])];
-  if (s.completed.includes("haldor") && s.completed.includes("ingrid")) {
-    s.completedDays = [...new Set([...s.completedDays, 1])];
-    if (s.currentDay < 2) s.currentDay = 2;
-  }
-  s.cookingScore = total;
-  s.cooksProficiency = proficiency;
-  saveState(s);
+  saveState({ cookingScore: total, cooksProficiency: proficiency });
+  Remorhaz.markComplete("ingrid", workDay);
 
   // Ingrid's read on the shift, on the ladder above and its own boundaries:
   // PROFICIENT or MASTERWORK earns her regard, ACCEPTABLE and EDIBLE · BARELY

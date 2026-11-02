@@ -340,27 +340,15 @@ function codeLines(file) {
    path, and the day knots are dev-gated, so five of the eleven scores could
    not finish the game. Day 8 must advance on an empty crew list. */
 {
-  const hub = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
+  // Which day comes next is settleDay()'s call, and state.test.js walks every
+  // branch of it. What can go wrong here is the hub not asking.
+  const hub = codeLines('index.html').join('\n');
+  const settle = hub.indexOf('Remorhaz.settleDay()');
+  const firstRead = hub.indexOf('currentDay', hub.indexOf('/* ============== STATE'));
   const problems = [];
-  // Take the window that starts where Day 8 is evaluated and ends where the
-  // voyage advances. Other Day 8 conditions (clearing completed NPCs for
-  // repairs, labelling a panel) legitimately test repairDayRequired.
-  const at = hub.indexOf('if (state.currentDay === 8) {');
-  if (at === -1) problems.push('no ungated `if (state.currentDay === 8)` block');
-  else {
-    const to = hub.indexOf('currentDay = 9;', at);
-    if (to === -1 || to - at > 500)
-      problems.push('the Day 8 block does not advance the voyage to Day 9');
-    else {
-      const win = hub.slice(at, to);
-      if (/repairDayRequired/.test(win))
-        problems.push('Day 8 advance is gated on repairDayRequired, so an ' +
-                      'uneventful passage never advances');
-      if (/npcs\.length > 0/.test(win))
-        problems.push('Day 8 advance requires a non-empty crew list, so an ' +
-                      'uneventful passage strands the player');
-    }
-  }
+  if (settle === -1) problems.push('the hub never settles the day, so no day can end');
+  else if (firstRead !== -1 && firstRead < settle)
+    problems.push('the hub reads the day before settling it, so it renders the day just finished');
   check('Day 8 cannot strand the voyage', problems.length === 0, problems.join('\n'));
 }
 
@@ -393,13 +381,13 @@ function codeLines(file) {
   const sea = fs.readFileSync(path.join(__dirname, 'seabattle.html'), 'utf8');
   if (!/id="defeat-accept-btn"/.test(sea))
     problems.push('seabattle.html: defeat has no accept-and-sail-on control');
-  if (!/completedDays[^\n]*6[\s\S]{0,400}?defeat|defeat[\s\S]{0,900}?completedDays/.test(sea))
+  if (!/defeat-accept-btn[\s\S]{0,900}?markComplete\("ursula",\s*6\)/.test(sea))
     problems.push('seabattle.html: losing the deck never completes Day 6');
 
   const fish = fs.readFileSync(path.join(__dirname, 'fishing.html'), 'utf8');
   const noCatch = /if \(!caught\) \{[\s\S]{0,1200}?\n    \}/.exec(fish);
   if (!noCatch) problems.push('fishing.html: no explicit empty-net branch');
-  else if (!/markComplete\("haldor"\)/.test(noCatch[0]))
+  else if (!/markComplete\("haldor",\s*WORK_DAY\)/.test(noCatch[0]))
     problems.push('fishing.html: an empty net does not finish Haldor\'s day, so ' +
                   'Ingrid refuses to cook and Day 1 cannot complete');
 
@@ -489,6 +477,43 @@ function codeLines(file) {
 
   check('every minigame states what the player must do', problems.length === 0,
         problems.join('\n'));
+}
+
+/* 16. Only state.js moves the voyage on.
+   `completed` records who you have ever worked with. Eight pages and the hub
+   each kept their own idea of what that meant for the day, and between them
+   they lost the gold ring on Days 4 to 7 and skipped Day 5 outright. A page
+   reports its work with markComplete(npc, day) and goes back to the deck; the
+   hub calls settleDay(), and nothing else writes the clock. */
+{
+  const WRITES = [
+    /\.(currentDay|completed|completedDays)\s*=(?!=)/,
+    /(?<![.\w])(completed|completedDays)\s*:\s*\[/,
+    /\bcurrentDay\s*:\s*(Math\.|[2-9])/,
+    /\bstate\.(completed|completedDays)\.(add|delete)\(/,
+  ];
+  const problems = [];
+  PAGES.forEach(f => codeLines(f).forEach((l, i) => {
+    if (WRITES.some(re => re.test(l))) problems.push(`${f}:${i + 1}  ${l.trim().slice(0, 90)}`);
+  }));
+
+  const OWNERS = {
+    'fishing.html': 'haldor', 'cooking.html': 'ingrid', 'maintenance.html': 'kalt',
+    'navigation.html': 'ursula', 'combat.html': 'haldor', 'icefloe.html': 'ursula',
+    'seabattle.html': 'ursula', 'weatherstorm.html': 'ursula',
+  };
+  Object.keys(OWNERS).forEach(f => {
+    const re = new RegExp(`markComplete\\("${OWNERS[f]}",\\s*\\w+\\)`);
+    if (!re.test(codeLines(f).join('\n')))
+      problems.push(`${f}: does not report ${OWNERS[f]}'s work against a day`);
+  });
+
+  // Work opens one step at a time, or finished work can be replayed from the deck.
+  const hub = codeLines('index.html').join('\n');
+  const route = /function routeForToday\(zone\) \{[\s\S]{0,300}?nextStep\(\)/.test(hub);
+  if (!route) problems.push('index.html: routeForToday does not follow nextStep()');
+
+  check('only state.js moves the voyage on', problems.length === 0, problems.join('\n'));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);
